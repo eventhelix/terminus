@@ -279,13 +279,25 @@ function LinkFrame_dissect(buffer, pinfo, tree, fields, path)
         subtree:add_expert_info(PI_MALFORMED, PI_WARN, "Error: Expected `value == 72` where value=" .. tostring(value))
     end
     -- Scalar: version
+    -- NOTE (hand patch, pdl-dissector v0.1.0 codegen bug): "version" and
+    -- "Reserved" are both 4-bit fields packed into the *same* byte
+    -- (bitoffset 0 and 4 respectively, see the UnalignedProtoField
+    -- definitions above). Stock codegen advances `i` by `bitlen / 8`
+    -- (= 0.5) after each nibble, which leaves `i` as a non-integer
+    -- (1.5) by the time `frame_type` calls `buffer(i)` — Lua's tshark
+    -- bindings reject a non-integer byte offset ("number has no
+    -- integer representation"), which tshark reports as an Expert
+    -- Info (Error/Dissector bug) on every single frame. Fix: don't
+    -- advance `i` after "version" (it doesn't consume a new byte —
+    -- "Reserved" reads the same byte via its own bitoffset), then
+    -- advance by one whole integer byte after "Reserved" once both
+    -- nibbles of the shared byte have been consumed.
     local field_len = enforce_len_limit(0.5, buffer(i):len(), tree)
     subtree, field_values[path .. ".version"], bitlen = fields[path .. ".version"]:dissect(tree, buffer(i), field_len)
-    i = i + bitlen / 8
     -- Scalar: Reserved
     local field_len = enforce_len_limit(0.5, buffer(i):len(), tree)
     subtree, field_values[path .. "._reserved_0"], bitlen = fields[path .. "._reserved_0"]:dissect(tree, buffer(i), field_len)
-    i = i + bitlen / 8
+    i = i + 1
     -- Typedef: frame_type
     local field_len = enforce_len_limit(math.ceil(1), buffer(i):len(), tree)
     subtree, field_values[path .. ".frame_type"], bitlen = fields[path .. ".frame_type"]:dissect(tree, buffer(i), field_len)
