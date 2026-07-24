@@ -24,6 +24,8 @@ pub enum ConfigError {
     Bler { medium: String, source: BlerError },
     #[error("duplicate node id or name: {what}")]
     DuplicateNode { what: String },
+    #[error("duplicate medium name: {name}")]
+    DuplicateMedium { name: String },
     #[error("node {node}: interface {interface} references unknown medium {medium}")]
     UnknownMedium { node: String, interface: String, medium: String },
     #[error("node {node} references unknown peer node id {peer}")]
@@ -193,6 +195,15 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
     if file.scenario.duration_s <= 0.0 {
         return Err(ConfigError::BadValue { what: "scenario.duration_s must be > 0".into() });
     }
+    // Duplicate medium names must die before the `media` set collapses them
+    // (a BTreeMap keyed by name would otherwise silently last-wins).
+    let mut medium_names = BTreeSet::new();
+    for m in &file.media {
+        if !medium_names.insert(m.name.as_str()) {
+            return Err(ConfigError::DuplicateMedium { name: m.name.clone() });
+        }
+    }
+
     let media: BTreeSet<&str> = file.media.iter().map(|m| m.name.as_str()).collect();
     let node_ids: BTreeSet<u16> = file.nodes.iter().map(|n| n.id).collect();
 
@@ -265,12 +276,25 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
             if !node_ids.contains(&app.peer) {
                 return Err(ConfigError::UnknownPeer { node: n.name.clone(), peer: app.peer });
             }
-            if app.payload_len < 4 || app.rate_pps <= 0.0 {
+            if !(4..=60_000).contains(&app.payload_len) || app.rate_pps <= 0.0 {
                 return Err(ConfigError::BadValue {
-                    what: format!("node {}: payload_len >= 4 and rate_pps > 0 required", n.name),
+                    what: format!(
+                        "node {}: payload_len must be 4..=60000 and rate_pps > 0 required",
+                        n.name
+                    ),
+                });
+            }
+            if app.start_s < 0.0 {
+                return Err(ConfigError::BadValue {
+                    what: format!("node {}: app.start_s must be >= 0", n.name),
                 });
             }
             if let Some(b) = &app.burst {
+                if b.start_s < 0.0 {
+                    return Err(ConfigError::BadValue {
+                        what: format!("node {}: burst.start_s must be >= 0", n.name),
+                    });
+                }
                 if b.rate_pps <= 0.0 || b.end_s <= b.start_s {
                     return Err(ConfigError::BadValue {
                         what: format!("node {}: burst window/rate invalid", n.name),
@@ -394,7 +418,7 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
     }
 
     #[test]
-    fn trace_pair_not_attached_dies() {
+    fn unknown_trace_node_dies() {
         // Trace mentions c, which is not a node.
         let e = write_fixture(|t| {
             let _ = t; // toml untouched; break the trace instead
@@ -410,6 +434,74 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
         drop(e);
         let e = load(&dir.join("scenario.toml"));
         assert!(matches!(e, Err(ConfigError::Trace(_))));
+    }
+
+    #[test]
+    fn trace_pair_not_attached_dies() {
+        // Node c lives on its own medium m2, whose trace nevertheless
+        // carries a (valid) pair a->b that is not attached to m2 at all.
+        let e = write_fixture(|t| {
+            let dir = std::env::temp_dir().join(format!(
+                "helixsim-cfg-{}-{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            std::fs::write(
+                dir.join("traces/m2.csv"),
+                "t_s,tx,rx,delay_us,sinr_db\n0.0,a,b,3000,12.0\n",
+            )
+            .unwrap();
+            t.push_str(
+                r#"
+[[nodes]]
+id = 3
+name = "c"
+kind = "terminal"
+compute = { cores = 1, queue = 4, rx_service_us = 100 }
+interfaces = [{ name = "if0", medium = "m2" }]
+app = { peer = 2, rate_pps = 10.0, payload_len = 32, start_s = 1.0, src_port = 4002, dst_port = 7 }
+
+[[media]]
+name = "m2"
+trace = "traces/m2.csv"
+bler = [[-5.0, 1.0], [0.0, 0.001]]
+"#,
+            );
+        });
+        assert!(matches!(e, Err(ConfigError::UnattachedPair { .. })));
+    }
+
+    #[test]
+    fn duplicate_medium_name_dies() {
+        let e = write_fixture(|t| {
+            t.push_str(
+                "\n[[media]]\nname = \"m\"\ntrace = \"traces/m.csv\"\nbler = [[-5.0, 1.0], [0.0, 0.001]]\n",
+            );
+        });
+        assert!(matches!(e, Err(ConfigError::DuplicateMedium { .. })));
+    }
+
+    #[test]
+    fn oversized_payload_dies() {
+        let e = write_fixture(|t| *t = t.replace("payload_len = 32", "payload_len = 70000"));
+        assert!(matches!(e, Err(ConfigError::BadValue { .. })));
+    }
+
+    #[test]
+    fn negative_app_start_dies() {
+        let e = write_fixture(|t| *t = t.replace("start_s = 1.0", "start_s = -1.0"));
+        assert!(matches!(e, Err(ConfigError::BadValue { .. })));
+    }
+
+    #[test]
+    fn negative_burst_start_dies() {
+        let e = write_fixture(|t| {
+            *t = t.replace(
+                "app = { peer = 2, rate_pps = 10.0, payload_len = 32, start_s = 1.0, src_port = 4001, dst_port = 7 }",
+                "app = { peer = 2, rate_pps = 10.0, payload_len = 32, start_s = 1.0, src_port = 4001, dst_port = 7, burst = { start_s = -1.0, end_s = 5.0, rate_pps = 20.0 } }",
+            );
+        });
+        assert!(matches!(e, Err(ConfigError::BadValue { .. })));
     }
 
     #[test]

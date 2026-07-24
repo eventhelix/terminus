@@ -25,6 +25,8 @@ pub enum TraceError {
     HalfEmpty { tx: String, rx: String, t_s: f64 },
     #[error("trace row {tx}->{rx} t={t_s}: delay_us must be >= 1")]
     BadDelay { tx: String, rx: String, t_s: f64 },
+    #[error("trace row {tx}->{rx} t={t_s}: t_s must be >= 0")]
+    NegativeTime { tx: String, rx: String, t_s: f64 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -54,6 +56,9 @@ impl ChannelTrace {
         let mut pairs: BTreeMap<(u16, u16), Vec<(u64, Option<Sample>)>> = BTreeMap::new();
         for row in rdr.deserialize::<Row>() {
             let row = row?;
+            if row.t_s < 0.0 {
+                return Err(TraceError::NegativeTime { tx: row.tx, rx: row.rx, t_s: row.t_s });
+            }
             let tx = *name_to_id
                 .get(&row.tx)
                 .ok_or_else(|| TraceError::UnknownNode(row.tx.clone()))?;
@@ -178,6 +183,15 @@ t_s,tx,rx,delay_us,sinr_db
         assert!(matches!(
             ChannelTrace::from_csv(bad.as_bytes(), &ids()),
             Err(TraceError::BadDelay { .. })
+        ));
+    }
+
+    #[test]
+    fn negative_time_fails() {
+        let bad = "t_s,tx,rx,delay_us,sinr_db\n-5.0,a,b,3000,10.0\n";
+        assert!(matches!(
+            ChannelTrace::from_csv(bad.as_bytes(), &ids()),
+            Err(TraceError::NegativeTime { .. })
         ));
     }
 }
