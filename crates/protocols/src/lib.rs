@@ -5,7 +5,7 @@
 //! `tools/regen-dissector.sh` and checked in under `dissectors/`.
 
 pub mod link {
-    #![allow(missing_docs, clippy::all)]
+    #![allow(missing_docs, clippy::all, unused_parens, unreachable_patterns, unused_imports)]
     include!(concat!(env!("OUT_DIR"), "/link_gen.rs"));
 }
 
