@@ -38,6 +38,7 @@ fn tshark_dissects_all_captures_cleanly() {
             .arg("-T").arg("fields").arg("-e").arg("frame.protocols")
             .output()
             .unwrap();
+        assert!(out.status.success(), "tshark failed on {node}: {}", String::from_utf8_lossy(&out.stderr));
         let protos = String::from_utf8_lossy(&out.stdout);
         assert!(protos.lines().any(|l| l.contains("udp")), "{node}: no frame chained through to UDP");
         assert!(protos.lines().all(|l| !l.is_empty()), "{node}: frames with no protocol at all");

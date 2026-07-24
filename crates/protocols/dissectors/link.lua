@@ -279,19 +279,18 @@ function LinkFrame_dissect(buffer, pinfo, tree, fields, path)
         subtree:add_expert_info(PI_MALFORMED, PI_WARN, "Error: Expected `value == 72` where value=" .. tostring(value))
     end
     -- Scalar: version
-    -- NOTE (hand patch, pdl-dissector v0.1.0 codegen bug): "version" and
-    -- "Reserved" are both 4-bit fields packed into the *same* byte
-    -- (bitoffset 0 and 4 respectively, see the UnalignedProtoField
-    -- definitions above). Stock codegen advances `i` by `bitlen / 8`
-    -- (= 0.5) after each nibble, which leaves `i` as a non-integer
-    -- (1.5) by the time `frame_type` calls `buffer(i)` — Lua's tshark
-    -- bindings reject a non-integer byte offset ("number has no
-    -- integer representation"), which tshark reports as an Expert
-    -- Info (Error/Dissector bug) on every single frame. Fix: don't
-    -- advance `i` after "version" (it doesn't consume a new byte —
-    -- "Reserved" reads the same byte via its own bitoffset), then
-    -- advance by one whole integer byte after "Reserved" once both
-    -- nibbles of the shared byte have been consumed.
+    -- PATCH (applied by tools/regen-dissector.sh; do not hand-edit):
+    -- pdl-dissector v0.1.0 codegen bug. "version" and "Reserved" are 4-bit
+    -- fields packed into the SAME byte (bitoffset 0 and 4, see the
+    -- UnalignedProtoField definitions above). Stock codegen advances `i` by
+    -- `bitlen / 8` (= 0.5) after each nibble, so after "version" `i` is the
+    -- non-integer 1.5 and the very next `buffer(i)` -- "Reserved"'s
+    -- enforce_len_limit call -- faults ("number has no integer
+    -- representation"), which tshark surfaces as an Expert Info
+    -- (Error/Dissector bug) on every frame. Fix: do not advance `i` after
+    -- "version" ("Reserved" reads the same byte via its own bitoffset),
+    -- then advance one whole byte after "Reserved" once both nibbles of
+    -- the shared byte are consumed.
     local field_len = enforce_len_limit(0.5, buffer(i):len(), tree)
     subtree, field_values[path .. ".version"], bitlen = fields[path .. ".version"]:dissect(tree, buffer(i), field_len)
     -- Scalar: Reserved
