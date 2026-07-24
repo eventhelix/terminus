@@ -16,4 +16,5 @@
 //   pub mod channel;   // ChannelTrace: delay + SINR->BLER over time
 //   pub mod compute;   // N-core bounded-queue processing-latency model
 //   pub mod capture;   // PcapTap: per-node PCAPNG writer
-//   pub mod rng;       // master-seed -> per-model deterministic RNG
+
+pub mod rng;       // master-seed -> per-model deterministic RNG

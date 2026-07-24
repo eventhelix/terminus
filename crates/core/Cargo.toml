@@ -14,5 +14,9 @@ nexosim.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 serde = { workspace = true }
+serde_json.workspace = true
+csv.workspace = true
+pcap-file.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+helixsim-protocols = { path = "../protocols" }
