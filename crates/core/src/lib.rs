@@ -26,3 +26,4 @@ pub mod trace;
 pub mod compute;
 pub mod medium;
 pub mod netif;
+pub mod capture;
