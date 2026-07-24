@@ -9,4 +9,6 @@ pub mod link {
     include!(concat!(env!("OUT_DIR"), "/link_gen.rs"));
 }
 
+pub mod udp;
+
 pub use pdl_runtime::{DecodeError, EncodeError, Packet as PdlPacket};
