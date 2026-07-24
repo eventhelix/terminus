@@ -38,11 +38,22 @@ The first vertical slice is a small LEO satellite constellation testbed
 queueing, and a mid-run handover — all reproducible byte-for-byte from a master
 seed.
 
-## Building
+## Build, run, test
 
 ```bash
-cargo check
 cargo build --release
+cargo run -p helixsim -- run crates/scenarios/leo-testbed/scenario.toml --out out
+cargo test --workspace                                  # unit + determinism + golden + smoke
+cargo test -p helixsim --test dissection -- --ignored   # needs tshark on PATH
+```
+
+Each run writes a self-describing directory: per-node PCAPNG captures on
+LINKTYPE_USER0, the exact matching Wireshark Lua dissectors, a
+`visualether.toml` the VisualEther MCP tools pick up automatically,
+`metrics.ndjson`, and a full config snapshot. Open any capture with:
+
+```bash
+wireshark -X lua_script:<run-dir>/dissectors/link.lua <run-dir>/nodes/term-a.pcapng
 ```
 
 ## Engine
