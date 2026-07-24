@@ -25,3 +25,4 @@ pub mod bler;
 pub mod trace;
 pub mod compute;
 pub mod medium;
+pub mod netif;
