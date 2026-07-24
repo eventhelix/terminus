@@ -1,0 +1,69 @@
+# LEO testbed — the slice-1 demo scenario (design §3.4).
+# Node ids double as IP host octets: 10.0.0.<id>.
+
+[scenario]
+name = "leo-testbed"
+duration_s = 60.0
+epoch_unix_s = 1753228800 # 2026-07-23T00:00:00Z
+master_seed = 42
+
+[[nodes]]
+id = 1
+name = "term-a"
+kind = "terminal"
+compute = { cores = 1, queue = 32, rx_service_us = 200 }
+interfaces = [{ name = "if0", medium = "access" }]
+app = { peer = 6, rate_pps = 10.0, payload_len = 64, start_s = 1.0, src_port = 4001, dst_port = 7 }
+
+[[nodes]]
+id = 2
+name = "term-b"
+kind = "terminal"
+compute = { cores = 1, queue = 32, rx_service_us = 200 }
+interfaces = [{ name = "if0", medium = "access" }]
+app = { peer = 6, rate_pps = 10.0, payload_len = 64, start_s = 1.5, src_port = 4002, dst_port = 7, burst = { start_s = 40.0, end_s = 45.0, rate_pps = 500.0 } }
+
+# Satellites: 2.5 ms/frame single-core relay processing → capacity
+# ~400 frames/s. term-b's 500 pps burst therefore overflows sat-3's
+# 16-deep queue (demo feature c); normal 10 pps traffic is untouched.
+[[nodes]]
+id = 3
+name = "sat-1"
+kind = "satellite"
+compute = { cores = 1, queue = 16, rx_service_us = 2500 }
+interfaces = [{ name = "if0", medium = "access" }, { name = "if1", medium = "feeder" }]
+relay = { telemetry_peer = 6, telemetry_period_s = 5.0, telemetry_if = "if1" }
+
+[[nodes]]
+id = 4
+name = "sat-2"
+kind = "satellite"
+compute = { cores = 1, queue = 16, rx_service_us = 2500 }
+interfaces = [{ name = "if0", medium = "access" }, { name = "if1", medium = "feeder" }]
+relay = { telemetry_peer = 6, telemetry_period_s = 5.0, telemetry_if = "if1" }
+
+[[nodes]]
+id = 5
+name = "sat-3"
+kind = "satellite"
+compute = { cores = 1, queue = 16, rx_service_us = 2500 }
+interfaces = [{ name = "if0", medium = "access" }, { name = "if1", medium = "feeder" }]
+relay = { telemetry_peer = 6, telemetry_period_s = 5.0, telemetry_if = "if1" }
+
+[[nodes]]
+id = 6
+name = "gw"
+kind = "gateway"
+compute = { cores = 2, queue = 128, rx_service_us = 100 }
+interfaces = [{ name = "if0", medium = "feeder" }]
+echo = { port = 7 }
+
+[[media]]
+name = "access"
+trace = "traces/access.csv"
+bler = [[-5.0, 1.0], [0.0, 0.30], [5.0, 0.02], [10.0, 0.0005]]
+
+[[media]]
+name = "feeder"
+trace = "traces/feeder.csv"
+bler = [[-5.0, 1.0], [0.0, 0.10], [5.0, 0.01], [10.0, 0.0001]]
