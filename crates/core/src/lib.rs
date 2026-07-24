@@ -18,3 +18,6 @@
 //   pub mod capture;   // PcapTap: per-node PCAPNG writer
 
 pub mod rng;       // master-seed -> per-model deterministic RNG
+pub mod packet;
+pub mod records;
+pub mod simtime;
