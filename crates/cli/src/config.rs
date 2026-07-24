@@ -34,6 +34,8 @@ pub enum ConfigError {
     DoubleAttach { node: String, medium: String },
     #[error("trace for medium {medium} contains pair {tx}->{rx} not attached to it")]
     UnattachedPair { medium: String, tx: u16, rx: u16 },
+    #[error("medium {medium} has no attached interfaces")]
+    OrphanMedium { medium: String },
     #[error("invalid value: {what}")]
     BadValue { what: String },
 }
@@ -295,6 +297,17 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
             }
         }
     }
+
+    // Every declared medium must have at least one attaching interface.
+    // This also makes the attachment-map indexing in `load()`'s trace
+    // cross-validation infallible.
+    let referenced: BTreeSet<&str> =
+        file.nodes.iter().flat_map(|n| n.interfaces.iter().map(|i| i.medium.as_str())).collect();
+    for m in &file.media {
+        if !referenced.contains(m.name.as_str()) {
+            return Err(ConfigError::OrphanMedium { medium: m.name.clone() });
+        }
+    }
     Ok(())
 }
 
@@ -397,6 +410,18 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
         drop(e);
         let e = load(&dir.join("scenario.toml"));
         assert!(matches!(e, Err(ConfigError::Trace(_))));
+    }
+
+    #[test]
+    fn orphan_medium_dies() {
+        // A declared medium no interface attaches to must die with a typed
+        // error at startup, not panic during trace cross-validation.
+        let e = write_fixture(|t| {
+            t.push_str(
+                "\n[[media]]\nname = \"unused\"\ntrace = \"traces/m.csv\"\nbler = [[-5.0, 1.0], [0.0, 0.001]]\n",
+            );
+        });
+        assert!(matches!(e, Err(ConfigError::OrphanMedium { .. })));
     }
 
     #[test]
