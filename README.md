@@ -40,6 +40,10 @@ seed.
 
 ## Build, run, test
 
+Full instructions — inspecting captures and metrics, test suites, golden-digest
+updates, dissector regeneration, reproducing runs — live in the
+[runbook](docs/runbook.md). Quick start:
+
 ```bash
 cargo build --release
 cargo run -p helixsim -- run crates/scenarios/leo-testbed/scenario.toml --out out
