@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/protocols",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.79"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/eventhelix/helixsim"
+homepage = "https://github.com/eventhelix/helixsim"
+authors = ["EventHelix.com Inc."]
+
+[workspace.dependencies]
+# DES engine
+nexosim = "1.0"
+# Real-bytes protocol encoding for standard layers
+etherparse = "0.15"
+# Deterministic, seedable RNG
+rand = "0.9"
+rand_chacha = "0.9"
+# Config + traces
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+csv = "1"
+# Diagnostics
+thiserror = "1"
+tracing = "0.1"

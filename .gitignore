@@ -1,0 +1,14 @@
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Simulation run outputs (self-describing artifacts; regenerate from scenarios)
+/out
+/output
+
+# Generated dissectors land next to captures under run outputs; sources live in crates/protocols
+*.tmp
+
+# Editor / OS
+.DS_Store
+Thumbs.db

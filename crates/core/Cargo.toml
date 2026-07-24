@@ -1,0 +1,18 @@
+[package]
+name = "helixsim-core"
+description = "Core simulation abstractions for helixsim: packets, nodes, media, channel traces, compute models, and packet capture."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+nexosim.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+serde = { workspace = true }
+thiserror.workspace = true
+tracing.workspace = true
