@@ -58,3 +58,88 @@ pub fn write_static_outputs(run_dir: &Path, loaded: &LoadedScenario) -> anyhow::
     .context("write snapshot")?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config;
+
+    /// Same minimal fixture shape as config.rs's write_fixture: two
+    /// nodes a/b, one medium m, trace CSV alongside.
+    const FIXTURE_TOML: &str = r#"
+[scenario]
+name = "t"
+duration_s = 10.0
+epoch_unix_s = 1753228800
+master_seed = 1
+
+[[nodes]]
+id = 1
+name = "a"
+kind = "terminal"
+compute = { cores = 1, queue = 4, rx_service_us = 100 }
+interfaces = [{ name = "if0", medium = "m" }]
+app = { peer = 2, rate_pps = 10.0, payload_len = 32, start_s = 1.0, src_port = 4001, dst_port = 7 }
+
+[[nodes]]
+id = 2
+name = "b"
+kind = "gateway"
+compute = { cores = 1, queue = 4, rx_service_us = 100 }
+interfaces = [{ name = "if0", medium = "m" }]
+echo = { port = 7 }
+
+[[media]]
+name = "m"
+trace = "traces/m.csv"
+bler = [[-5.0, 1.0], [0.0, 0.001]]
+"#;
+
+    #[test]
+    fn static_outputs_write_and_reparse() {
+        let base = std::env::temp_dir().join(format!(
+            "helixsim-out-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let scenario_dir = base.join("scenario");
+        let run_dir = base.join("run");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(scenario_dir.join("traces")).unwrap();
+        std::fs::write(
+            scenario_dir.join("traces/m.csv"),
+            "t_s,tx,rx,delay_us,sinr_db\n0.0,a,b,3000,12.0\n0.0,b,a,3000,12.0\n",
+        )
+        .unwrap();
+        std::fs::write(scenario_dir.join("scenario.toml"), FIXTURE_TOML).unwrap();
+        let loaded = config::load(&scenario_dir.join("scenario.toml")).unwrap();
+
+        write_static_outputs(&run_dir, &loaded).unwrap();
+
+        // Dissector: present and non-empty.
+        let lua = std::fs::read_to_string(run_dir.join("dissectors").join("link.lua")).unwrap();
+        assert!(!lua.is_empty(), "dissectors/link.lua must be non-empty");
+
+        // visualether.toml: lua_script token with an absolute,
+        // forward-slashed path and no backslashes anywhere.
+        let ve = std::fs::read_to_string(run_dir.join("visualether.toml")).unwrap();
+        let token_start = ve.find("lua_script:").expect("lua_script: token present");
+        let path_part = &ve[token_start + "lua_script:".len()..];
+        let path_part = &path_part[..path_part.find('"').expect("closing quote")];
+        assert!(
+            path_part.contains(":/") || path_part.starts_with('/'),
+            "lua_script path must be absolute with forward slashes: {path_part}"
+        );
+        assert!(!ve.contains('\\'), "visualether.toml must contain no backslashes");
+
+        // Snapshot: exists and re-parses with all expected top-level keys.
+        let snap = std::fs::read_to_string(run_dir.join("scenario.snapshot.toml")).unwrap();
+        let value: toml::Value = toml::from_str(&snap).expect("snapshot must re-parse as TOML");
+        let table = value.as_table().expect("snapshot root is a table");
+        for key in ["helixsim_version", "trace_sha256", "scenario", "nodes", "media"] {
+            assert!(table.contains_key(key), "snapshot missing key {key}:\n{snap}");
+        }
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}
