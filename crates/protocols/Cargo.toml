@@ -11,4 +11,15 @@ authors.workspace = true
 
 [dependencies]
 etherparse.workspace = true
+pdl-runtime.workspace = true
+bytes.workspace = true
+serde = { workspace = true, optional = true }
 thiserror.workspace = true
+
+[features]
+# Generated code emits #[cfg_attr(feature = "serde", ...)]; declaring the
+# feature silences unexpected_cfgs. Not enabled by helixsim itself.
+serde = ["dep:serde"]
+
+[build-dependencies]
+pdl-compiler = "=0.5.2"
