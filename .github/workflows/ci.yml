@@ -1,0 +1,19 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install tshark
+        run: sudo apt-get update && sudo apt-get install -y tshark
+      - name: Unit, determinism, golden, smoke
+        run: cargo test --workspace
+      - name: tshark dissection acceptance
+        run: cargo test -p helixsim --test dissection -- --ignored

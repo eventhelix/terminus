@@ -1,0 +1,35 @@
+// helixsim link framing (slice 1). One .pdl generates both the Rust
+// codec (build.rs, pdl-compiler) and the Wireshark Lua dissector
+// (tools/regen-dissector.sh, pdl-dissector) — they cannot drift apart.
+//
+// NOTE: the parent uses _body_, not _payload_ — pdl-dissector only
+// generates child dissector dispatch for _body_; the Rust output is
+// byte-identical either way.
+big_endian_packets
+
+enum FrameType : 8 {
+    DATA = 0,
+    CONTROL = 1,
+}
+
+packet LinkFrame {
+    _fixed_ = 0x48 : 8,
+    version : 4,
+    _reserved_ : 4,
+    frame_type : FrameType,
+    src : 16,
+    dst : 16,
+    seq : 32,
+    _size_(_body_) : 16,
+    _body_,
+}
+
+packet DataFrame : LinkFrame (frame_type = DATA) {
+    flow_id : 8,
+    _payload_,
+}
+
+packet ControlFrame : LinkFrame (frame_type = CONTROL) {
+    opcode : 8,
+    args : 8[],
+}

@@ -1,14 +1,14 @@
-//! Protocol encoders and decoders for helixsim.
+//! Protocol encoders/decoders for helixsim.
 //!
-//! Custom link/adaptation and control-plane layers are defined once in Google
-//! [PDL](https://github.com/google/pdl) and generate, from the same source at
-//! the same commit, both Rust codecs (`pdl-compiler`) and Wireshark Lua
-//! dissectors (`pdl-dissector`) — so the bytes a scenario emits and the
-//! dissector Wireshark loads can never drift apart.
-//!
-//! Standard layers (IPv4/IPv6, UDP, TCP) are built with `etherparse` and carried
-//! inside the PDL-defined framing; Wireshark chains its built-in dissectors after
-//! the PDL layers.
-//!
-//! See `docs/specs/2026-07-23-network-simulator-design.md`. This is the scaffold;
-//! the PDL toolchain wiring lands per the slice-1 plan.
+//! `link` is generated from `pdl/link.pdl` at build time; the matching
+//! Wireshark Lua dissector is generated offline from the SAME file by
+//! `tools/regen-dissector.sh` and checked in under `dissectors/`.
+
+pub mod link {
+    #![allow(missing_docs, clippy::all, unused_parens, unreachable_patterns, unused_imports)]
+    include!(concat!(env!("OUT_DIR"), "/link_gen.rs"));
+}
+
+pub mod udp;
+
+pub use pdl_runtime::{DecodeError, EncodeError, Packet as PdlPacket};
