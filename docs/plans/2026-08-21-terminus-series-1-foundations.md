@@ -274,6 +274,22 @@ cross-validate helixsim-orbits results for Earth-parameter cases, and as a
 design reference for numerical propagation and stability work (post 4's
 Hill-sphere / three-body checks).
 
+### Lox — https://github.com/lox-space/lox (crates.io: `lox-space`)
+
+Evaluated 2026-08-21. Rust astrodynamics with Python bindings: Keplerian
+propagation, J2, SGP4, time scales, frames — plus, notably, constellation
+design (Walker Delta/Star, Street-of-Coverage, Flower), ground-station
+visibility and pass prediction, and RF link budgets with antenna patterns.
+MPL-2.0. Pre-1.0, API unstable.
+
+Verdict: **evaluate hands-on before building coverage/visibility code for
+post 5.** Its constellation and visibility features overlap what
+helixsim-orbits would otherwise grow; the open question is whether an
+arbitrary tidally locked body can be configured (examples are Earth-centric —
+inspect `lox-bodies`). MPL-2.0 is compatible as a dependency but must be
+noted. The first-order screening spike stays in helixsim-orbits regardless:
+it is closed-form math over a fully generic body.
+
 ## Ground-coverage discretization
 
 ### H3 — https://github.com/uber/h3 (Rust: `h3o`, a pure-Rust reimplementation)
