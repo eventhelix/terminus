@@ -8,6 +8,7 @@ pub mod circular;
 pub mod constellation;
 pub mod coverage;
 pub mod hill;
+pub mod placement;
 pub mod plane_tracking;
 pub mod spin_orbit;
 

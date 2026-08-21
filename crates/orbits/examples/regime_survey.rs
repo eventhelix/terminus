@@ -8,9 +8,8 @@
 use helixsim_orbits::circular::{orbital_period, synchronous_radius};
 use helixsim_orbits::coverage::{edge_slant_range, footprint_radius, max_pass_duration};
 use helixsim_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
+use helixsim_orbits::placement::SPEED_OF_LIGHT;
 use helixsim_orbits::CentralBody;
-
-const SPEED_OF_LIGHT: f64 = 299_792_458.0;
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);

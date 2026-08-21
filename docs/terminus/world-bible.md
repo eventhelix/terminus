@@ -60,6 +60,23 @@ A Proxima Centauri-like M dwarf of 0.122 solar masses.
 - End users interact with the LLM through WiFi touch devices provided with
   the terminals; a terminal is a WiFi base station backhauled by satellite.
 
+## The gift
+
+The LLM the AI provides, as canon reference parameters for inference-state
+arithmetic (KV-cache sizing, migration bandwidth, compute placement):
+
+| Parameter | Canonical value |
+|---|---:|
+| Model class | 70B-scale transformer |
+| Layers | 80 |
+| KV heads (grouped-query attention) | 8 |
+| Head dimension | 128 |
+| KV precision | 2 bytes (fp16) |
+| KV cache per token | 320 KiB (327,680 B) |
+| Reference long context | 32,768 tokens ⇒ ≈ 10.7 GB KV cache |
+
+Evidence: `compute_placement` example (placement.rs `KvCacheModel`).
+
 ## Time units
 
 The planet's day and year are the same 11.2-Earth-day period. To avoid
