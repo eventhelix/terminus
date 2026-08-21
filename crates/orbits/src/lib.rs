@@ -5,6 +5,7 @@
 
 mod body;
 pub mod circular;
+pub mod constellation;
 pub mod coverage;
 pub mod hill;
 pub mod plane_tracking;

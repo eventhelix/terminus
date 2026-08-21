@@ -69,7 +69,8 @@ as the AI's native time standard.
 
 ## Reference orbit labels (illustrations and posts)
 
-- LEO access: ~1,800 km
+- LEO access: 2,200 km (6 polar rings × 12 satellites; ADR-0003 — the
+  earlier ~1,800 km working label is superseded)
 - MEO service / compute / PNT: ~20,000 km
 - Regime comparisons add: VLEO ~300 km, stationary ~205,000 km ("likely
   unstable")
