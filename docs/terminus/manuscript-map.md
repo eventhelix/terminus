@@ -5,7 +5,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | # | Post (working title) | Series | Status | Evidence (scenario/example + tag) | Book chapter |
 |---|---|---|---|---|---|
 | 1 | The RFP | 1 | drafting | — (in-universe document) | 1.1 |
-| 2 | Know your planet | 1 | planned | | 1.2 |
+| 2 | Know your planet | 1 | drafted | helixsim-orbits example `terminator_drift` (tag terminus-post-2) | 1.2 |
 | 3 | The seductive wrong answer | 1 | planned | helixsim-orbits example terminator_tracking (ADR-0001) | 1.3 |
 | 4 | Orbital regime screening | 1 | planned | | 1.4 |
 | 5 | The access constellation | 1 | planned | | 1.5 |
