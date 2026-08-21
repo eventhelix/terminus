@@ -1,0 +1,5 @@
+# Byte-sensitive fixtures. The golden/determinism tests compare exact bytes
+# against committed digests and inputs; a CRLF checkout (core.autocrlf=true on
+# Windows) must not rewrite them.
+*.sha256 text eol=lf
+crates/scenarios/**/traces/*.csv text eol=lf
