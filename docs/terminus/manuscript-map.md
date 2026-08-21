@@ -10,7 +10,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 4 | Shelves of the sky | 1 | drafted | helixsim-orbits example regime_survey (ADR-0002, tag terminus-post-4) | 1.4 |
 | 5 | Rings over twilight | 1 | drafted | helixsim-orbits example access_constellation (ADR-0003, tag terminus-post-5) | 1.5 |
 | 6 | Where the mind lives | 1 | drafted | helixsim-orbits example compute_placement (ADR-0004, tag terminus-post-6) | 1.6 |
-| 7 | Talking past a flaring red star | 1 | planned | | 1.7 |
+| 7 | Talking past a flaring red star | 1 | drafted | helixsim-orbits example frequency_plan (ADR-0005, tag terminus-post-7) | 1.7 |
 | 8 | Beams, not blankets | 1 | planned | | 1.8 |
 | 9 | First contact | 1 | planned | | 1.9 |
 | 10 | The proposal summary | 1 | planned | | 1.10 |
