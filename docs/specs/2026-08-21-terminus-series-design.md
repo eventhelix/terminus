@@ -92,8 +92,11 @@ Three series; each becomes a part of the book, with canon docs as appendices.
 
 1. **The RFP** — in-universe document from the Alien AI: mission, what the AI
    provides, service requirements with IDs (terminator-band coverage,
-   interactive-LLM latency, availability, PNT, ground segment constraints),
-   evaluation criteria. Load-bearing post: defines the traceability spine.
+   interactive-LLM latency, availability, PNT, and ground segment
+   constraints — parachuted terminals with no field service or skilled
+   operators, so terminal simplicity and autonomous acquisition are
+   requirements, not preferences), evaluation criteria. Load-bearing post:
+   defines the traceability spine.
 2. **Know your planet** — Proxima b reference model; why the civilization
    lives on the terminator; why Mercury (3:2 resonance) is a false analog.
 3. **The seductive wrong answer** — active terminator-tracking orbits; the
@@ -106,8 +109,19 @@ Three series; each becomes a part of the book, with canon docs as appendices.
    anchoring, MEO compute, KV-cache migration economics.
 7. **Talking past a flaring red star** — link budgets, frequency plan, why
    L/S band is excluded; Ka primary + X/Ku diversity.
-8. **The proposal summary** — compliance matrix against the RFP, open risks,
-   future work priced in.
+8. **Beams, not blankets** — phased-array spot beams that cover a narrow
+   ground area. A narrow spot bounds the timing and Doppler spread across the
+   terminals inside it, so the satellite can precompensate delay and Doppler
+   per beam: terminals receive a signal that is already time- and
+   frequency-aligned and never search for timing or Doppler. Beam layout,
+   revisit, and capacity across the terminator band; the driver is the
+   terminal-simplicity requirement (parachuted terminals, no field service).
+9. **First contact** — how a terminal finds the constellation: cold start
+   with no almanac, time, or position (beacon design, terminal antenna sky
+   sweep strategy, expected time to first acquisition) versus warm start with
+   broadcast ephemeris and PNT time; reacquisition after outages.
+10. **The proposal summary** — compliance matrix against the RFP, open risks,
+    future work priced in.
 
 ### Series 2 — Transport and reliability
 
@@ -146,10 +160,23 @@ statistics, Δv screening, Hill-sphere checks. This becomes a new generic
 analysis crate (working name `helixsim-orbits`), configured entirely by body
 and constellation parameters.
 
+The radio-access posts extend its scope with beam and dynamics geometry, all
+still generic:
+
+- range, range-rate, and Doppler between any satellite and ground point over
+  time;
+- spot-beam footprint geometry, and the residual timing/Doppler spread across
+  a beam of given width (the quantity that justifies per-beam
+  precompensation);
+- acquisition modeling: satellite visibility as seen by a terminal with a
+  given antenna sweep strategy, time to first acquisition from cold and warm
+  starts.
+
 Its outputs also feed the packet-level simulator: handover schedules and
-time-varying delay/loss become channel-trace CSVs, the shape
-`crates/scenarios/*/traces/` already supports. This is the main engineering
-investment of Series 1.
+time-varying delay/loss/Doppler become channel-trace CSVs, the shape
+`crates/scenarios/*/traces/` already supports. The same Doppler and range-rate
+machinery is reused by Series 3 (Doppler-aided PNT). This is the main
+engineering investment of Series 1.
 
 ## Book path
 
