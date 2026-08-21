@@ -6,5 +6,6 @@
 mod body;
 pub mod circular;
 pub mod plane_tracking;
+pub mod spin_orbit;
 
 pub use body::{CentralBody, EARTH_MU};
