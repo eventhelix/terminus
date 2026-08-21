@@ -22,21 +22,24 @@ Because the planet is synchronously locked, the terminator is fixed on the
 surface but rotates in inertial space at 360°/11.2 days ≈ 32.14°/day
 (6.4930e-6 rad/s).
 
-Derived orbital reference points (from the mass and rotation period):
+Derived orbital reference points (from the mass, rotation period, star mass,
+and orbital distance; evidence: `regime_survey` example):
 
 | Quantity | Value |
 |---|---:|
 | Synchronous orbit radius | ≈ 211,500 km (altitude ≈ 205,000 km) |
-| L1/L2 distance | ≈ 150,000 km from the planet |
+| Hill radius | ≈ 146,000 km |
+| Prograde orbit stability limit (≈ ½ Hill) | ≈ 73,000 km |
+| L1/L2 distance | ≈ 146,000 km from the planet (≈ Hill radius) |
 | L4/L5 distance | ≈ 7.25e6 km (orbital radius scale) |
 
-The synchronous orbit lies near or beyond the prograde stability limit of the
-planet's small Hill sphere; a stationary satellite must not be assumed
-available.
+The synchronous orbit radius is ≈ 2.9× the prograde stability limit of the
+planet's small Hill sphere: no stationary satellite exists around this
+planet (ADR-0002).
 
 ## The star
 
-A Proxima Centauri-like M dwarf.
+A Proxima Centauri-like M dwarf of 0.122 solar masses.
 
 - Produces coherent radio emission in roughly 1–3 GHz, with strong activity
   near 1.6 GHz. L/S band is therefore hostile spectrum.

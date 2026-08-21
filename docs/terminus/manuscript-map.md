@@ -7,7 +7,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 1 | The RFP | 1 | drafting | — (in-universe document) | 1.1 |
 | 2 | Know your planet | 1 | drafted | helixsim-orbits example `terminator_drift` (tag terminus-post-2) | 1.2 |
 | 3 | The elegant trap | 1 | drafted | helixsim-orbits example terminator_tracking (ADR-0001, tag terminus-post-3) | 1.3 |
-| 4 | Orbital regime screening | 1 | planned | | 1.4 |
+| 4 | Shelves of the sky | 1 | drafted | helixsim-orbits example regime_survey (ADR-0002, tag terminus-post-4) | 1.4 |
 | 5 | The access constellation | 1 | planned | | 1.5 |
 | 6 | Where does the LLM live? | 1 | planned | | 1.6 |
 | 7 | Talking past a flaring red star | 1 | planned | | 1.7 |
