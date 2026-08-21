@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn from_earth_masses_scales_mu() {
-        let body = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
+        let body = CentralBody::from_earth_masses(1.0, 6.371e6, 967_680.0);
         assert_eq!(body.mu, EARTH_MU);
         assert_eq!(body.radius, 6.371e6);
         assert_eq!(body.rotation_period, 967_680.0);
