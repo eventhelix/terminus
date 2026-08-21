@@ -35,6 +35,14 @@ pub fn propellant_fraction_per_day(body: &CentralBody, altitude: f64, isp: f64) 
     1.0 - (-dv / (G0 * isp)).exp()
 }
 
+/// Fraction of the spacecraft's initial mass remaining after sustaining the
+/// ideal plane-tracking Δv for the given number of Earth days (rocket
+/// equation, compounding).
+pub fn remaining_mass_fraction(body: &CentralBody, altitude: f64, isp: f64, days: f64) -> f64 {
+    let dv = ideal_plane_change_dv_per_day(body, altitude) * days;
+    (-dv / (G0 * isp)).exp()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,5 +90,14 @@ mod tests {
         let p = reference_planet();
         // exp(-3918 / (9.80665 × 3000)) ≈ 0.8753 remaining ⇒ ~12.5%/day burned.
         assert_close(propellant_fraction_per_day(&p, 1_800e3, 3_000.0), 0.1247, 2e-3);
+    }
+
+    #[test]
+    fn compounding_consumes_the_spacecraft() {
+        let p = reference_planet();
+        // 0.8753^11.2 ≈ 0.2250 after one local year (11.2 Earth days);
+        // 0.8753^30 ≈ 0.0184 after 30 Earth days.
+        assert_close(remaining_mass_fraction(&p, 1_800e3, 3_000.0, 11.2), 0.2250, 2e-3);
+        assert_close(remaining_mass_fraction(&p, 1_800e3, 3_000.0, 30.0), 0.0184, 5e-3);
     }
 }

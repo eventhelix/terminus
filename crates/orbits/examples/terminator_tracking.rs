@@ -6,7 +6,7 @@
 use helixsim_orbits::circular::orbital_velocity;
 use helixsim_orbits::plane_tracking::{
     cross_track_acceleration, ideal_plane_change_dv_per_day, propellant_fraction_per_day,
-    terminator_rate,
+    remaining_mass_fraction, terminator_rate,
 };
 use helixsim_orbits::CentralBody;
 
@@ -41,6 +41,15 @@ fn main() {
             propellant_fraction_per_day(&planet, altitude, isp_s) * 100.0
         );
     }
+
+    let alt = 1_800e3;
+    println!(
+        "\nCompounding at 1,800 km, Isp = {isp_s} s:\n\
+         mass remaining after one local year (11.2 Earth days): {:.1}%\n\
+         mass remaining after 30 Earth days: {:.1}%",
+        remaining_mass_fraction(&planet, alt, isp_s, 11.2) * 100.0,
+        remaining_mass_fraction(&planet, alt, isp_s, 30.0) * 100.0
+    );
 
     println!(
         "\nAt Isp = {isp_s} s the best case burns >12% of spacecraft mass per day.\n\
