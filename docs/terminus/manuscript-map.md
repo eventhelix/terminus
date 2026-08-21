@@ -12,7 +12,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 6 | Where the mind lives | 1 | drafted | helixsim-orbits example compute_placement (ADR-0004, tag terminus-post-6) | 1.6 |
 | 7 | Talking past a flaring red star | 1 | drafted | helixsim-orbits example frequency_plan (ADR-0005, tag terminus-post-7) | 1.7 |
 | 8 | Beams, not blankets | 1 | drafted | helixsim-orbits example spot_beams (ADR-0006, tag terminus-post-8) | 1.8 |
-| 9 | First contact | 1 | planned | | 1.9 |
+| 9 | First contact | 1 | drafted | helixsim-orbits example first_contact (ADR-0007, tag terminus-post-9) | 1.9 |
 | 10 | The proposal summary | 1 | planned | | 1.10 |
 
 ## Publish preconditions

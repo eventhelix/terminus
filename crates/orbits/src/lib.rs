@@ -4,6 +4,7 @@
 //! Units are SI throughout: meters, seconds, kilograms, radians.
 
 mod body;
+pub mod acquisition;
 pub mod beams;
 pub mod circular;
 pub mod constellation;
