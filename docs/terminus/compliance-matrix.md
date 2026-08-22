@@ -22,15 +22,16 @@ outstanding; **Open**: committed follow-on work, not yet designed.
 | TER-REQ-010 | WiFi end-user devices only | Designed | Terminal is the WiFi base station (RFP post; ADR-0006 keeps satellite side complex, terminal simple) | — |
 | TER-REQ-011 | Avoid/tolerate stellar 1–3 GHz | Designed | ADR-0005; `frequency_plan` (tag post-7): band conceded, Ka/X clear, +25.5 dB aperture win | — |
 | TER-REQ-012 | Flare: degrade, never drop; alert ≤10 s | Partial | Band-fallback plan (ADR-0005) | Rate-adaptation and coding machinery (Series 2); PNT integrity alert (Series 3) |
-| TER-REQ-013 | Handover = routing event, ≤100 ms | Partial | Session-anchor principle (ADR-0004): access handover moves routes, never minds | Make-before-break machinery and interruption measurement (Series 2) |
+| TER-REQ-013 | Handover = routing event, ≤100 ms | Partial | Session-anchor principle (ADR-0004); concrete routing path via duty ring and feeder links (ADR-0008) | Make-before-break machinery and interruption measurement (Series 2) |
 | TER-REQ-014 | Single failure ≤60 s; bounded compute loss | Partial | Vault replication bounds compute-node loss (ADR-0004) | Access redundancy above min-visible-1 (debt declared in ADR-0003) |
-| TER-REQ-015 | PNT: 10 m, 100 ns, ≥4 satellites | Open | Constraints inherited (band exclusion, ADR-0005; shared-infrastructure intent) | Entire PNT design (Series 3) |
+| TER-REQ-015 | PNT: 10 m, 100 ns, ≥4 satellites | Partial | ADR-0008: PNT collocated on the MEO shell (clocks beside the minds); two-way time-transfer fabric designed; nav band inherits ADR-0005 exclusion | Waveform, geometry/GDOP, and integrity design (Series 3) |
 | TER-REQ-016 | Evaluate on total system mass/power/robustness | Partial | Trades argued in its currency throughout (altitude vs hardware, ADR-0003; anchors vs 72 minds, ADR-0004) | Full mass/power/propellant/replacement optimization (economics post) |
 
-Tally: 8 Designed, 4 Partial, 4 Open.
+Tally: 8 Designed, 5 Partial, 3 Open.
 
 Open and Partial items are the committed follow-on volumes: Series 2
 (transport and reliability: handover machinery, end-to-end FEC, flare
-response, availability), Series 3 (PNT and timing), and the backbone and
-constellation-economics posts (anchor count, laser mesh, redundancy
-sizing, total-mass optimization).
+response, availability), Series 3 (PNT service design on the ADR-0008
+timing fabric), and the constellation-economics post (anchor count,
+redundancy sizing, total-mass optimization). Statuses as of tag
+`terminus-post-11` (backbone, ADR-0008, folded in).

@@ -13,10 +13,14 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 7 | Talking past a flaring red star | 1 | drafted | helixsim-orbits example frequency_plan (ADR-0005, tag terminus-post-7) | 1.7 |
 | 8 | Beams, not blankets | 1 | drafted | helixsim-orbits example spot_beams (ADR-0006, tag terminus-post-8) | 1.8 |
 | 9 | First contact | 1 | drafted | helixsim-orbits example first_contact (ADR-0007, tag terminus-post-9) | 1.9 |
-| 10 | The proposal rests | 1 | drafted | compliance-matrix.md (aggregates tags post-2..post-9; tag terminus-post-10) | 1.10 |
+| 10 | The backbone | 1 | drafted | helixsim-orbits example backbone (ADR-0008, tag terminus-post-11) | 1.10 |
+| 11 | The proposal rests | 1 | drafted | compliance-matrix.md (aggregates tags post-2..post-11; tags terminus-post-10, terminus-post-11) | 1.11 |
 
-Series 1 drafting complete (posts 1–10 staged on the site's `terminus`
+Series 1 drafting complete (posts 1–11 staged on the site's `terminus`
 branch, pending pre-publish pass and the publish preconditions below).
+Tag note: `terminus-post-10` pins the original summary increment;
+`terminus-post-11` pins the backbone increment plus the amended summary —
+both posts 10 and 11 cite it.
 
 ## Publish preconditions
 
