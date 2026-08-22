@@ -37,6 +37,6 @@ both posts 10 and 11 cite it.
   - Placed so far (source: `C:\Users\sande\OneDrive\Projects\Terminus\media`,
     converted to WebP): planet-and-star hero (post 2), full architecture
     infographic (post 12).
-  - MUST FIX before publish: the architecture figure's "LEO access
-    (~1,800 km)" label predates ADR-0003 — regenerate with 2,200 km.
+  - Architecture figure regenerated with the corrected "LEO access
+    (~2,200 km)" label (2026-08-21) — resolved.
   - Remaining: figures for posts 1, 3–11.
