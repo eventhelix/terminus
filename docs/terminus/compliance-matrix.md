@@ -23,7 +23,7 @@ outstanding; **Open**: committed follow-on work, not yet designed.
 | TER-REQ-011 | Avoid/tolerate stellar 1–3 GHz | Designed | ADR-0005; `frequency_plan` (tag post-7): band conceded, Ka/X clear, +25.5 dB aperture win | — |
 | TER-REQ-012 | Flare: degrade, never drop; alert ≤10 s | Partial | Band-fallback plan (ADR-0005) | Rate-adaptation and coding machinery (Series 2); PNT integrity alert (Series 3) |
 | TER-REQ-013 | Handover = routing event, ≤100 ms | Partial | Session-anchor principle (ADR-0004); concrete routing path via duty ring and feeder links (ADR-0008) | Make-before-break machinery and interruption measurement (Series 2) |
-| TER-REQ-014 | Single failure ≤60 s; bounded compute loss | Partial | Vault replication bounds compute-node loss (ADR-0004) | Access redundancy above min-visible-1 (debt declared in ADR-0003) |
+| TER-REQ-014 | Single failure ≤60 s; bounded compute loss | Partial | Vault replication bounds compute-node loss (ADR-0004); keep-alive liveness + timetable alternates switch in ~300 ms for anchors and links (ADR-0009) | Access redundancy above min-visible-1 — the coverage consequence of a lost LEO satellite (sizing in economics post) |
 | TER-REQ-015 | PNT: 10 m, 100 ns, ≥4 satellites | Partial | ADR-0008: PNT collocated on the MEO shell (clocks beside the minds); two-way time-transfer fabric designed; nav band inherits ADR-0005 exclusion | Waveform, geometry/GDOP, and integrity design (Series 3) |
 | TER-REQ-016 | Evaluate on total system mass/power/robustness | Partial | Trades argued in its currency throughout (altitude vs hardware, ADR-0003; anchors vs 72 minds, ADR-0004) | Full mass/power/propellant/replacement optimization (economics post) |
 
