@@ -12,7 +12,7 @@ outstanding; **Open**: committed follow-on work, not yet designed.
 |---|---|---|---|---|
 | TER-REQ-001 | Continuous ±20° band coverage | Designed | ADR-0003; `access_constellation` (tag post-5): min visible ≥ 1 over a full rotation | — |
 | TER-REQ-002 | LLM service from space infrastructure | Designed | ADR-0004; `compute_placement` (tag post-6) | — |
-| TER-REQ-003 | ≤300 ms first token p95; ≤100 ms stall p99 | Designed | ADR-0004/0005: worst-geometry propagation RTT 180 ms leaves 120 ms inference margin | Statistical p95/p99 verification with traffic model (Series 2) |
+| TER-REQ-003 | ≤300 ms first token p95; ≤100 ms stall p99 | Designed | ADR-0004/0005 latency budget; ADR-0010 FEC-first reliability keeps stalls off the retransmission round trip (5 s → 18 min stall interval at 12.5% overhead) | Statistical p95/p99 verification with traffic model and burst-loss channels (Series 2) |
 | TER-REQ-004 | 99.9% availability per settlement | Open | Geometric coverage continuous (ADR-0003) | Availability analysis vs weather, flares, failures (Series 2 + economics post) |
 | TER-REQ-005 | 10,000 → 1,000,000 terminals | Open | Spot beams give spatial reuse (ADR-0006) | Quantitative capacity and beam-reuse study |
 | TER-REQ-006 | Parachuted, self-contained terminals | Designed | ADR-0006/0007: all aging knowledge lives in orbit; terminal never told anything stale | — |
@@ -21,8 +21,8 @@ outstanding; **Open**: committed follow-on work, not yet designed.
 | TER-REQ-009 | No blind timing/Doppler search | Designed | ADR-0006; `spot_beams` (tag post-8): residual budgets ±1.2 kHz, ±60 µs | — |
 | TER-REQ-010 | WiFi end-user devices only | Designed | Terminal is the WiFi base station (RFP post; ADR-0006 keeps satellite side complex, terminal simple) | — |
 | TER-REQ-011 | Avoid/tolerate stellar 1–3 GHz | Designed | ADR-0005; `frequency_plan` (tag post-7): band conceded, Ka/X clear, +25.5 dB aperture win | — |
-| TER-REQ-012 | Flare: degrade, never drop; alert ≤10 s | Partial | Band-fallback plan (ADR-0005) | Rate-adaptation and coding machinery (Series 2); PNT integrity alert (Series 3) |
-| TER-REQ-013 | Handover = routing event, ≤100 ms | Partial | Session-anchor principle (ADR-0004); concrete routing path via duty ring and feeder links (ADR-0008) | Make-before-break machinery and interruption measurement (Series 2) |
+| TER-REQ-012 | Flare: degrade, never drop; alert ≤10 s | Partial | Band-fallback plan (ADR-0005); timetable-breathing FEC overhead architecture for flare/handover loss (ADR-0010) | Codec machinery and burst-loss experiments (Series 2); PNT integrity alert (Series 3) |
+| TER-REQ-013 | Handover = routing event, ≤100 ms | Partial | Session-anchor principle (ADR-0004); routing path (ADR-0008); transport connection migration + ARQ node-failure recovery chain (ADR-0010) | Make-before-break machinery and interruption measurement (Series 2) |
 | TER-REQ-014 | Single failure ≤60 s; bounded compute loss | Partial | Vault replication bounds compute-node loss (ADR-0004); keep-alive liveness + timetable alternates switch in ~300 ms for anchors and links (ADR-0009) | Access redundancy above min-visible-1 — the coverage consequence of a lost LEO satellite (sizing in economics post) |
 | TER-REQ-015 | PNT: 10 m, 100 ns, ≥4 satellites | Partial | ADR-0008: PNT collocated on the MEO shell (clocks beside the minds); two-way time-transfer fabric designed; nav band inherits ADR-0005 exclusion | Waveform, geometry/GDOP, and integrity design (Series 3) |
 | TER-REQ-016 | Evaluate on total system mass/power/robustness | Partial | Trades argued in its currency throughout (altitude vs hardware, ADR-0003; anchors vs 72 minds, ADR-0004) | Full mass/power/propellant/replacement optimization (economics post) |

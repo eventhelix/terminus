@@ -14,7 +14,8 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 8 | Beams, not blankets | 1 | drafted | helixsim-orbits example spot_beams (ADR-0006, tag terminus-post-8) | 1.8 |
 | 9 | First contact | 1 | drafted | helixsim-orbits example first_contact (ADR-0007, tag terminus-post-9) | 1.9 |
 | 10 | The backbone | 1 | drafted | helixsim-orbits examples backbone + clock_rates (ADR-0008/0009, tags terminus-post-11, terminus-post-12) | 1.10 |
-| 11 | The proposal rests | 1 | drafted | compliance-matrix.md (aggregates tags post-2..post-11; tags terminus-post-10, terminus-post-11) | 1.11 |
+| 11 | The unbroken thread | 1 | drafted | helixsim-orbits example unbroken_thread (ADR-0010, tag terminus-post-13) | 1.11 |
+| 12 | The proposal rests | 1 | drafted | compliance-matrix.md (aggregates tags post-2..post-13; tags terminus-post-10..13) | 1.12 |
 
 Series 1 drafting complete (posts 1–11 staged on the site's `terminus`
 branch, pending pre-publish pass and the publish preconditions below).
