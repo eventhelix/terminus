@@ -52,6 +52,17 @@ fn main() {
          extra round trips. ARQ is the guarantee: whatever exceeds the repair\n\
          budget — or vanishes with a failed node — is retransmitted end to\n\
          end. The timetable breathes the overhead: lean in calm, generous\n\
-         ahead of scheduled handovers and during flares."
+         ahead of scheduled handovers and during flares.\n"
+    );
+
+    let access_rtt_ms = 24.3; // 2 × 12.15 ms edge one-way (coverage.rs)
+    let slot_ms = 1.0;
+    println!(
+        "PHY contract (delegated per ADR-0011): residual erasures ≤1% calm /\n\
+         ≤5% flare after PHY FEC + HARQ. HARQ soft-combining runs per radio\n\
+         hop, where soft symbols live: the {access_rtt_ms:.1} ms access feedback loop\n\
+         at {slot_ms:.0} ms slots keeps ~{:.0} transmissions in flight ⇒ ≥32 parallel\n\
+         HARQ processes.",
+        access_rtt_ms / slot_ms
     );
 }
