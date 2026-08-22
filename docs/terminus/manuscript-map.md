@@ -28,3 +28,9 @@ both posts 10 and 11 cite it.
 - Make the helixsim repository public before the site's `terminus` branch
   merges: posts quote Rust excerpts and promise runnable examples, and every
   evidence tag must be publicly resolvable.
+- Illustrations per the issue #2 conventions (dark-space technical
+  infographics; satellites visibly sitting on their orbital shells;
+  consistent orbit labels and colors — LEO access 2,200 km per ADR-0003,
+  MEO service/compute/PNT 20,000 km; FEC and PNT diagram conventions as
+  specified): at least the core architecture figure per post before the
+  branch merges.

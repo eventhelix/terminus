@@ -57,4 +57,18 @@ mod tests {
     fn half_meter_dish_at_l_band_floods() {
         assert_close(beamwidth_deg(0.5, 1.6e9), 26.23, 1e-3);
     }
+
+    #[test]
+    fn meo_direct_access_pays_16_db() {
+        // Option C trade (ADR-0012): serving users straight from the MEO
+        // shell lengthens the worst-case slant from 3,642 km to 23,039 km —
+        // +16.0 dB of path loss at any frequency.
+        use crate::coverage::edge_slant_range;
+        use crate::CentralBody;
+        let p = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
+        let e = 25.0_f64.to_radians();
+        let delta = fspl_db(edge_slant_range(&p, 20_000e3, e), 30e9)
+            - fspl_db(edge_slant_range(&p, 2_200e3, e), 30e9);
+        assert_close(delta, 16.02, 1e-3);
+    }
 }
