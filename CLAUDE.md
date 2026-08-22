@@ -17,6 +17,17 @@ opened in Wireshark and analyzed by AI through the VisualEther MCP tools.
 The design of record is `docs/specs/2026-07-23-network-simulator-design.md`. Read
 it before making architectural changes.
 
+## The Terminus blog series
+
+The flagship application: a blog series (→ book) designing a constellation
+for a civilization on a tidally locked planet, staged on the eventhelix.com
+site repo's `terminus` branch (`C:\Users\sande\Documents\repos\site`).
+Series design of record: `docs/specs/2026-08-21-terminus-series-design.md`.
+Canon — world bible, requirements baseline (`TER-REQ-*`), ADRs, compliance
+matrix, manuscript map, and style rules — lives in `docs/terminus/`; read it
+before touching series content. Every number a post quotes must be
+reproducible from a tagged run (`terminus-post-N` tags pin the evidence).
+
 ## Engine and key dependencies
 
 - **DES engine:** [nexosim](https://github.com/asynchronics/nexosim) 1.x, used
@@ -32,6 +43,9 @@ it before making architectural changes.
 ```
 crates/core/       Packet, node/interface traits, medium, channel trace,
                    compute model, capture — all nexosim models
+crates/orbits/     helixsim-orbits: closed-form orbital/link/reliability
+                   screening math; its examples are the Terminus posts'
+                   evidence artifacts
 crates/protocols/  PDL sources + generated codecs/dissectors; etherparse builders
 crates/scenarios/  scenario TOML + trace files (LEO testbed is the first slice)
 crates/cli/        the `helixsim` binary: run a scenario -> output directory
@@ -55,6 +69,11 @@ cargo build --release
 - **Config errors die at startup; network realities are simulated.** Dangling
   refs and trace-coverage gaps fail fast. Loss, unreachability, and undecodable
   received bytes are counted, not errored.
+- **helixsim stays generic and independently usable.** No Terminus/Proxima
+  concepts, constants, or narrative in any crate — planets, stars, and
+  constellations are configuration. Terminus lives only in `docs/terminus/`,
+  scenario data, and the site repo. The crates must remain publishable on
+  their own.
 
 ## Commit conventions
 
