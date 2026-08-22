@@ -34,3 +34,9 @@ both posts 10 and 11 cite it.
   MEO service/compute/PNT 20,000 km; FEC and PNT diagram conventions as
   specified): at least the core architecture figure per post before the
   branch merges.
+  - Placed so far (source: `C:\Users\sande\OneDrive\Projects\Terminus\media`,
+    converted to WebP): planet-and-star hero (post 2), full architecture
+    infographic (post 12).
+  - MUST FIX before publish: the architecture figure's "LEO access
+    (~1,800 km)" label predates ADR-0003 — regenerate with 2,200 km.
+  - Remaining: figures for posts 1, 3–11.
