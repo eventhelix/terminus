@@ -88,6 +88,19 @@ as the AI's native time standard.
 
 - LEO access: 2,200 km (6 polar rings × 12 satellites; ADR-0003 — the
   earlier ~1,800 km working label is superseded)
-- MEO service / compute / PNT: ~20,000 km
+- MEO service / compute / PNT: ~20,000 km (24 satellites: 6 planes × 4 at
+  55° inclination, nodes spread over 360°; ADR-0014 — the shell is sized by
+  navigation, not by the anchors)
 - Regime comparisons add: VLEO ~300 km, stationary ~205,000 km ("likely
   unstable")
+
+## Access-link rhythm (posts and illustrations)
+
+- A town's serving satellite changes every **11.0 min** — the in-plane
+  spacing (131.6 min period / 12 satellites), not the 16.6 min best-case
+  zenith pass (ADR-0015). Quote 16.6 min only as "the longest a single
+  satellite could serve", never as the handover interval.
+- Duty ring changes every **22.4 h** — 30° of terminator rotation at
+  32.14°/day (`access_constellation`). From an epoch with a ring on the
+  terminator, the first change comes at **11.2 h**: half a plane spacing of
+  drift, after which the incumbent and its neighbour are equidistant.
