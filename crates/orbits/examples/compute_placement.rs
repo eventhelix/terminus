@@ -5,6 +5,7 @@
 //!
 //! Run: cargo run -p helixsim-orbits --example compute_placement
 
+use helixsim_orbits::circular::orbital_period;
 use helixsim_orbits::coverage::{edge_slant_range, max_pass_duration};
 use helixsim_orbits::hill::{hill_radius, SUN_MU};
 use helixsim_orbits::placement::{
@@ -14,6 +15,7 @@ use helixsim_orbits::CentralBody;
 
 const ACCESS_ALT: f64 = 2_200e3;
 const MEO_ALT: f64 = 20_000e3;
+const ACCESS_SATS_PER_PLANE: usize = 12; // ADR-0003 baseline ring
 
 fn ms(seconds: f64) -> f64 {
     seconds * 1e3
@@ -59,14 +61,21 @@ fn main() {
 
     let access_dwell = max_pass_duration(&planet, ACCESS_ALT, min_elevation);
     let meo_dwell = max_pass_duration(&planet, MEO_ALT, min_elevation);
+    // A link does not last a pass: the town is handed to the next satellite in
+    // the same plane after one in-plane spacing (ADR-0015). That interval, not
+    // the pass, is what an anchored session has to ride out.
+    let handover_interval = orbital_period(&planet, ACCESS_ALT) / ACCESS_SATS_PER_PLANE as f64;
     println!(
-        "\nSession-anchor arithmetic:\n\
-         \x20 access-satellite dwell: {:>6.1} min\n\
-         \x20 MEO-satellite dwell:    {:>6.1} min\n\
-         \x20 access handovers survived by one anchored session: ~{:.0}",
+        "
+Session-anchor arithmetic:
+           access pass, best case:  {:>6.1} min
+           access handover every:   {:>6.1} min   (period / satellites per plane)
+           MEO pass, best case:     {:>6.1} min
+           access handovers survived by one anchored session: ~{:.0}",
         access_dwell / 60.0,
+        handover_interval / 60.0,
         meo_dwell / 60.0,
-        meo_dwell / access_dwell
+        meo_dwell / handover_interval
     );
 
     let model = KvCacheModel {

@@ -58,3 +58,10 @@ changes nothing.
 - `helixsim-orbits` grows a generic `handover` module carrying the policy,
   the timeline, and the cadence statistic, with the two findings pinned as
   tests so a later change cannot quietly restore the wrong story.
+- Two earlier artifacts conflated the pass with the handover interval and
+  are corrected, without changing their conclusions: `compute_placement`
+  now divides the MEO pass by the 11.0 min handover interval rather than by
+  the 16.6 min access pass, so one anchored session rides out **~19**
+  access handovers rather than ~12; and the ADR-0012 trade now states both
+  clocks — MEO-direct would hand over every 3.0 h against LEO's 11.0 min,
+  which strengthens rather than weakens the argument recorded there.

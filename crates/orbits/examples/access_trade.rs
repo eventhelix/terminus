@@ -6,6 +6,7 @@
 
 use helixsim_orbits::acquisition::spots_per_footprint;
 use helixsim_orbits::beams::{doppler_shift, nadir_spot_radius, range_rate};
+use helixsim_orbits::circular::orbital_period;
 use helixsim_orbits::coverage::{edge_slant_range, footprint_radius, max_pass_duration};
 use helixsim_orbits::radio::fspl_db;
 use helixsim_orbits::CentralBody;
@@ -53,10 +54,19 @@ fn main() {
 
     let edge_meo = footprint_radius(&planet, MEO, e) / planet.radius;
     println!("  MEO-direct advantages, acknowledged:");
+    // Passes and handovers are different clocks: a pass is the longest one
+    // satellite could serve, while handovers come one in-plane spacing apart
+    // (ADR-0015). Both comparisons favour MEO-direct; only the second one is
+    // the rate the network actually pays.
+    let leo_handover = orbital_period(&planet, LEO) / 12.0;
+    let meo_handover = orbital_period(&planet, MEO) / 4.0;
     println!(
-        "    dwell {:.1} h vs {:.1} min; Doppler window ±{:.0} kHz vs ±460 kHz;",
+        "    best-case pass {:.1} h vs {:.1} min, and a handover every {:.1} h
+             instead of every {:.1} min; Doppler window ±{:.0} kHz vs ±460 kHz;",
         max_pass_duration(&planet, MEO, e) / 3_600.0,
         max_pass_duration(&planet, LEO, e) / 60.0,
+        meo_handover / 3_600.0,
+        leo_handover / 60.0,
         doppler_shift(range_rate(&planet, MEO, edge_meo), KA) / 1e3
     );
     println!(
