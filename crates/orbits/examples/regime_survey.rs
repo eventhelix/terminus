@@ -6,7 +6,9 @@
 //! Run: cargo run -p helixsim-orbits --example regime_survey
 
 use helixsim_orbits::circular::{orbital_period, synchronous_radius};
-use helixsim_orbits::coverage::{edge_slant_range, footprint_radius, max_pass_duration};
+use helixsim_orbits::coverage::{
+    edge_slant_range, footprint_radius, footprint_radius_limit, max_pass_duration,
+};
 use helixsim_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
 use helixsim_orbits::placement::SPEED_OF_LIGHT;
 use helixsim_orbits::CentralBody;
@@ -33,6 +35,35 @@ fn main() {
             max_pass_duration(&planet, altitude, min_elevation) / 60.0
         );
     }
+
+    println!("
+What the 25 deg mask costs (footprint radius):");
+    println!(
+        "{:>10} {:>14} {:>16} {:>12}",
+        "alt (km)", "masked (km)", "horizon (km)", "shrink"
+    );
+    for altitude_km in [300.0, 1_200.0, 1_800.0, 10_000.0, 20_000.0, 50_000.0] {
+        let altitude = altitude_km * 1e3;
+        let masked = footprint_radius(&planet, altitude, min_elevation);
+        let horizon = footprint_radius(&planet, altitude, 0.0);
+        println!(
+            "{:>10.0} {:>14.0} {:>16.0} {:>11.2}x",
+            altitude_km,
+            masked / 1e3,
+            horizon / 1e3,
+            horizon / masked
+        );
+    }
+    let ceiling = footprint_radius_limit(&planet, min_elevation);
+    println!(
+        "  ceiling as altitude -> infinity: {:.0} km ({:.0} deg of arc);",
+        ceiling / 1e3,
+        (std::f64::consts::FRAC_PI_2 - min_elevation).to_degrees()
+    );
+    println!(
+        "  the 50,000 km shelf already holds {:.0}% of it.",
+        footprint_radius(&planet, 50_000e3, min_elevation) / ceiling * 100.0
+    );
 
     let r_sync = synchronous_radius(&planet);
     let r_hill = hill_radius(&planet, star_mu, orbital_distance);

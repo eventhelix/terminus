@@ -18,6 +18,15 @@ pub fn footprint_radius(body: &CentralBody, altitude: f64, min_elevation: f64) -
     body.radius * coverage_half_angle(body, altitude, min_elevation)
 }
 
+/// Ceiling (m) on `footprint_radius`, approached as altitude grows without
+/// bound. The planet-central half-angle is `acos(ratio * cos(min_elevation))
+/// - min_elevation`; as `ratio` falls to zero the arccos saturates at a right
+/// angle, so no altitude can serve more ground than `90 deg - min_elevation`
+/// of arc.
+pub fn footprint_radius_limit(body: &CentralBody, min_elevation: f64) -> f64 {
+    body.radius * (std::f64::consts::FRAC_PI_2 - min_elevation)
+}
+
 /// Slant range (m) from a ground user at exactly the minimum elevation angle
 /// to the satellite — the longest, highest-loss path in the footprint.
 pub fn edge_slant_range(body: &CentralBody, altitude: f64, min_elevation: f64) -> f64 {
@@ -57,6 +66,28 @@ mod tests {
         assert_close(footprint_radius(&p, 300e3, MIN_ELEVATION), 5.621e5, 1e-3);
         assert_close(footprint_radius(&p, 1_800e3, MIN_ELEVATION), 2.228e6, 1e-3);
         assert_close(footprint_radius(&p, 20_000e3, MIN_ELEVATION), 5.821e6, 1e-3);
+    }
+
+    #[test]
+    fn footprint_radius_approaches_its_ceiling() {
+        let p = reference_planet();
+        let ceiling = footprint_radius_limit(&p, MIN_ELEVATION);
+        // 6371 km x 65 deg of arc.
+        assert_close(ceiling, 7.2276e6, 1e-3);
+        // The highest surveyed shelf already buys most of it, and nothing
+        // above it ever crosses the line.
+        assert!(footprint_radius(&p, 50_000e3, MIN_ELEVATION) / ceiling > 0.90);
+        assert!(footprint_radius(&p, 1e12, MIN_ELEVATION) < ceiling);
+    }
+
+    #[test]
+    fn dropping_the_mask_costs_low_shelves_most() {
+        let p = reference_planet();
+        let cost = |alt: f64| {
+            footprint_radius(&p, alt, 0.0) / footprint_radius(&p, alt, MIN_ELEVATION)
+        };
+        assert_close(cost(300e3), 3.40, 1e-2);
+        assert_close(cost(20_000e3), 1.45, 1e-2);
     }
 
     #[test]
