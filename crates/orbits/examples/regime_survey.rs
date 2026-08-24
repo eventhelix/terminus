@@ -11,7 +11,7 @@ use helixsim_orbits::coverage::{
 };
 use helixsim_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
 use helixsim_orbits::placement::SPEED_OF_LIGHT;
-use helixsim_orbits::CentralBody;
+use helixsim_orbits::{CentralBody, EARTH_MU};
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
@@ -19,6 +19,7 @@ fn main() {
     let star_mu = 0.122 * SUN_MU;
     let orbital_distance = 7.2555e9;
 
+    println!("Planet mu = GM = {:.4e} m^3/s^2 (Earth mass)", EARTH_MU);
     println!("Minimum user elevation: 25 deg\n");
     println!(
         "{:>10} {:>12} {:>16} {:>18} {:>16}",
@@ -65,6 +66,26 @@ What the 25 deg mask costs (footprint radius):");
         footprint_radius(&planet, 50_000e3, min_elevation) / ceiling * 100.0
     );
 
+    // Where the stationary shelf comes from, and why a slow spin exiles it.
+    // r_sync scales as rotation_period^(2/3), so Earth's own shelf is the
+    // natural yardstick.
+    let earth = CentralBody::from_earth_masses(1.0, 6.371e6, 23.9344696 * 3_600.0);
+    let r_sync_earth = synchronous_radius(&earth);
+    let spin_ratio = planet.rotation_period / earth.rotation_period;
+    println!("
+Stationary shelf, scaled from Earth's:");
+    println!(
+        "  Earth synchronous radius:  {:>9.0} km (altitude {:.0} km)",
+        r_sync_earth / 1e3,
+        (r_sync_earth - earth.radius) / 1e3
+    );
+    println!("  this planet spins         {:>10.2}x slower", spin_ratio);
+    println!(
+        "  radius grows as T^(2/3):  {:>10.2}x  =>  {:.0} km",
+        spin_ratio.powf(2.0 / 3.0),
+        r_sync_earth * spin_ratio.powf(2.0 / 3.0) / 1e3
+    );
+
     let r_sync = synchronous_radius(&planet);
     let r_hill = hill_radius(&planet, star_mu, orbital_distance);
     let limit = prograde_stability_limit(&planet, star_mu, orbital_distance);
@@ -79,7 +100,16 @@ What the 25 deg mask costs (footprint radius):");
         "  edge latency if it existed: {:>8.0} ms one way",
         edge_slant_range(&planet, sync_altitude, min_elevation) / SPEED_OF_LIGHT * 1e3
     );
-    println!("  Hill radius:               {:>9.0} km", r_hill / 1e3);
+    println!(
+        "  planet / star mass ratio:  {:>9.3e} (1 : {:.0})",
+        planet.mu / star_mu,
+        star_mu / planet.mu
+    );
+    println!(
+        "  Hill radius:               {:>9.0} km ({:.2}% of the way to the star)",
+        r_hill / 1e3,
+        r_hill / orbital_distance * 100.0
+    );
     println!("  prograde stability limit:  {:>9.0} km", limit / 1e3);
     println!(
         "  verdict: synchronous radius is {:.1}x the stability limit —\n\

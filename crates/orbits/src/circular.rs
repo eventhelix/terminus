@@ -53,6 +53,27 @@ mod tests {
     }
 
     #[test]
+    fn synchronous_radius_scales_as_rotation_period_to_the_two_thirds() {
+        // T = 2*pi*sqrt(r^3/mu) inverted gives r proportional to T^(2/3), so
+        // Earth's own stationary shelf scaled by the spin ratio must land on
+        // this planet's. The exponent is the whole reason a slow spin exiles
+        // the shelf: 11.23x the period buys only 5.01x the radius.
+        let earth = CentralBody::from_earth_masses(1.0, 6.371e6, 23.9344696 * 3_600.0);
+        let planet = reference_planet();
+        let ratio = planet.rotation_period / earth.rotation_period;
+        let scaled = synchronous_radius(&earth) * ratio.powf(2.0 / 3.0);
+        assert_close(scaled, synchronous_radius(&planet), 1e-9);
+        assert_close(synchronous_radius(&earth), 4.2164e7, 1e-4);
+    }
+
+    #[test]
+    fn synchronous_orbit_period_equals_the_rotation_period() {
+        let p = reference_planet();
+        let altitude = synchronous_radius(&p) - p.radius;
+        assert_close(orbital_period(&p, altitude), p.rotation_period, 1e-9);
+    }
+
+    #[test]
     fn synchronous_radius_is_about_211_300_km() {
         let p = reference_planet();
         assert_close(synchronous_radius(&p), 2.113e8, 1e-3);
