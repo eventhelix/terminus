@@ -37,6 +37,37 @@ fn main() {
         );
     }
 
+    // What the edge user actually pays, and how much of a lap a pass is.
+    println!("
+Path length and dwell:");
+    println!(
+        "{:>10} {:>13} {:>13} {:>10} {:>14}",
+        "alt (km)", "slant (km)", "vs overhead", "lambda", "% of a lap"
+    );
+    for altitude_km in [300.0, 1_200.0, 1_800.0, 10_000.0, 20_000.0, 50_000.0] {
+        let altitude = altitude_km * 1e3;
+        let slant = edge_slant_range(&planet, altitude, min_elevation);
+        let lambda = footprint_radius(&planet, altitude, min_elevation) / planet.radius;
+        println!(
+            "{:>10.0} {:>13.0} {:>12.2}x {:>9.2}° {:>13.1}%",
+            altitude_km,
+            slant / 1e3,
+            slant / altitude,
+            lambda.to_degrees(),
+            lambda / std::f64::consts::PI * 100.0
+        );
+    }
+    let (lo, hi) = (300e3, 50_000e3);
+    let period_ratio = orbital_period(&planet, hi) / orbital_period(&planet, lo);
+    let angle_ratio = footprint_radius(&planet, hi, min_elevation)
+        / footprint_radius(&planet, lo, min_elevation);
+    println!(
+        "  dwell grows {:.0}x from 300 to 50,000 km = {:.1}x period x {:.1}x half-angle",
+        max_pass_duration(&planet, hi, min_elevation) / max_pass_duration(&planet, lo, min_elevation),
+        period_ratio,
+        angle_ratio
+    );
+
     println!("
 What the 25 deg mask costs (footprint radius):");
     println!(
