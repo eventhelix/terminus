@@ -5,6 +5,7 @@
 
 mod body;
 pub mod acquisition;
+pub mod activation;
 pub mod backbone;
 pub mod beams;
 pub mod circular;

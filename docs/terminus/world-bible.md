@@ -129,6 +129,11 @@ as the AI's native time standard.
   32.14°/day (`access_constellation`). From an epoch with a ring on the
   terminator, the first change comes at **11.2 h**: half a plane spacing of
   drift, after which the incumbent and its neighbour are equidistant.
+- Not every satellite is radiating. The fleet runs a precomputed activation
+  plan (ADR-0017): duty ring on as a block, other rings patched in only where
+  the band would be unserved. Mean **24 of 72 lit** (34%), peak 32; the proved
+  minimum is 21.4. Roughly **70% of the fleet is dark at any moment**, and all
+  72 spacecraft are still required.
 - The duty ring is the ring carrying the **most** traffic, never the only ring
   serving (ADR-0016). Below 15° latitude it supplies about **half** the
   visible satellites and a town sees **1-2 rings**; above 70° all six rings
