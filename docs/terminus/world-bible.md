@@ -17,6 +17,31 @@ transit, so its radius is inferred), the reference model uses Earth values.
 | Orbital distance | 0.0485 AU ≈ 7.256e6 km | |
 | Surface gravity | 9.82 m/s² | Follows from radius and mass |
 | Atmosphere | Earth-like pressure and composition | Working assumption; drives link and drag models |
+| J2 (oblateness) | 2.15e-5 | ~50x rounder than Earth; see below (`planet_figure`) |
+| C22 (tidal bulge) | 6.44e-6 | J2/C22 = 10/3, the hydrostatic synchronous figure |
+| Flattening | 1/21,800 | Earth is 1/298 |
+
+### Figure of the planet
+
+A body's bulge scales with `q = omega^2 R^3 / mu` and with how centrally
+condensed it is (the fluid Love number `k2`). Calibrating `k2 = 0.9414` by
+inverting Earth's own `J2 = k2 q / 3` gives the reference planet's figure
+directly. Two effects pull opposite ways:
+
+- The planet spins **11.2x slower** than Earth, and `q` goes as `omega^2`, so
+  `q` is **126x smaller**.
+- But it is **locked**, so it carries a permanent tidal bulge facing the star.
+  Synchronous hydrostatic equilibrium gives `J2 = 5 k2 q / 6` and
+  `C22 = k2 q / 4` — **2.5x** the spin-only figure.
+
+Net: `J2 = 2.15e-5`, about **50x smaller than Earth's**, not 126x.
+
+This is load-bearing for the whole access architecture. Nodal regression goes
+as `cos(inclination)`, so a perfectly polar ring does not drift at all; what
+moves a ring is injection inclination error. At 0.1 deg off polar, a 2,200 km
+ring's node drifts **0.45 deg per decade** against 30 deg of ring spacing. On an
+Earth-J2 planet the same error would cost 22.5 deg per decade and the fixed-ring
+architecture of ADR-0001 would not survive. Evidence: `planet_figure`.
 
 Because the planet is synchronously locked, the terminator is fixed on the
 surface but rotates in inertial space at 360°/11.2 days ≈ 32.14°/day
@@ -104,3 +129,8 @@ as the AI's native time standard.
   32.14°/day (`access_constellation`). From an epoch with a ring on the
   terminator, the first change comes at **11.2 h**: half a plane spacing of
   drift, after which the incumbent and its neighbour are equidistant.
+- The duty ring is the ring carrying the **most** traffic, never the only ring
+  serving (ADR-0016). Below 15° latitude it supplies about **half** the
+  visible satellites and a town sees **1-2 rings**; above 70° all six rings
+  are in reach and the duty ring's share falls to **17%**. Coverage never
+  depends on inter-ring phasing.

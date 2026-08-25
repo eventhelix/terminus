@@ -10,14 +10,17 @@ pub mod beams;
 pub mod circular;
 pub mod constellation;
 pub mod coverage;
+pub mod duty;
 pub mod handover;
 pub mod hill;
+pub mod oblateness;
 pub mod placement;
 pub mod plane_tracking;
 pub mod radio;
 pub mod relativity;
 pub mod reliability;
 pub mod spin_orbit;
+pub mod station_keeping;
 pub mod walker;
 
 pub use body::{CentralBody, EARTH_MU};

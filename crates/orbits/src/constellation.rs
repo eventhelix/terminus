@@ -86,6 +86,87 @@ pub fn visible_count(
     count
 }
 
+impl PolarConstellation {
+    /// Along-orbit phase offset (rad) applied to every satellite of plane `k`
+    /// under the uniform [`Self::interplane_phase`] stagger.
+    pub fn plane_phase(&self, k: usize) -> f64 {
+        k as f64 * self.interplane_phase
+    }
+
+    /// Ascending node (rad) of plane `k` at time `t`, in the planet-fixed
+    /// frame where it regresses at the planet's spin rate.
+    pub fn node(&self, body: &CentralBody, k: usize, t: f64) -> f64 {
+        k as f64 * std::f64::consts::PI / self.planes as f64
+            - 2.0 * std::f64::consts::PI / body.rotation_period * t
+    }
+
+    /// Planet-central half-angle (rad) of one satellite's footprint.
+    pub fn footprint_half_angle(&self, body: &CentralBody, min_elevation: f64) -> f64 {
+        crate::coverage::footprint_radius(body, self.altitude, min_elevation) / body.radius
+    }
+}
+
+/// Satellites of plane `k` visible from `ground_unit` at time `t`, given that
+/// plane's along-orbit `phase` (rad).
+///
+/// Solved rather than enumerated. A plane's satellites all ride one great
+/// circle, so the along-orbit angles from which the ground point lies within
+/// the footprint half-angle `lambda` form a single arc: the plane passes the
+/// ground point at closest approach `d` (the cross-track distance, where
+/// `cos d` is the length of the ground point's projection into the plane),
+/// and coverage runs `+/- acos(cos lambda / cos d)` about that. Counting the
+/// evenly spaced satellites inside that arc is then arithmetic rather than a
+/// loop over spacecraft, which is what makes randomized phase sweeps
+/// affordable.
+///
+/// Returns 0 when the plane never comes within `lambda` of the ground point.
+/// No number of satellites in that ring can help, which is the wall the
+/// strict duty-ring design runs into; see [`crate::duty`].
+pub fn plane_visible_count(
+    body: &CentralBody,
+    c: &PolarConstellation,
+    k: usize,
+    ground_unit: [f64; 3],
+    phase: f64,
+    min_elevation: f64,
+    t: f64,
+) -> usize {
+    let lambda = c.footprint_half_angle(body, min_elevation);
+    let node = c.node(body, k, t);
+    let a = ground_unit[0] * node.cos() + ground_unit[1] * node.sin();
+    let b = ground_unit[2];
+    let cos_d = (a * a + b * b).sqrt();
+    if cos_d <= lambda.cos() {
+        return 0;
+    }
+    let w = (lambda.cos() / cos_d).acos();
+    let psi = b.atan2(a);
+    let n = 2.0 * std::f64::consts::PI / crate::circular::orbital_period(body, c.altitude);
+    let step = 2.0 * std::f64::consts::PI / c.sats_per_plane as f64;
+    let u = (psi - phase - n * t).rem_euclid(step);
+    (((u + w) / step).floor() - ((u - w) / step).ceil() + 1.0).max(0.0) as usize
+}
+
+/// Total satellites visible at `t`, with an independent along-orbit phase for
+/// each plane. `phases` must have one entry per plane.
+///
+/// Uncoordinated phasing is the honest model: a launch campaign that cannot
+/// target a plane's phase relative to its neighbours (see
+/// [`crate::station_keeping`]) produces arbitrary offsets, and a coverage
+/// claim has to hold for all of them.
+pub fn visible_count_with_phases(
+    body: &CentralBody,
+    c: &PolarConstellation,
+    ground_unit: [f64; 3],
+    phases: &[f64],
+    min_elevation: f64,
+    t: f64,
+) -> usize {
+    (0..c.planes)
+        .map(|k| plane_visible_count(body, c, k, ground_unit, phases[k], min_elevation, t))
+        .sum()
+}
+
 /// Coverage of the band over time: fewest and average satellites usable
 /// from any sampled band point at any sampled instant.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -133,6 +214,7 @@ pub fn band_coverage(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f64::consts::PI;
     use crate::coverage::footprint_radius;
 
     const MIN_ELEVATION: f64 = 25.0 * std::f64::consts::PI / 180.0;
@@ -209,6 +291,58 @@ mod tests {
         };
         let stats = band_coverage(&p, &baseline, band, MIN_ELEVATION, duration, 120.0, 36);
         assert!(stats.min_visible >= 1);
+    }
+
+    #[test]
+    fn solved_arc_count_matches_brute_force_enumeration() {
+        // plane_visible_count solves for the visibility arc instead of
+        // testing every spacecraft; the two must agree exactly, or every
+        // randomized phase sweep built on the fast path is worthless.
+        let p = reference_planet();
+        for (planes, sats, stagger) in [(6, 12, 0.0), (6, 14, 0.13), (8, 12, 0.4)] {
+            let c = PolarConstellation {
+                altitude: 2_200e3,
+                planes,
+                sats_per_plane: sats,
+                interplane_phase: stagger,
+            };
+            let phases: Vec<f64> = (0..planes).map(|k| c.plane_phase(k)).collect();
+            let mut t = 0.0;
+            while t < 3.0 * 86_400.0 {
+                for i in 0..29 {
+                    let az = i as f64 * 2.0 * PI / 29.0;
+                    for off in [-0.35, -0.1, 0.0, 0.2, 0.35] {
+                        let g = band_point(az, off);
+                        assert_eq!(
+                            visible_count_with_phases(&p, &c, g, &phases, MIN_ELEVATION, t),
+                            visible_count(&p, &c, g, MIN_ELEVATION, t),
+                            "planes {planes} sats {sats} az {az} off {off} t {t}"
+                        );
+                    }
+                }
+                t += 91.0;
+            }
+        }
+    }
+
+    #[test]
+    fn a_plane_beyond_its_footprint_sees_nothing_at_any_satellite_count() {
+        // Past the footprint half-angle, packing more satellites into a ring
+        // changes nothing: the ring simply never reaches the ground point.
+        let p = reference_planet();
+        let g = band_point(0.0, 0.0);
+        for sats in [12, 24, 48, 96] {
+            let c = PolarConstellation {
+                altitude: 2_200e3,
+                planes: 6,
+                sats_per_plane: sats,
+                interplane_phase: 0.0,
+            };
+            // Plane 3's node lies along this ground point, so it serves it...
+            assert!(plane_visible_count(&p, &c, 3, g, 0.0, MIN_ELEVATION, 0.0) > 0);
+            // ...while plane 0's node is 90 deg away: hopeless at any count.
+            assert_eq!(plane_visible_count(&p, &c, 0, g, 0.0, MIN_ELEVATION, 0.0), 0);
+        }
     }
 
     #[test]
