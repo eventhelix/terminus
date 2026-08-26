@@ -136,15 +136,63 @@ pub fn plane_visible_count(
     let a = ground_unit[0] * node.cos() + ground_unit[1] * node.sin();
     let b = ground_unit[2];
     let cos_d = (a * a + b * b).sqrt();
-    if cos_d <= lambda.cos() {
+    // Pad the reach test before using it to reject a plane or to bound the
+    // arc. The padded angle is far below any real geometry (1e-9 rad is
+    // millimetres of ground track) but comfortably above the float error
+    // between the central-angle and elevation forms of the same test, so a
+    // satellite sitting on the mask is never screened out before it is
+    // measured.
+    let cos_reach = (lambda + 1e-9).cos();
+    if cos_d <= cos_reach {
         return 0;
     }
-    let w = (lambda.cos() / cos_d).acos();
+    let w = (cos_reach / cos_d).clamp(-1.0, 1.0).acos();
     let psi = b.atan2(a);
     let n = 2.0 * std::f64::consts::PI / crate::circular::orbital_period(body, c.altitude);
     let step = 2.0 * std::f64::consts::PI / c.sats_per_plane as f64;
-    let u = (psi - phase - n * t).rem_euclid(step);
-    (((u + w) / step).floor() - ((u - w) / step).ceil() + 1.0).max(0.0) as usize
+    // A satellite's current along-orbit angle is `j*step + phase + n*t`, so it
+    // is visible when `j*step - U` falls in the arc, with `U = psi - phase -
+    // n*t`. Splitting `U = m*step + u` puts the arc in the shifted index
+    // `i = j - m`; `m` must be carried back when naming the satellite, since it
+    // decides *which* ones are candidates even though it cannot change how
+    // many.
+    let big_u = psi - phase - n * t;
+    let m = (big_u / step).floor();
+    let u = big_u - m * step;
+    let m = m as i64;
+
+    // The arc narrows the field to a couple of candidates; it does not decide
+    // them. Deciding by arithmetic alone disagrees with `elevation` for a
+    // satellite sitting exactly on the mask, and a coverage *minimum* is
+    // precisely where those cases fall - an over-count of one there turns a
+    // real gap into apparent coverage. So test each candidate with the same
+    // elevation comparison the brute-force count uses, and widen the candidate
+    // range by one slot on each side so no boundary case is missed.
+    let lo = ((u - w) / step).ceil() as i64 - 1;
+    let hi = ((u + w) / step).floor() as i64 + 1;
+    // Each candidate must be a distinct satellite: if the widened range wraps
+    // past a full ring, fall back to testing every one of them.
+    let span = hi - lo + 1;
+    let (lo, hi) = if span >= c.sats_per_plane as i64 {
+        (0, c.sats_per_plane as i64 - 1)
+    } else {
+        (lo, hi)
+    };
+    let raan = k as f64 * std::f64::consts::PI / c.planes as f64;
+    let mut count = 0;
+    for i in lo..=hi {
+        let j = (i + m).rem_euclid(c.sats_per_plane as i64);
+        // Compute theta0 exactly as `visible_count` does. `j * step` and
+        // `j * 2pi / sats` differ in the last bit, which is enough to flip a
+        // satellite sitting precisely on the mask and turn a real gap into
+        // apparent coverage.
+        let theta0 = j as f64 * 2.0 * std::f64::consts::PI / c.sats_per_plane as f64 + phase;
+        let sat = polar_sat_position(body, c.altitude, raan, theta0, t);
+        if elevation(body, ground_unit, sat) >= min_elevation {
+            count += 1;
+        }
+    }
+    count
 }
 
 /// Total satellites visible at `t`, with an independent along-orbit phase for
@@ -299,30 +347,73 @@ mod tests {
         // testing every spacecraft; the two must agree exactly, or every
         // randomized phase sweep built on the fast path is worthless.
         let p = reference_planet();
-        for (planes, sats, stagger) in [(6, 12, 0.0), (6, 14, 0.13), (8, 12, 0.4)] {
+        // The half-slot stagger at 1,800 km is in this list deliberately: an
+        // earlier arithmetic-only solver over-counted by one there, exactly at
+        // the instant the band's coverage minimum is decided, and reported a
+        // real gap as covered. Sampling is fine enough to land on it.
+        for (planes, sats, stagger) in [
+            (6, 12, 0.0),
+            (6, 12, 0.5 * 2.0 * PI / 12.0),
+            (6, 14, 0.13),
+            (8, 12, 0.4),
+        ] {
+            for altitude in [1_800e3, 2_200e3] {
             let c = PolarConstellation {
-                altitude: 2_200e3,
+                altitude,
                 planes,
                 sats_per_plane: sats,
                 interplane_phase: stagger,
             };
             let phases: Vec<f64> = (0..planes).map(|k| c.plane_phase(k)).collect();
             let mut t = 0.0;
-            while t < 3.0 * 86_400.0 {
-                for i in 0..29 {
-                    let az = i as f64 * 2.0 * PI / 29.0;
-                    for off in [-0.35, -0.1, 0.0, 0.2, 0.35] {
+            while t < 2.0 * 86_400.0 {
+                for i in 0..72 {
+                    let az = i as f64 * 2.0 * PI / 72.0;
+                    for off in [-0.349_066, -0.1, 0.0, 0.2, 0.349_066] {
                         let g = band_point(az, off);
                         assert_eq!(
                             visible_count_with_phases(&p, &c, g, &phases, MIN_ELEVATION, t),
                             visible_count(&p, &c, g, MIN_ELEVATION, t),
-                            "planes {planes} sats {sats} az {az} off {off} t {t}"
+                            "planes {planes} sats {sats} alt {altitude} az {az} off {off} t {t}"
                         );
                     }
                 }
-                t += 91.0;
+                t += 30.0;
+            }
             }
         }
+    }
+
+    #[test]
+    fn the_half_slot_alternation_breaks_the_baseline() {
+        // Coverage survives *uncoordinated* phasing, but not every phasing.
+        // Offsetting each ring half a slot from the last -- the triangular
+        // interleave a cellular network would use -- is a structured pattern,
+        // and at the 12-satellite baseline it opens a gap that the aligned
+        // wheel does not have. Robust to random is not the same as immune.
+        let p = reference_planet();
+        let slot = 2.0 * PI / 12.0;
+        let aligned = PolarConstellation {
+            altitude: 2_200e3,
+            planes: 6,
+            sats_per_plane: 12,
+            interplane_phase: 0.0,
+        };
+        let alternating = PolarConstellation {
+            interplane_phase: slot / 2.0,
+            ..aligned
+        };
+        let band = 20.0_f64.to_radians();
+        let dur = 11.2 * 86_400.0;
+        assert_eq!(
+            band_coverage(&p, &aligned, band, MIN_ELEVATION, dur, 120.0, 36).min_visible,
+            1
+        );
+        assert_eq!(
+            band_coverage(&p, &alternating, band, MIN_ELEVATION, dur, 30.0, 72).min_visible,
+            0,
+            "the half-slot alternation should open a gap at 12 satellites per ring"
+        );
     }
 
     #[test]

@@ -295,6 +295,81 @@ pub fn duty_first_activation(
     }
 }
 
+/// Smooth a run of per-step plans into a schedule a spacecraft can actually
+/// fly, by being lazy about switching off.
+///
+/// A plan computed independently at each step will strand satellites: lit for
+/// one step, dark for one, lit again, because the greedy choice happened to
+/// tip. Every one of those is a thermal and power-electronics cycle bought for
+/// nothing. Two rules fix it, and because the plan is a *timetable* computed
+/// ahead of time rather than a decision made in orbit, both can be applied
+/// with perfect knowledge of what comes next:
+///
+/// - **Lazy off.** If a satellite is needed again within `min_off_steps`,
+///   leave it on through the gap rather than cycling it.
+/// - **Warm start.** Light it `warmup_steps` before it is first needed, so it
+///   is never asked to take a handover cold.
+///
+/// Both only ever add lit time, so a smoothed schedule still covers everything
+/// the input plans covered.
+pub fn smooth_schedule(
+    plans: &[Vec<bool>],
+    warmup_steps: usize,
+    min_off_steps: usize,
+) -> Vec<Vec<bool>> {
+    if plans.is_empty() {
+        return Vec::new();
+    }
+    let steps = plans.len();
+    let fleet = plans[0].len();
+    let mut out = plans.to_vec();
+
+    for s in 0..fleet {
+        // Lazy off: close any gap shorter than min_off_steps.
+        let mut i = 0;
+        while i < steps {
+            if out[i][s] {
+                i += 1;
+                continue;
+            }
+            let start = i;
+            while i < steps && !out[i][s] {
+                i += 1;
+            }
+            let gap = i - start;
+            // Only an interior gap is worth closing; a run that starts or ends
+            // dark has no "again" to wait for.
+            if start > 0 && i < steps && gap < min_off_steps {
+                for step in out.iter_mut().take(i).skip(start) {
+                    step[s] = true;
+                }
+            }
+        }
+        // Warm start: extend every run backwards.
+        if warmup_steps > 0 {
+            let lit: Vec<bool> = (0..steps).map(|i| out[i][s]).collect();
+            for i in 0..steps {
+                if lit[i] && (i == 0 || !lit[i - 1]) {
+                    let from = i.saturating_sub(warmup_steps);
+                    for step in out.iter_mut().take(i).skip(from) {
+                        step[s] = true;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Total on/off transitions across a schedule - the number a policy actually
+/// costs the fleet.
+pub fn switch_count(plans: &[Vec<bool>]) -> u64 {
+    plans
+        .windows(2)
+        .map(|w| (0..w[0].len()).filter(|&s| w[0][s] != w[1][s]).count() as u64)
+        .sum()
+}
+
 /// A lower bound on any valid activation set, computed independently of the
 /// greedy choice.
 ///
@@ -676,6 +751,62 @@ mod tests {
             churn_sticky < churn_cold,
             "sticky {churn_sticky} vs cold {churn_cold}"
         );
+    }
+
+    #[test]
+    fn smoothing_removes_flapping_without_dropping_coverage() {
+        let (p, c) = (reference_planet(), baseline());
+        let phases = vec![0.0; c.planes];
+        let pts = band_samples(72);
+        let fleet = fleet_size(&c);
+
+        let step = 60.0;
+        let mut plans = Vec::new();
+        let mut covs = Vec::new();
+        let mut prev: Option<Vec<bool>> = None;
+        let mut t = 0.0;
+        while t < 4.0 * 3600.0 {
+            let cov = covering_satellites(&p, &c, &phases, &pts, MASK, t);
+            let duty = crate::duty::duty_ring(&p, &c, t);
+            let plan = duty_first_activation(&cov, &c, duty, prev.as_deref(), false);
+            prev = Some(plan.active.clone());
+            plans.push(plan.active);
+            covs.push(cov);
+            t += step;
+        }
+
+        let raw_switches = switch_count(&plans);
+        // Five minutes of warm-up, ten minutes of laziness.
+        let smoothed = smooth_schedule(&plans, 5, 10);
+        let smooth_switches = switch_count(&smoothed);
+
+        assert!(
+            smooth_switches < raw_switches,
+            "smoothing did not reduce switching: {smooth_switches} vs {raw_switches}"
+        );
+        // Smoothing only ever adds lit time, so coverage cannot regress.
+        for (i, cov) in covs.iter().enumerate() {
+            for (j, sats) in cov.iter().enumerate() {
+                assert!(
+                    sats.iter().any(|&s| smoothed[i][s]),
+                    "point {j} unserved after smoothing at step {i}"
+                );
+            }
+            for s in 0..fleet {
+                assert!(
+                    !plans[i][s] || smoothed[i][s],
+                    "smoothing switched a satellite off"
+                );
+            }
+        }
+
+        // No satellite should be left with a one-step blink.
+        for s in 0..fleet {
+            for i in 1..smoothed.len() - 1 {
+                let blink = smoothed[i][s] && !smoothed[i - 1][s] && !smoothed[i + 1][s];
+                assert!(!blink, "satellite {s} still blinks at step {i}");
+            }
+        }
     }
 
     #[test]

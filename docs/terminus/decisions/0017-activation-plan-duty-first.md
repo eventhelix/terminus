@@ -67,6 +67,14 @@ runs under half lit.
 - **The warm-up lead is a protocol input**, not an operations detail: handover
   selection (ADR-0015) may only choose a target already lit, so the activation
   timetable and the handover plan must be generated together.
+- **A hysteresis (lazy-off) hold is required, and is nearly free.** Planning
+  each step independently leaves satellites flapping: 787 one-step on/off
+  blinks per simulated day, each a wasted thermal and power cycle. Holding a
+  satellite lit until it has gone 120 s without being needed removes every one
+  of them for 1.6 extra satellites lit (34% → 36% duty cycle) and cuts
+  switching from 196/h to 153/h. The curve knees hard there — 600 s of hold
+  would buy 100/h but cost ten extra satellites — so the hold is set just above
+  the knee, at 180 s. Implemented as `activation::smooth_schedule`.
 - A dark satellite is still in its orbit and still tracked; "off" means its
   service payload is not radiating, not that it is unavailable for the plan.
 - **This does not reduce the fleet.** All 72 spacecraft are still required —

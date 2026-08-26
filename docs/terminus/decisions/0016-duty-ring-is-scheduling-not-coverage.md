@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-25
 Requirements: TER-REQ-001, TER-REQ-014, TER-REQ-016
-Evidence: `cargo run --release -p helixsim-orbits --example duty_ring_trade` (tag: terminus-post-5b)
+Evidence: `cargo run --release -p helixsim-orbits --example duty_ring_trade`; `--example phasing_options` (tag: terminus-post-5b)
 
 ## Decision
 
@@ -17,6 +17,9 @@ Two further constraints follow and are adopted as standing rules:
 
 1. **No coverage claim may depend on a phase relationship between rings.**
    Each ring's along-orbit phase is treated as arbitrary and uncoordinated.
+   The flip side is that the baseline phasing must still be *verified* rather
+   than assumed harmless: the half-slot alternation is excluded because it is
+   measurably worse, not because it is unfashionable.
 2. Handover cadence is quoted as the in-ring spacing (11.0 min at 2,200 km)
    only as the *nominal* rhythm; the serving satellite may belong to a
    neighbouring ring, so real cadence is that figure or shorter.
@@ -52,13 +55,22 @@ elevation is far longer.
 
 **The multi-ring design already has the one property a strict duty ring was
 wanted for.** The reason to prefer a single ring was to avoid depending on
-inter-ring phasing, which is expensive to establish at launch and to hold. But
-coverage was tested against 256 independent random per-ring phase offsets per
+inter-ring phasing, which is expensive to establish at launch and to hold.
+Coverage was tested against 64 independent random per-ring phase offsets per
 configuration, over a full rotation at 30 s × 72 azimuths × 3 band offsets, and
 the minimum never moved: the phase-locked minimum equals the worst random
-minimum in every configuration tested, with zero failures in 2,560 phase
-vectors. The design never had a phase dependency to give up; `interplane_phase`
-was an arbitrary parameter that happened not to matter.
+minimum in every configuration tested, with zero failures in 256 phase
+vectors.
+
+That is robustness to *uncoordinated* phasing, which is the operationally
+relevant case — a launch campaign produces arbitrary offsets, not adversarial
+ones. It is **not** immunity to every phasing. A structured pattern does break
+it: offsetting each ring half a slot from the last, the triangular interleave a
+cellular network would use, opens a gap at the 12-satellite baseline that the
+aligned wheel does not have (see the `phasing_options` example, and the
+`the_half_slot_alternation_breaks_the_baseline` test that pins it). The
+conclusion stands but must be stated precisely: **the fleet is free to ignore
+inter-ring phase, not free to choose it badly.**
 
 **How many rings actually serve depends on latitude**, because polar planes are
 30° apart at the equator but all converge at the poles:
