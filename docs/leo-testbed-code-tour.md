@@ -26,7 +26,7 @@ event in the future.** A propagation delay of 3.2 ms isn't a `sleep` — it's
 
 ### nexosim: the engine this project uses
 
-helixsim uses [nexosim](https://github.com/asynchronics/nexosim) 1.x as its DES
+terminus uses [nexosim](https://github.com/asynchronics/nexosim) 1.x as its DES
 engine. Once you see its core concepts, every file in `crates/core/` reads the
 same way:
 
@@ -90,7 +90,7 @@ drop(simu);                                    // closes pcapng/ndjson files
 `step_until` is the event loop: pop earliest event → run its handler → the handler
 may `send()` on ports (enqueues messages into other mailboxes as *now*-events) and
 `schedule_event()` (future events) → repeat until the clock passes 60 s. `init` is
-nexosim's startup hook; helixsim uses it to fire each node's `on_start` (e.g. a
+nexosim's startup hook; terminus uses it to fire each node's `on_start` (e.g. a
 terminal schedules its first send timer — `NodeModel::init`, `node.rs:152`).
 
 One determinism-critical detail: `SimInit::with_num_threads(1)`
@@ -309,7 +309,7 @@ sim-time meets wall-clock.
 ## Part 4 — protocols, cli, and the scenario
 
 ### `crates/protocols/` — real bytes on the wire
-The distinctive property of helixsim: **one `.pdl` file is the single source of
+The distinctive property of terminus: **one `.pdl` file is the single source of
 truth for both the Rust codec and the Wireshark dissector**, so they can't drift.
 
 - **`pdl/link.pdl`** (35 lines) — the link-layer framing. A `LinkFrame` has a
@@ -353,7 +353,7 @@ truth for both the Rust codec and the Wireshark dissector**, so they can't drift
   `scenario.snapshot.toml` (version + trace hashes + full scenario). The point
   (design 3.3): open any run in Wireshark / the VisualEther MCP tools with zero
   manual setup.
-- **`main.rs`** (44 lines) — the `helixsim run <scenario> --out <dir>` CLI. The
+- **`main.rs`** (44 lines) — the `terminus run <scenario> --out <dir>` CLI. The
   only wall-clock read in the codebase is here, naming the output dir
   `run-<unix-secs>` — explicitly *outside* the simulation so run contents stay
   byte-deterministic (`main.rs:30`).
@@ -404,7 +404,7 @@ and the per-crate unit tests inline in each module.
 
 ## How to explore it
 
-1. **Run it** — `cargo run -p helixsim -- run crates/scenarios/leo-testbed/scenario.toml`
+1. **Run it** — `cargo run -p terminus -- run crates/scenarios/leo-testbed/scenario.toml`
    produces `out/leo-testbed/run-<ts>/`. Open `metrics.ndjson` and watch the
    echo/forward/drop events; open a `nodes/*.pcapng` in Wireshark with the bundled
    dissector.

@@ -1,8 +1,8 @@
-# helixsim — Project Context
+# terminus — Project Context
 
 ## What this is
 
-helixsim is an open-source Rust discrete-event simulator for networking and
+terminus is an open-source Rust discrete-event simulator for networking and
 wireless systems (satellite, mobile, terrestrial). Two missions:
 
 1. **Test and integration platform** — exercise system software against
@@ -43,12 +43,12 @@ reproducible from a tagged run (`terminus-post-N` tags pin the evidence).
 ```
 crates/core/       Packet, node/interface traits, medium, channel trace,
                    compute model, capture — all nexosim models
-crates/orbits/     helixsim-orbits: closed-form orbital/link/reliability
+crates/orbits/     terminus-orbits: closed-form orbital/link/reliability
                    screening math; its examples are the Terminus posts'
                    evidence artifacts
 crates/protocols/  PDL sources + generated codecs/dissectors; etherparse builders
 crates/scenarios/  scenario TOML + trace files (LEO testbed is the first slice)
-crates/cli/        the `helixsim` binary: run a scenario -> output directory
+crates/cli/        the `terminus` binary: run a scenario -> output directory
 ```
 
 ## Build commands
@@ -69,11 +69,11 @@ cargo build --release
 - **Config errors die at startup; network realities are simulated.** Dangling
   refs and trace-coverage gaps fail fast. Loss, unreachability, and undecodable
   received bytes are counted, not errored.
-- **helixsim stays generic and independently usable.** No Terminus/Proxima
-  concepts, constants, or narrative in any crate — planets, stars, and
-  constellations are configuration. Terminus lives only in `docs/terminus/`,
-  scenario data, and the site repo. The crates must remain publishable on
-  their own.
+- **The crates stay generic and independently usable.** The repository is named
+  after the Terminus series, but no Terminus/Proxima concepts, constants, or
+  narrative may appear in any crate — planets, stars, and constellations are
+  configuration. The series lives only in `docs/terminus/`, scenario data, and
+  the site repo. The crates must remain publishable on their own.
 
 ## Commit conventions
 

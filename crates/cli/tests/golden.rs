@@ -1,6 +1,6 @@
 //! Golden-run acceptance (design §3.5): committed digests of the
 //! canonical scenario's captures. On intentional behavior change:
-//!   UPDATE_GOLDEN=1 cargo test -p helixsim --test golden
+//!   UPDATE_GOLDEN=1 cargo test -p terminus --test golden
 //! then commit the regenerated golden.sha256 alongside the change.
 
 use std::path::{Path, PathBuf};
@@ -11,9 +11,9 @@ fn scenario_dir() -> PathBuf {
 
 #[test]
 fn outputs_match_committed_digests() {
-    let run = std::env::temp_dir().join(format!("helixsim-golden-{}", std::process::id()));
+    let run = std::env::temp_dir().join(format!("terminus-golden-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&run);
-    helixsim_cli::assemble::run_scenario(&scenario_dir().join("scenario.toml"), &run).unwrap();
+    terminus_cli::assemble::run_scenario(&scenario_dir().join("scenario.toml"), &run).unwrap();
 
     let mut lines = Vec::new();
     let mut nodes: Vec<_> = std::fs::read_dir(run.join("nodes"))
@@ -22,10 +22,10 @@ fn outputs_match_committed_digests() {
         .collect();
     nodes.sort();
     for p in &nodes {
-        let digest = helixsim_cli::config::sha256_hex(&std::fs::read(p).unwrap());
+        let digest = terminus_cli::config::sha256_hex(&std::fs::read(p).unwrap());
         lines.push(format!("{digest}  nodes/{}", p.file_name().unwrap().to_string_lossy()));
     }
-    let digest = helixsim_cli::config::sha256_hex(&std::fs::read(run.join("metrics.ndjson")).unwrap());
+    let digest = terminus_cli::config::sha256_hex(&std::fs::read(run.join("metrics.ndjson")).unwrap());
     lines.push(format!("{digest}  metrics.ndjson"));
     let actual = lines.join("\n") + "\n";
 

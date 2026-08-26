@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-002, TER-REQ-003, TER-REQ-013, TER-REQ-014
-Evidence: `cargo run -p helixsim-orbits --example compute_placement` (tag: terminus-post-6)
+Evidence: `cargo run -p terminus-orbits --example compute_placement` (tag: terminus-post-6)
 
 ## Decision
 

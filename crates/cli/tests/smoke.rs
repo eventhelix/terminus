@@ -3,16 +3,16 @@
 
 use std::path::{Path, PathBuf};
 
-use helixsim_core::records::MetricRecord;
+use terminus_core::records::MetricRecord;
 
 fn scenario() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../scenarios/leo-testbed/scenario.toml")
 }
 
 fn run_once(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("helixsim-smoke-{tag}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("terminus-smoke-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    helixsim_cli::assemble::run_scenario(&scenario(), &dir).expect("run failed");
+    terminus_cli::assemble::run_scenario(&scenario(), &dir).expect("run failed");
     dir
 }
 

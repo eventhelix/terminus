@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-003, TER-REQ-013, TER-REQ-015, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example backbone` (tag: terminus-post-11)
+Evidence: `cargo run -p terminus-orbits --example backbone` (tag: terminus-post-11)
 
 ## Decision
 

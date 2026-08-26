@@ -1,9 +1,9 @@
-# helixsim
+# terminus
 
 A discrete-event simulator for networking and wireless systems — satellite,
 mobile, and terrestrial — written in Rust.
 
-helixsim serves two missions:
+terminus serves two missions:
 
 - **Test and integration platform.** Exercise system software against simulated
   nodes and links before hardware is available. Node models are designed so real
@@ -15,7 +15,7 @@ helixsim serves two missions:
 
 ## What makes it different
 
-Every exchange between simulated nodes is **real protocol bytes**. helixsim
+Every exchange between simulated nodes is **real protocol bytes**. terminus
 captures each run to standard PCAPNG with matching Wireshark dissectors, so any
 simulation can be:
 
@@ -46,9 +46,9 @@ updates, dissector regeneration, reproducing runs — live in the
 
 ```bash
 cargo build --release
-cargo run -p helixsim -- run crates/scenarios/leo-testbed/scenario.toml --out out
+cargo run -p terminus -- run crates/scenarios/leo-testbed/scenario.toml --out out
 cargo test --workspace                                  # unit + determinism + golden + smoke
-cargo test -p helixsim --test dissection -- --ignored   # needs tshark on PATH
+cargo test -p terminus --test dissection -- --ignored   # needs tshark on PATH
 ```
 
 Each run writes a self-describing directory: per-node PCAPNG captures on
@@ -62,7 +62,7 @@ wireshark -X lua_script:<run-dir>/dissectors/link.lua <run-dir>/nodes/term-a.pca
 
 ## Engine
 
-helixsim is built directly on [nexosim](https://github.com/asynchronics/nexosim),
+terminus is built directly on [nexosim](https://github.com/asynchronics/nexosim),
 a high-performance, deterministic, parallel discrete-event simulation framework.
 Nodes, protocol layers, and transmission media are all nexosim models.
 

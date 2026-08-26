@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-006, TER-REQ-008, TER-REQ-009
-Evidence: `cargo run -p helixsim-orbits --example first_contact` (tag: terminus-post-9)
+Evidence: `cargo run -p terminus-orbits --example first_contact` (tag: terminus-post-9)
 
 ## Decision
 

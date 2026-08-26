@@ -1,6 +1,6 @@
 [package]
-name = "helixsim-orbits"
-description = "First-order orbital screening for helixsim: circular-orbit geometry, synchronous orbits, and rotating-plane-tracking cost models for arbitrary central bodies."
+name = "terminus-orbits"
+description = "First-order orbital screening for terminus: circular-orbit geometry, synchronous orbits, and rotating-plane-tracking cost models for arbitrary central bodies."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

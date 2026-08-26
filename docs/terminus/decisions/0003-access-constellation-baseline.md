@@ -3,7 +3,7 @@
 Status: accepted (amended 2026-08-25; see ADR-0016)
 Date: 2026-08-21
 Requirements: TER-REQ-001, TER-REQ-016
-Evidence: `cargo run --release -p helixsim-orbits --example access_constellation` (tag: terminus-post-5)
+Evidence: `cargo run --release -p terminus-orbits --example access_constellation` (tag: terminus-post-5)
 
 ## Decision
 

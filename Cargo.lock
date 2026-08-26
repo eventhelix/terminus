@@ -512,56 +512,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "helixsim"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "helixsim-core",
- "helixsim-protocols",
- "nexosim",
- "pcap-file",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "toml",
- "tracing",
-]
-
-[[package]]
-name = "helixsim-core"
-version = "0.0.0"
-dependencies = [
- "csv",
- "helixsim-protocols",
- "nexosim",
- "pcap-file",
- "rand",
- "rand_chacha",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "helixsim-orbits"
-version = "0.0.0"
-
-[[package]]
-name = "helixsim-protocols"
-version = "0.0.0"
-dependencies = [
- "bytes",
- "etherparse",
- "pdl-compiler",
- "pdl-runtime",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1332,6 +1282,56 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "terminus"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "nexosim",
+ "pcap-file",
+ "serde",
+ "serde_json",
+ "sha2",
+ "terminus-core",
+ "terminus-protocols",
+ "thiserror",
+ "toml",
+ "tracing",
+]
+
+[[package]]
+name = "terminus-core"
+version = "0.0.0"
+dependencies = [
+ "csv",
+ "nexosim",
+ "pcap-file",
+ "rand",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+ "terminus-protocols",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "terminus-orbits"
+version = "0.0.0"
+
+[[package]]
+name = "terminus-protocols"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "etherparse",
+ "pdl-compiler",
+ "pdl-runtime",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

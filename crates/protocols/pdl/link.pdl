@@ -1,4 +1,4 @@
-// helixsim link framing (slice 1). One .pdl generates both the Rust
+// terminus link framing (slice 1). One .pdl generates both the Rust
 // codec (build.rs, pdl-compiler) and the Wireshark Lua dissector
 // (tools/regen-dissector.sh, pdl-dissector) — they cannot drift apart.
 //

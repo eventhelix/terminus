@@ -12,8 +12,8 @@ version = "0.0.0"
 edition = "2021"
 rust-version = "1.79"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/eventhelix/helixsim"
-homepage = "https://github.com/eventhelix/helixsim"
+repository = "https://github.com/eventhelix/terminus"
+homepage = "https://github.com/eventhelix/terminus"
 authors = ["EventHelix.com Inc."]
 
 [workspace.dependencies]

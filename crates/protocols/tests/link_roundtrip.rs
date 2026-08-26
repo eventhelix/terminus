@@ -1,5 +1,5 @@
-use helixsim_protocols::link::{ControlFrame, DataFrame, LinkFrame, LinkFrameChild};
-use helixsim_protocols::PdlPacket;
+use terminus_protocols::link::{ControlFrame, DataFrame, LinkFrame, LinkFrameChild};
+use terminus_protocols::PdlPacket;
 
 #[test]
 fn data_frame_roundtrip_via_parent_specialize() {

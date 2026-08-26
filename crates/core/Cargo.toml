@@ -1,6 +1,6 @@
 [package]
-name = "helixsim-core"
-description = "Core simulation abstractions for helixsim: packets, nodes, media, channel traces, compute models, and packet capture."
+name = "terminus-core"
+description = "Core simulation abstractions for terminus: packets, nodes, media, channel traces, compute models, and packet capture."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -19,4 +19,4 @@ csv.workspace = true
 pcap-file.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-helixsim-protocols = { path = "../protocols" }
+terminus-protocols = { path = "../protocols" }

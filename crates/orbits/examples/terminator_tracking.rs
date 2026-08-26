@@ -1,14 +1,14 @@
 //! Cost of actively rotating an orbital plane to track the terminator of a
 //! tidally locked, Earth-sized reference planet (11.2-day rotation).
 //!
-//! Run: cargo run -p helixsim-orbits --example terminator_tracking
+//! Run: cargo run -p terminus-orbits --example terminator_tracking
 
-use helixsim_orbits::circular::orbital_velocity;
-use helixsim_orbits::plane_tracking::{
+use terminus_orbits::circular::orbital_velocity;
+use terminus_orbits::plane_tracking::{
     cross_track_acceleration, ideal_plane_change_dv_per_day, propellant_fraction_per_day,
     remaining_mass_fraction, terminator_rate,
 };
-use helixsim_orbits::CentralBody;
+use terminus_orbits::CentralBody;
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);

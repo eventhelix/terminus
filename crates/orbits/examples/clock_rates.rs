@@ -2,14 +2,14 @@
 //! Earth-sized reference planet, and the failover arithmetic of the
 //! keep-alive layer that guards the routing timetable.
 //!
-//! Run: cargo run -p helixsim-orbits --example clock_rates
+//! Run: cargo run -p terminus-orbits --example clock_rates
 
-use helixsim_orbits::hill::SUN_MU;
-use helixsim_orbits::relativity::{
+use terminus_orbits::hill::SUN_MU;
+use terminus_orbits::relativity::{
     fractional_gravitational_blueshift, fractional_velocity_dilation, net_clock_rate_per_day,
     stellar_tidal_rate_per_day,
 };
-use helixsim_orbits::CentralBody;
+use terminus_orbits::CentralBody;
 
 const MEO_ALT: f64 = 20_000e3;
 

@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-006, TER-REQ-009, TER-REQ-010
-Evidence: `cargo run -p helixsim-orbits --example spot_beams` (tag: terminus-post-8)
+Evidence: `cargo run -p terminus-orbits --example spot_beams` (tag: terminus-post-8)
 
 ## Decision
 

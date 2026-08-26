@@ -6,15 +6,15 @@
 //! actually reach a town, and a randomized sweep over uncoordinated
 //! inter-ring phasing.
 //!
-//! Run: cargo run --release -p helixsim-orbits --example duty_ring_trade
+//! Run: cargo run --release -p terminus-orbits --example duty_ring_trade
 
-use helixsim_orbits::circular::orbital_period;
-use helixsim_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
-use helixsim_orbits::coverage::edge_slant_range;
-use helixsim_orbits::duty::{
+use terminus_orbits::circular::orbital_period;
+use terminus_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
+use terminus_orbits::coverage::edge_slant_range;
+use terminus_orbits::duty::{
     duty_ring, min_sats_per_ring_for_duty_only, rings_in_reach, rings_serving, worst_cross_track,
 };
-use helixsim_orbits::{constellation::plane_visible_count, CentralBody};
+use terminus_orbits::{constellation::plane_visible_count, CentralBody};
 use std::f64::consts::PI;
 
 const BAND: f64 = 20.0 * PI / 180.0;
@@ -98,7 +98,7 @@ fn main() {
          \x20  reaches {:.0} deg to either side, so a town can sit {:.0} deg cross-track\n\
          \x20  of the duty ring's track. A ring that cannot reach that far cannot be\n\
          \x20  rescued by adding satellites to it.\n",
-        helixsim_orbits::duty::max_duty_misalignment(6).to_degrees(),
+        terminus_orbits::duty::max_duty_misalignment(6).to_degrees(),
         BAND.to_degrees(),
         worst_cross_track(BAND, 6).to_degrees()
     );

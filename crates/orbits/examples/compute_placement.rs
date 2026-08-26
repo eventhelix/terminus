@@ -3,15 +3,15 @@
 //! arithmetic (access dwell vs compute dwell), and KV-cache size and
 //! migration costs for the reference model.
 //!
-//! Run: cargo run -p helixsim-orbits --example compute_placement
+//! Run: cargo run -p terminus-orbits --example compute_placement
 
-use helixsim_orbits::circular::orbital_period;
-use helixsim_orbits::coverage::{edge_slant_range, max_pass_duration};
-use helixsim_orbits::hill::{hill_radius, SUN_MU};
-use helixsim_orbits::placement::{
+use terminus_orbits::circular::orbital_period;
+use terminus_orbits::coverage::{edge_slant_range, max_pass_duration};
+use terminus_orbits::hill::{hill_radius, SUN_MU};
+use terminus_orbits::placement::{
     one_way_light_time, shell_distance, transfer_time, KvCacheModel,
 };
-use helixsim_orbits::CentralBody;
+use terminus_orbits::CentralBody;
 
 const ACCESS_ALT: f64 = 2_200e3;
 const MEO_ALT: f64 = 20_000e3;

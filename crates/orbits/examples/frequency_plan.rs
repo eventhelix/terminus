@@ -3,11 +3,11 @@
 //! path loss at the worst-case access slant, terminal beamwidth, and the
 //! net two-dish advantage over L-band, per candidate band.
 //!
-//! Run: cargo run -p helixsim-orbits --example frequency_plan
+//! Run: cargo run -p terminus-orbits --example frequency_plan
 
-use helixsim_orbits::coverage::edge_slant_range;
-use helixsim_orbits::radio::{beamwidth_deg, dish_gain_dbi, fspl_db};
-use helixsim_orbits::CentralBody;
+use terminus_orbits::coverage::edge_slant_range;
+use terminus_orbits::radio::{beamwidth_deg, dish_gain_dbi, fspl_db};
+use terminus_orbits::CentralBody;
 
 const ACCESS_ALT: f64 = 2_200e3;
 const DISH_M: f64 = 0.5;

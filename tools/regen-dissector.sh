@@ -20,7 +20,7 @@ pdl-dissector crates/protocols/pdl/link.pdl LinkFrame \
 # upstream), so regen can never silently produce a broken or double-patched
 # dissector. If it fails: inspect the new codegen, then update or delete
 # this step, and re-verify with
-#   cargo test -p helixsim --test dissection -- --ignored
+#   cargo test -p terminus --test dissection -- --ignored
 python - crates/protocols/dissectors/link.lua <<'PYEOF'
 import sys
 
@@ -68,7 +68,7 @@ if n != 1:
         "nibble-offset bug is fixed upstream). Refusing to write a possibly "
         "broken dissector -- review the generated output and update or "
         "remove the patch step in tools/regen-dissector.sh, then re-verify "
-        "with: cargo test -p helixsim --test dissection -- --ignored\n"
+        "with: cargo test -p terminus --test dissection -- --ignored\n"
     )
     sys.exit(1)
 

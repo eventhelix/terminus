@@ -1,6 +1,6 @@
 [package]
-name = "helixsim-protocols"
-description = "Protocol encoders/decoders for helixsim: PDL-generated codecs and Wireshark dissectors, plus etherparse-based IP/UDP/TCP builders."
+name = "terminus-protocols"
+description = "Protocol encoders/decoders for terminus: PDL-generated codecs and Wireshark dissectors, plus etherparse-based IP/UDP/TCP builders."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -18,7 +18,7 @@ thiserror.workspace = true
 
 [features]
 # Generated code emits #[cfg_attr(feature = "serde", ...)]; declaring the
-# feature silences unexpected_cfgs. Not enabled by helixsim itself.
+# feature silences unexpected_cfgs. Not enabled by terminus itself.
 serde = ["dep:serde"]
 
 [build-dependencies]

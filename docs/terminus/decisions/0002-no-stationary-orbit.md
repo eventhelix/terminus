@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-001, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example regime_survey` (tag: terminus-post-4)
+Evidence: `cargo run -p terminus-orbits --example regime_survey` (tag: terminus-post-4)
 
 ## Decision
 

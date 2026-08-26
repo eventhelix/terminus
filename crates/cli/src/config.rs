@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use helixsim_core::bler::{BlerCurve, BlerError};
-use helixsim_core::trace::{ChannelTrace, TraceError};
+use terminus_core::bler::{BlerCurve, BlerError};
+use terminus_core::trace::{ChannelTrace, TraceError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -342,7 +342,7 @@ mod tests {
     /// Minimal valid scenario written to a temp dir with its trace file.
     fn write_fixture(mutate: impl FnOnce(&mut String)) -> Result<LoadedScenario, ConfigError> {
         let dir = std::env::temp_dir()
-            .join(format!("helixsim-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
+            .join(format!("terminus-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("traces")).unwrap();
         std::fs::write(
@@ -425,7 +425,7 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
         });
         // Overwrite the trace with an unknown name and reload.
         let dir = std::env::temp_dir()
-            .join(format!("helixsim-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
+            .join(format!("terminus-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
         std::fs::write(
             dir.join("traces/m.csv"),
             "t_s,tx,rx,delay_us,sinr_db\n0.0,a,c,3000,12.0\n",
@@ -442,7 +442,7 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
         // carries a (valid) pair a->b that is not attached to m2 at all.
         let e = write_fixture(|t| {
             let dir = std::env::temp_dir().join(format!(
-                "helixsim-cfg-{}-{:?}",
+                "terminus-cfg-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));

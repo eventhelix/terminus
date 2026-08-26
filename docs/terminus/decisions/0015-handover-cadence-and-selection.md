@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-23
 Requirements: TER-REQ-013, TER-REQ-003, TER-REQ-004
-Evidence: `cargo run -p helixsim-orbits --example handover_cadence`
+Evidence: `cargo run -p terminus-orbits --example handover_cadence`
 
 ## Decision
 
@@ -55,7 +55,7 @@ changes nothing.
 - Shell sizing gains a lever: coverage margin bought by adding planes is
   cheaper in handover terms than the same margin bought by adding
   satellites per plane. This is an input to the economics post.
-- `helixsim-orbits` grows a generic `handover` module carrying the policy,
+- `terminus-orbits` grows a generic `handover` module carrying the policy,
   the timeline, and the cadence statistic, with the two findings pinned as
   tests so a later change cannot quietly restore the wrong story.
 - Two earlier artifacts conflated the pass with the handover interval and

@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-001, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example terminator_tracking` (tag: terminus-post-3)
+Evidence: `cargo run -p terminus-orbits --example terminator_tracking` (tag: terminus-post-3)
 
 ## Decision
 

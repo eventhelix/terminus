@@ -12,15 +12,15 @@
 //!   - duty first        - light the duty ring, patch the holes
 //!   - greedy / exact    - set cover, heuristic and proved
 //!
-//! Run: cargo run --release -p helixsim-orbits --example activation_plan
+//! Run: cargo run --release -p terminus-orbits --example activation_plan
 
-use helixsim_orbits::activation::{
+use terminus_orbits::activation::{
     covering_satellites, duty_first_activation, exact_activation, fleet_size, satellite_index,
     select_active, ActivationPlan,
 };
-use helixsim_orbits::constellation::{band_point, PolarConstellation};
-use helixsim_orbits::duty::duty_ring;
-use helixsim_orbits::CentralBody;
+use terminus_orbits::constellation::{band_point, PolarConstellation};
+use terminus_orbits::duty::duty_ring;
+use terminus_orbits::CentralBody;
 use std::f64::consts::PI;
 
 const MASK: f64 = 25.0 * PI / 180.0;

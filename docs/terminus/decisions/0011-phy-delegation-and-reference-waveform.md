@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-003, TER-REQ-006, TER-REQ-007, TER-REQ-012, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example unbroken_thread` (tag: terminus-post-14)
+Evidence: `cargo run -p terminus-orbits --example unbroken_thread` (tag: terminus-post-14)
 
 ## Decision
 

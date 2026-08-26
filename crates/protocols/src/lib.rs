@@ -1,4 +1,4 @@
-//! Protocol encoders/decoders for helixsim.
+//! Protocol encoders/decoders for terminus.
 //!
 //! `link` is generated from `pdl/link.pdl` at build time; the matching
 //! Wireshark Lua dissector is generated offline from the SAME file by

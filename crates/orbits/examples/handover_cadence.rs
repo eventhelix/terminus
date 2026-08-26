@@ -6,13 +6,13 @@
 //! highest satellite in view would make the link thrash between near-equal
 //! candidates; it does not, because the constellation is a queue.
 //!
-//! Run: cargo run -p helixsim-orbits --example handover_cadence
+//! Run: cargo run -p terminus-orbits --example handover_cadence
 
-use helixsim_orbits::circular::orbital_period;
-use helixsim_orbits::constellation::{band_point, PolarConstellation};
-use helixsim_orbits::coverage::max_pass_duration;
-use helixsim_orbits::handover::{handover_timeline, mean_service_interval, HandoverPolicy};
-use helixsim_orbits::CentralBody;
+use terminus_orbits::circular::orbital_period;
+use terminus_orbits::constellation::{band_point, PolarConstellation};
+use terminus_orbits::coverage::max_pass_duration;
+use terminus_orbits::handover::{handover_timeline, mean_service_interval, HandoverPolicy};
+use terminus_orbits::CentralBody;
 
 const MIN_ELEVATION: f64 = 25.0; // degrees, access floor (ADR-0003)
 const HYSTERESIS: f64 = 3.0; // degrees of margin below the floor

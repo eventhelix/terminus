@@ -2,9 +2,9 @@
 //! Mercury (3:2 spin-orbit resonance) versus a 1:1 tidally locked,
 //! Earth-sized reference planet.
 //!
-//! Run: cargo run -p helixsim-orbits --example terminator_drift
+//! Run: cargo run -p terminus-orbits --example terminator_drift
 
-use helixsim_orbits::spin_orbit::{solar_day, terminator_drift_speed};
+use terminus_orbits::spin_orbit::{solar_day, terminator_drift_speed};
 
 const DAY: f64 = 86_400.0;
 

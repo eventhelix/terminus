@@ -1,4 +1,4 @@
-//! Library surface of the `helixsim` binary — exposed so integration
+//! Library surface of the `terminus` binary — exposed so integration
 //! tests (determinism, golden, smoke) can run scenarios in-process.
 
 pub mod assemble;

@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-013, TER-REQ-014, TER-REQ-015, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example clock_rates` (tag: terminus-post-12)
+Evidence: `cargo run -p terminus-orbits --example clock_rates` (tag: terminus-post-12)
 
 ## Decision
 

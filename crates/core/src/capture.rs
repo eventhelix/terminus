@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn writes_readable_pcapng_and_ndjson() {
-        let dir = std::env::temp_dir().join(format!("helixsim-cap-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("terminus-cap-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let nodes_dir = dir.join("nodes");
         let metrics_path = dir.join("metrics.ndjson");

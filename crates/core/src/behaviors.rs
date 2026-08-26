@@ -8,9 +8,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use helixsim_protocols::link::{ControlFrame, DataFrame, LinkFrame, LinkFrameChild};
-use helixsim_protocols::udp::{build_udp_ipv4, parse_udp_ipv4};
-use helixsim_protocols::PdlPacket;
+use terminus_protocols::link::{ControlFrame, DataFrame, LinkFrame, LinkFrameChild};
+use terminus_protocols::udp::{build_udp_ipv4, parse_udp_ipv4};
+use terminus_protocols::PdlPacket;
 
 use crate::node::{BehaviorCtx, NodeBehavior, TIMER_SEND, TIMER_TELEMETRY};
 use crate::packet::Packet;

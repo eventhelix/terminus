@@ -3,9 +3,9 @@
 //! how proactive repair overhead stretches the interval between stalls —
 //! in calm and in flare conditions.
 //!
-//! Run: cargo run -p helixsim-orbits --example unbroken_thread
+//! Run: cargo run -p terminus-orbits --example unbroken_thread
 
-use helixsim_orbits::reliability::{arq_stall_interval, fec_residual_rate, fec_stall_interval};
+use terminus_orbits::reliability::{arq_stall_interval, fec_residual_rate, fec_stall_interval};
 
 const PACKET_RATE: f64 = 20.0; // token stream, packets/s
 const RTT_MS: f64 = 180.0; // worst-geometry terminal↔anchor round trip

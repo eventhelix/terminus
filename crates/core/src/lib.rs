@@ -1,4 +1,4 @@
-//! Core simulation abstractions for helixsim.
+//! Core simulation abstractions for terminus.
 //!
 //! This crate defines the building blocks that scenarios are assembled from —
 //! packets, nodes, media, channel traces, compute models, and packet capture —

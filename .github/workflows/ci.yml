@@ -16,4 +16,4 @@ jobs:
       - name: Unit, determinism, golden, smoke
         run: cargo test --workspace
       - name: tshark dissection acceptance
-        run: cargo test -p helixsim --test dissection -- --ignored
+        run: cargo test -p terminus --test dissection -- --ignored

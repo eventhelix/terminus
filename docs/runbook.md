@@ -1,4 +1,4 @@
-# helixsim Runbook
+# terminus Runbook
 
 How to run, inspect, and reproduce simulations. Commands are run from the
 repository root; `bash` examples work in Git Bash on Windows.
@@ -14,7 +14,7 @@ repository root; `bash` examples work in Git Bash on Windows.
 ## Run a scenario
 
 ```bash
-cargo run -p helixsim -- run crates/scenarios/leo-testbed/scenario.toml --out out
+cargo run -p terminus -- run crates/scenarios/leo-testbed/scenario.toml --out out
 ```
 
 Prints the run directory on success, e.g. `out/leo-testbed/run-1784906550`.
@@ -45,7 +45,7 @@ out/<scenario>/<run-id>/
 
 ## Inspect a run
 
-**Wireshark** (frames dissect as helixsim → IP → UDP):
+**Wireshark** (frames dissect as terminus → IP → UDP):
 
 ```bash
 wireshark -X lua_script:<run-dir>/dissectors/link.lua <run-dir>/nodes/term-a.pcapng
@@ -87,14 +87,14 @@ any `nodes/*.pcapng` with no manual setup — point them at the pcap and go.
 
 ```bash
 cargo test --workspace                                  # unit + determinism + golden + smoke
-cargo test -p helixsim --test dissection -- --ignored   # tshark acceptance (needs tshark on PATH)
+cargo test -p terminus --test dissection -- --ignored   # tshark acceptance (needs tshark on PATH)
 ```
 
 - **determinism** — runs the LEO scenario twice, asserts byte-identical outputs.
   A failure here is a serious bug (a determinism leak), never "flaky".
 - **golden** — sha256 of pcaps + metrics vs `crates/scenarios/leo-testbed/golden.sha256`.
   After an *intentional* behavior change:
-  `UPDATE_GOLDEN=1 cargo test -p helixsim --test golden`, then commit the
+  `UPDATE_GOLDEN=1 cargo test -p terminus --test golden`, then commit the
   regenerated file alongside the change.
 - **smoke** — asserts the demo narrative: handover at t=30s, BLER losses in the
   18–24s window, compute overflow during the 40–45s burst.
@@ -109,7 +109,7 @@ Only after editing `crates/protocols/pdl/link.pdl`:
 ```bash
 cargo install pdl-dissector        # once
 bash tools/regen-dissector.sh
-cargo test -p helixsim --test dissection -- --ignored   # re-verify
+cargo test -p terminus --test dissection -- --ignored   # re-verify
 ```
 
 The script generates the Lua, applies a **fail-loud patch** for a pdl-dissector

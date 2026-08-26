@@ -1,12 +1,12 @@
-# helixsim — Open-Source Network Discrete-Event Simulator — Design
+# terminus — Open-Source Network Discrete-Event Simulator — Design
 
 **Date:** 2026-07-23
-**Status:** Approved in brainstorming; name locked (`helixsim`); ready for implementation planning
-**Name:** `helixsim` — crate `helixsim`, repo `github.com/eventhelix/helixsim`. Brand-coherent
+**Status:** Approved in brainstorming; name locked (`terminus`); ready for implementation planning
+**Name:** `terminus` — crate `terminus`, repo `github.com/eventhelix/terminus`. Brand-coherent
 with the EventHelix family (VisualEther, EventStudio); crate + repo names verified available
 2026-07-23.
-**Home:** This is the canonical copy, living in the `helixsim` repo
-(`github.com/eventhelix/helixsim`, private during early development, Apache-2.0/MIT dual
+**Home:** This is the canonical copy, living in the `terminus` repo
+(`github.com/eventhelix/terminus`, private during early development, Apache-2.0/MIT dual
 license). The design was brainstormed in the VisualEther workspace on 2026-07-23; a copy of
 this spec remains there for provenance.
 
@@ -73,7 +73,7 @@ One Cargo workspace, four crates, nexosim used directly as the engine and visibl
 the API:
 
 ```
-helixsim workspace
+terminus workspace
 ├─ core/       Packet, NodeModel/Interface traits, ComputeModel,
 │              Medium model, ChannelTrace, PcapTap — all nexosim models
 ├─ protocols/  .pdl sources → build step → Rust codecs + Lua dissectors;

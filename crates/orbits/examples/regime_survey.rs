@@ -3,15 +3,15 @@
 //! 0.0485 AU): coverage footprint, edge latency, and pass duration per
 //! shelf, then the Hill-sphere verdict on a stationary orbit.
 //!
-//! Run: cargo run -p helixsim-orbits --example regime_survey
+//! Run: cargo run -p terminus-orbits --example regime_survey
 
-use helixsim_orbits::circular::{orbital_period, synchronous_radius};
-use helixsim_orbits::coverage::{
+use terminus_orbits::circular::{orbital_period, synchronous_radius};
+use terminus_orbits::coverage::{
     edge_slant_range, footprint_radius, footprint_radius_limit, max_pass_duration,
 };
-use helixsim_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
-use helixsim_orbits::placement::SPEED_OF_LIGHT;
-use helixsim_orbits::{CentralBody, EARTH_MU};
+use terminus_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
+use terminus_orbits::placement::SPEED_OF_LIGHT;
+use terminus_orbits::{CentralBody, EARTH_MU};
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);

@@ -31,11 +31,11 @@ fn artifacts(dir: &Path) -> Vec<(String, Vec<u8>)> {
 
 #[test]
 fn same_seed_byte_identical_outputs() {
-    let base = std::env::temp_dir().join(format!("helixsim-det-{}", std::process::id()));
+    let base = std::env::temp_dir().join(format!("terminus-det-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&base);
     let (a, b) = (base.join("a"), base.join("b"));
-    helixsim_cli::assemble::run_scenario(&scenario(), &a).unwrap();
-    helixsim_cli::assemble::run_scenario(&scenario(), &b).unwrap();
+    terminus_cli::assemble::run_scenario(&scenario(), &a).unwrap();
+    terminus_cli::assemble::run_scenario(&scenario(), &b).unwrap();
     let (fa, fb) = (artifacts(&a), artifacts(&b));
     assert_eq!(
         fa.iter().map(|(n, _)| n).collect::<Vec<_>>(),

@@ -1,6 +1,6 @@
 [package]
-name = "helixsim"
-description = "helixsim: an open-source Rust discrete-event simulator for networking and wireless systems, with real-bytes PCAP capture for Wireshark and VisualEther analysis."
+name = "terminus"
+description = "terminus: an open-source Rust discrete-event simulator for networking and wireless systems, with real-bytes PCAP capture for Wireshark and VisualEther analysis."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,16 +10,16 @@ homepage.workspace = true
 authors.workspace = true
 
 [lib]
-name = "helixsim_cli"
+name = "terminus_cli"
 path = "src/lib.rs"
 
 [[bin]]
-name = "helixsim"
+name = "terminus"
 path = "src/main.rs"
 
 [dependencies]
-helixsim-core = { path = "../core" }
-helixsim-protocols = { path = "../protocols" }
+terminus-core = { path = "../core" }
+terminus-protocols = { path = "../protocols" }
 nexosim.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true

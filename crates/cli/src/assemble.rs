@@ -12,14 +12,14 @@ use nexosim::ports::{EventSource, Output};
 use nexosim::simulation::{Mailbox, SimInit};
 use nexosim::time::MonotonicTime;
 
-use helixsim_core::behaviors::{BehaviorKind, Burst, GatewayEcho, Relay, TerminalApp};
-use helixsim_core::capture::{IfSpec, ProtoRecorder, Recorder};
-use helixsim_core::compute::FifoCompute;
-use helixsim_core::medium::Medium;
-use helixsim_core::netif::NetIf;
-use helixsim_core::node::NodeModel;
-use helixsim_core::rng::model_rng;
-use helixsim_core::simtime::{secs_to_ns, NS_PER_SEC};
+use terminus_core::behaviors::{BehaviorKind, Burst, GatewayEcho, Relay, TerminalApp};
+use terminus_core::capture::{IfSpec, ProtoRecorder, Recorder};
+use terminus_core::compute::FifoCompute;
+use terminus_core::medium::Medium;
+use terminus_core::netif::NetIf;
+use terminus_core::node::NodeModel;
+use terminus_core::rng::model_rng;
+use terminus_core::simtime::{secs_to_ns, NS_PER_SEC};
 
 use crate::config::{self, NodeCfg, NodeKind};
 use crate::output;

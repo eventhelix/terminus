@@ -1,4 +1,4 @@
-//! helixsim command-line entry point. Runs a scenario and produces a
+//! terminus command-line entry point. Runs a scenario and produces a
 //! self-describing output directory (per-node PCAPNG, matching
 //! dissectors, visualether.toml, metrics, config snapshot).
 
@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "helixsim", version, about)]
+#[command(name = "terminus", version, about)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -26,7 +26,7 @@ enum Cmd {
 fn main() -> anyhow::Result<()> {
     match Cli::parse().cmd {
         Cmd::Run { scenario, out } => {
-            let loaded = helixsim_cli::config::load(&scenario)?;
+            let loaded = terminus_cli::config::load(&scenario)?;
             // Wall clock is fine HERE (outside the simulation): the
             // run-id names the directory; the contents stay
             // byte-deterministic regardless.
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
                 .as_secs();
             let run_dir = out.join(&loaded.file.scenario.name).join(format!("run-{stamp}"));
             drop(loaded);
-            helixsim_cli::assemble::run_scenario(&scenario, &run_dir)?;
+            terminus_cli::assemble::run_scenario(&scenario, &run_dir)?;
             println!("{}", run_dir.display());
             Ok(())
         }

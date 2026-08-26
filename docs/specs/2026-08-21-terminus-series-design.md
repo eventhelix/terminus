@@ -12,9 +12,9 @@ issues an RFP to provide planet-wide LLM access (satellites it can manufacture
 and deploy; ground terminals it can parachute in as WiFi base stations), and the
 series is written as the winning contractor's technical proposal.
 
-Every technical claim in the series is backed by a reproducible helixsim
+Every technical claim in the series is backed by a reproducible terminus
 simulation. The trade-study corpus in
-[helixsim issue #2](https://github.com/eventhelix/helixsim/issues/2) is the raw
+[terminus issue #2](https://github.com/eventhelix/terminus/issues/2) is the raw
 material.
 
 ## Governing decisions
@@ -22,10 +22,10 @@ material.
 These were settled in the brainstorming discussion:
 
 1. **Sim-backed from the start.** Every technical post ships with a
-   reproducible helixsim scenario or analysis run. The proposal cites only
+   reproducible terminus scenario or analysis run. The proposal cites only
    numbers the repo can regenerate.
 2. **In-universe frame: we are the bidder.** The series is Terminus Systems'
-   proposal responding to the AI's RFP. Posts are proposal sections; helixsim
+   proposal responding to the AI's RFP. Posts are proposal sections; terminus
    runs are the supporting analysis. The RFP post assigns requirement IDs that
    every later post traces to.
 3. **Publishing venue.** Final posts are published on eventhelix.com (the Zola
@@ -33,13 +33,15 @@ These were settled in the brainstorming discussion:
    that repo's `CLAUDE.md` and its `elements-of-style` skill: plain English,
    concise and direct, unfamiliar concepts introduced in plain language before
    specialized terminology, no coined terms or hype.
-4. **helixsim stays independent.** helixsim remains a general-purpose,
-   independently usable network/wireless simulator, publishable as crates.
-   Terminus is its flagship application, not its identity.
+4. **The engine stays independent.** The simulator remains a general-purpose,
+   independently usable network/wireless simulator, publishable as crates. The
+   repository takes the Terminus series' name because that series is its
+   flagship application, but the code itself stays generic.
 
 ## The independence principle
 
-helixsim is the engine; Terminus is a consumer. Concretely:
+The crates are the engine; the Terminus series is a consumer of them. They
+share a name and a repository, and nothing else. Concretely:
 
 - **No Terminus concepts in engine crates.** `core`, `protocols`, the CLI, and
   any new analysis crates carry no Terminus-specific types, names, constants,
@@ -53,16 +55,16 @@ helixsim is the engine; Terminus is a consumer. Concretely:
   (`crates/scenarios/terminus-<slug>/`), canon documents (`docs/terminus/`),
   and blog prose (site repo) — none of which ship in a published crate.
 - **Publishable-crate hygiene is a tracked work item.** Workspace crates get
-  publishable names (e.g. `helixsim-core`), metadata, and docs before any
+  publishable names (e.g. `terminus-core`), metadata, and docs before any
   crates.io release. Feature work for the series must not block or break
   standalone usability (`cargo test` green, determinism CI green, examples
   runnable without Terminus context).
 
 ## Two repos, one source of truth
 
-**helixsim owns the facts; the site owns the prose.**
+**terminus owns the facts; the site owns the prose.**
 
-### Canon (in `helixsim/docs/terminus/`)
+### Canon (in `terminus/docs/terminus/`)
 
 - **World bible** — planet, star, and civilization parameters. Reference
   model from issue #2: radius 6,371 km, 1 Earth mass, 11.2-day synchronous
@@ -73,14 +75,14 @@ helixsim is the engine; Terminus is a consumer. Concretely:
   terminator tracking, Ka primary with X/Ku diversity, MEO compute with
   session anchoring, FEC behind a common trait, shared-MEO PNT, ...).
 
-Canon lives in helixsim rather than the site because it must version-lock with
+Canon lives in terminus rather than the site because it must version-lock with
 the scenarios that produce its numbers; `docs/` is not part of any published
 crate, so this does not compromise independence.
 
 ### Reproducibility contract
 
-Each post's frontmatter (site repo) records the helixsim scenario name, master
-seed, and git tag that produced its numbers. helixsim's determinism invariant
+Each post's frontmatter (site repo) records the terminus scenario name, master
+seed, and git tag that produced its numbers. terminus's determinism invariant
 (same scenario + seed ⇒ byte-identical outputs) is the series' fact-checking
 mechanism. A post never cites a number the repo cannot regenerate.
 
@@ -128,7 +130,7 @@ Three series; each becomes a part of the book, with canon docs as appendices.
 The ten-step FEC progression from issue #2 (§19): plain loss → ARQ → RaptorQ
 generations → adaptive overhead → handover-aware bursts → Reed-Solomon →
 sliding-window FEC → frequency diversity → satellite diversity → RLNC. One
-engineering question per post; this is where helixsim's packet-level machinery
+engineering question per post; this is where terminus's packet-level machinery
 (real bytes, PCAPNG, dissectors) is the star.
 
 ### Series 3 — PNT and timing
@@ -141,7 +143,7 @@ clock models → relativistic corrections → stellar flares → integrity.
 For every technical post, in order:
 
 1. State the engineering question the post answers.
-2. Extend helixsim as needed (TDD; real-bytes and determinism invariants
+2. Extend terminus as needed (TDD; real-bytes and determinism invariants
    intact; independence principle respected).
 3. Run the scenario; capture metrics, traces, PCAPs.
 4. Tag the commit.
@@ -154,10 +156,10 @@ Post and scenario land together.
 
 ## New engineering: orbital geometry
 
-Series 1 needs analysis helixsim does not have: orbit propagation, footprint
+Series 1 needs analysis terminus does not have: orbit propagation, footprint
 and elevation geometry, coverage sweeps over the terminator band, handover/dwell
 statistics, Δv screening, Hill-sphere checks. This becomes a new generic
-analysis crate (working name `helixsim-orbits`), configured entirely by body
+analysis crate (working name `terminus-orbits`), configured entirely by body
 and constellation parameters.
 
 The radio-access posts extend its scope with beam and dynamics geometry, all

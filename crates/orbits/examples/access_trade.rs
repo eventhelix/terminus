@@ -2,14 +2,14 @@
 //! the LEO access rings? Prices the aperture penalty, spot-reuse density,
 //! and the (real) dynamical advantages of MEO-direct access.
 //!
-//! Run: cargo run -p helixsim-orbits --example access_trade
+//! Run: cargo run -p terminus-orbits --example access_trade
 
-use helixsim_orbits::acquisition::spots_per_footprint;
-use helixsim_orbits::beams::{doppler_shift, nadir_spot_radius, range_rate};
-use helixsim_orbits::circular::orbital_period;
-use helixsim_orbits::coverage::{edge_slant_range, footprint_radius, max_pass_duration};
-use helixsim_orbits::radio::fspl_db;
-use helixsim_orbits::CentralBody;
+use terminus_orbits::acquisition::spots_per_footprint;
+use terminus_orbits::beams::{doppler_shift, nadir_spot_radius, range_rate};
+use terminus_orbits::circular::orbital_period;
+use terminus_orbits::coverage::{edge_slant_range, footprint_radius, max_pass_duration};
+use terminus_orbits::radio::fspl_db;
+use terminus_orbits::CentralBody;
 
 const LEO: f64 = 2_200e3;
 const MEO: f64 = 20_000e3;

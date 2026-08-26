@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-003, TER-REQ-011, TER-REQ-012
-Evidence: `cargo run -p helixsim-orbits --example frequency_plan` (tag: terminus-post-7)
+Evidence: `cargo run -p terminus-orbits --example frequency_plan` (tag: terminus-post-7)
 
 ## Decision
 

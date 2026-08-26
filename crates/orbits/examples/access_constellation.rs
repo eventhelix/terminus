@@ -4,11 +4,11 @@
 //! planet. Every band point is sampled every 30 s at 72 azimuths × 3
 //! band offsets.
 //!
-//! Run: cargo run --release -p helixsim-orbits --example access_constellation
+//! Run: cargo run --release -p terminus-orbits --example access_constellation
 
-use helixsim_orbits::constellation::{band_coverage, PolarConstellation};
-use helixsim_orbits::coverage::footprint_radius;
-use helixsim_orbits::CentralBody;
+use terminus_orbits::constellation::{band_coverage, PolarConstellation};
+use terminus_orbits::coverage::footprint_radius;
+use terminus_orbits::CentralBody;
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);

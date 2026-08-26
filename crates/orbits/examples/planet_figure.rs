@@ -7,13 +7,13 @@
 //! estimates the reference planet's figure by calibrating the hydrostatic
 //! response on Earth, then prices the node drift.
 //!
-//! Run: cargo run --release -p helixsim-orbits --example planet_figure
+//! Run: cargo run --release -p terminus-orbits --example planet_figure
 
-use helixsim_orbits::oblateness::{
+use terminus_orbits::oblateness::{
     flattening, free_rotation_j2, polar_node_drift_rate, rotational_parameter, synchronous_c22,
     synchronous_j2, EARTH_FLUID_LOVE_NUMBER,
 };
-use helixsim_orbits::CentralBody;
+use terminus_orbits::CentralBody;
 
 const EARTH_J2: f64 = 1.0826e-3;
 const YEAR: f64 = 86_400.0 * 365.25;

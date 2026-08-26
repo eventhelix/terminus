@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-22
 Requirements: TER-REQ-006, TER-REQ-007, TER-REQ-013
-Evidence: `cargo run -p helixsim-orbits --example terminal_aperture` (tag: terminus-post-16)
+Evidence: `cargo run -p terminus-orbits --example terminal_aperture` (tag: terminus-post-16)
 
 ## Decision
 
@@ -93,6 +93,6 @@ Two things this does **not** disturb:
   backed by a decision rather than an assumption. The requirement stays
   Open on hardware, power, and environment grounds — the aperture is one
   of its several gaps, and only that one is closed here.
-- `helixsim-orbits::radio` gains `scan_loss_db`, `planar_array_gain_dbi`,
+- `terminus-orbits::radio` gains `scan_loss_db`, `planar_array_gain_dbi`,
   and `scanned_beamwidth_deg` — generic aperture math with no Terminus
   constants, per the independence invariant.

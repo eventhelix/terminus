@@ -3,11 +3,11 @@
 //! the inhabited band at every instant, and what that costs on top of the
 //! handful the compute anchors need.
 //!
-//! Run: cargo run -p helixsim-orbits --example navigation_shell
+//! Run: cargo run -p terminus-orbits --example navigation_shell
 
-use helixsim_orbits::constellation::CoverageStats;
-use helixsim_orbits::walker::{band_coverage, WalkerShell};
-use helixsim_orbits::CentralBody;
+use terminus_orbits::constellation::CoverageStats;
+use terminus_orbits::walker::{band_coverage, WalkerShell};
+use terminus_orbits::CentralBody;
 
 const ALTITUDE: f64 = 20_000e3; // service shell (ADR-0004)
 const BAND: f64 = 20.0; // degrees either side of the terminator

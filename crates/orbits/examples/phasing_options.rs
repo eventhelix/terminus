@@ -14,10 +14,10 @@
 //! not, and section C explains why the cellular instinct does not survive the
 //! move from a plane to a polar wheel.
 //!
-//! Run: cargo run --release -p helixsim-orbits --example phasing_options
+//! Run: cargo run --release -p terminus-orbits --example phasing_options
 
-use helixsim_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
-use helixsim_orbits::CentralBody;
+use terminus_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
+use terminus_orbits::CentralBody;
 use std::f64::consts::PI;
 
 const MASK: f64 = 25.0 * PI / 180.0;

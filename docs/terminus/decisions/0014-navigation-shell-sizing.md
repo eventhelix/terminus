@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-23
 Requirements: TER-REQ-015, TER-REQ-012, TER-REQ-004
-Evidence: `cargo run -p helixsim-orbits --example navigation_shell`
+Evidence: `cargo run -p terminus-orbits --example navigation_shell`
 
 ## Decision
 
@@ -59,6 +59,6 @@ anchoring, and they are the reason this ADR exists:
   can only help anchor diversity and failover (TER-REQ-014).
 - The hybrid MEO + LEO ranging aid (ADR-0012) is evaluated against this
   shell as the baseline.
-- `helixsim-orbits` grows a generic `walker` module: inclined circular
+- `terminus-orbits` grows a generic `walker` module: inclined circular
   shells, with the polar constellation as the inclination = 90° special
   case. A test pins that reduction, so the two modules cannot drift.

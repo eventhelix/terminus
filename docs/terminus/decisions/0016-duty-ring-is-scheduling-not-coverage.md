@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-25
 Requirements: TER-REQ-001, TER-REQ-014, TER-REQ-016
-Evidence: `cargo run --release -p helixsim-orbits --example duty_ring_trade`; `--example phasing_options` (tag: terminus-post-5b)
+Evidence: `cargo run --release -p terminus-orbits --example duty_ring_trade`; `--example phasing_options` (tag: terminus-post-5b)
 
 ## Decision
 

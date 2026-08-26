@@ -1,6 +1,6 @@
 # Scenarios
 
-Scenario definitions and channel-trace data for helixsim runs. This directory
+Scenario definitions and channel-trace data for terminus runs. This directory
 holds data, not a Rust crate — each scenario is a TOML config plus the CSV trace
 files it references.
 

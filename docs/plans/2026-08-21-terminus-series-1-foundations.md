@@ -4,7 +4,7 @@
 
 **Goal:** Build the three first milestones of the Terminus blog series: the canon skeleton (world bible, requirements baseline, decision log), the generic orbital-geometry crate spike that reproduces the terminator-tracking Δv numbers, and the RFP blog post draft.
 
-**Architecture:** Canon documents live in `helixsim/docs/terminus/` and version-lock with the code. A new generic crate `helixsim-orbits` (`crates/orbits`) provides first-order orbital screening math, configured entirely by body parameters — no Terminus concepts in code. The RFP post drafts into the eventhelix.com Zola site as a new `terminus` section, marked `draft = true` so it does not publish until ready.
+**Architecture:** Canon documents live in `terminus/docs/terminus/` and version-lock with the code. A new generic crate `terminus-orbits` (`crates/orbits`) provides first-order orbital screening math, configured entirely by body parameters — no Terminus concepts in code. The RFP post drafts into the eventhelix.com Zola site as a new `terminus` section, marked `draft = true` so it does not publish until ready.
 
 **Tech Stack:** Rust 2021 (workspace conventions already in `Cargo.toml`), plain `f64` math (no new dependencies), Zola TOML-frontmatter Markdown for the site.
 
@@ -12,13 +12,13 @@
 
 ## Global Constraints
 
-- **Two working directories.** Tasks 1–7 run in `C:\Users\sande\Documents\repos\helixsim` (branch `terminus`). Task 8 runs in `C:\Users\sande\Documents\repos\site` (create branch `terminus` from its default branch first).
+- **Two working directories.** Tasks 1–7 run in `C:\Users\sande\Documents\repos\terminus` (branch `terminus`). Task 8 runs in `C:\Users\sande\Documents\repos\site` (create branch `terminus` from its default branch first).
 - **Independence principle (spec):** no Terminus/Proxima names, constants, or narrative in `crates/orbits` code, docs, or examples. The example uses neutral wording ("a tidally locked, Earth-sized reference planet"). Terminus specifics go only in `docs/terminus/` and the site post.
-- **Crate conventions:** package name `helixsim-orbits`, workspace-inherited `version/edition/rust-version/license/repository/homepage/authors` exactly like `crates/core/Cargo.toml`. Edition 2021, rust-version 1.79.
-- **No wall-clock reads, no unseeded randomness** (helixsim invariant; this crate is pure math, so simply add none).
+- **Crate conventions:** package name `terminus-orbits`, workspace-inherited `version/edition/rust-version/license/repository/homepage/authors` exactly like `crates/core/Cargo.toml`. Edition 2021, rust-version 1.79.
+- **No wall-clock reads, no unseeded randomness** (terminus invariant; this crate is pure math, so simply add none).
 - **Commits:** conventional-commit subjects (`feat:`, `docs:`, `test:`). **No AI/Claude attribution lines or Co-Authored-By trailers.**
 - **Numbers are canon.** Test constants below were computed with μ_Earth = 3.986004418e14 m³/s² and g₀ = 9.80665 m/s². Do not "fix" a failing test by loosening tolerance beyond 1e-3 relative; a larger discrepancy means the implementation is wrong.
-- Run all Rust commands from the helixsim repo root. `cargo test -p helixsim-orbits` must pass at the end of every task that touches the crate; `cargo check` for the whole workspace must stay green.
+- Run all Rust commands from the terminus repo root. `cargo test -p terminus-orbits` must pass at the end of every task that touches the crate; `cargo check` for the whole workspace must stay green.
 
 ---
 
@@ -241,7 +241,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 |---|---|---|---|---|---|
 | 1 | The RFP | 1 | drafting | — (in-universe document) | 1.1 |
 | 2 | Know your planet | 1 | planned | | 1.2 |
-| 3 | The seductive wrong answer | 1 | planned | helixsim-orbits example `terminator_tracking` | 1.3 |
+| 3 | The seductive wrong answer | 1 | planned | terminus-orbits example `terminator_tracking` | 1.3 |
 | 4 | Orbital regime screening | 1 | planned | | 1.4 |
 | 5 | The access constellation | 1 | planned | | 1.5 |
 | 6 | Where does the LLM live? | 1 | planned | | 1.6 |
@@ -270,7 +270,7 @@ support. Apache-2.0/MIT.
 Verdict: **reference, not a dependency.** It is Earth-specific (Earth gravity
 models, Earth frames, TLE inputs) and requires external data downloads, which
 conflicts with configurable-planet design and deterministic CI. Use it to
-cross-validate helixsim-orbits results for Earth-parameter cases, and as a
+cross-validate terminus-orbits results for Earth-parameter cases, and as a
 design reference for numerical propagation and stability work (post 4's
 Hill-sphere / three-body checks).
 
@@ -284,10 +284,10 @@ MPL-2.0. Pre-1.0, API unstable.
 
 Verdict: **evaluate hands-on before building coverage/visibility code for
 post 5.** Its constellation and visibility features overlap what
-helixsim-orbits would otherwise grow; the open question is whether an
+terminus-orbits would otherwise grow; the open question is whether an
 arbitrary tidally locked body can be configured (examples are Earth-centric —
 inspect `lox-bodies`). MPL-2.0 is compatible as a dependency but must be
-noted. The first-order screening spike stays in helixsim-orbits regardless:
+noted. The first-order screening spike stays in terminus-orbits regardless:
 it is closed-form math over a fully generic body.
 
 ## Ground-coverage discretization
@@ -336,7 +336,7 @@ git commit -m "docs: add Terminus decision log, manuscript map, and crate watchl
 
 ---
 
-### Task 4: `helixsim-orbits` crate scaffold with `CentralBody`
+### Task 4: `terminus-orbits` crate scaffold with `CentralBody`
 
 **Files:**
 - Create: `crates/orbits/Cargo.toml`
@@ -372,8 +372,8 @@ members = [
 
 ```toml
 [package]
-name = "helixsim-orbits"
-description = "First-order orbital screening for helixsim: circular-orbit geometry, synchronous orbits, and rotating-plane-tracking cost models for arbitrary central bodies."
+name = "terminus-orbits"
+description = "First-order orbital screening for terminus: circular-orbit geometry, synchronous orbits, and rotating-plane-tracking cost models for arbitrary central bodies."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -453,7 +453,7 @@ mod tests {
 
 - [ ] **Step 5: Run the test to verify it fails.**
 
-Run: `cargo test -p helixsim-orbits`
+Run: `cargo test -p terminus-orbits`
 Expected: compile error — `from_earth_masses` not found.
 
 - [ ] **Step 6: Implement.** Add to `body.rs` between the struct and the tests:
@@ -474,14 +474,14 @@ impl CentralBody {
 
 - [ ] **Step 7: Run tests and workspace check.**
 
-Run: `cargo test -p helixsim-orbits && cargo check`
+Run: `cargo test -p terminus-orbits && cargo check`
 Expected: test passes; whole workspace still compiles.
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add Cargo.toml Cargo.lock crates/orbits
-git commit -m "feat(orbits): add helixsim-orbits crate with CentralBody"
+git commit -m "feat(orbits): add terminus-orbits crate with CentralBody"
 ```
 
 ---
@@ -546,7 +546,7 @@ mod tests {
 
 - [ ] **Step 2: Add the module and run tests to verify they fail.** Add `pub mod circular;` to `lib.rs` after `mod body;`.
 
-Run: `cargo test -p helixsim-orbits`
+Run: `cargo test -p terminus-orbits`
 Expected: compile errors — the three functions are not defined.
 
 - [ ] **Step 3: Implement.** Insert above the tests in `circular.rs`:
@@ -577,7 +577,7 @@ pub fn synchronous_radius(body: &CentralBody) -> f64 {
 
 - [ ] **Step 4: Run tests to verify they pass.**
 
-Run: `cargo test -p helixsim-orbits`
+Run: `cargo test -p terminus-orbits`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
@@ -662,7 +662,7 @@ mod tests {
 
 - [ ] **Step 2: Add the module and run tests to verify they fail.** Add `pub mod plane_tracking;` to `lib.rs`.
 
-Run: `cargo test -p helixsim-orbits`
+Run: `cargo test -p terminus-orbits`
 Expected: compile errors — the four functions are not defined.
 
 - [ ] **Step 3: Implement.** Insert above the tests in `plane_tracking.rs`:
@@ -705,7 +705,7 @@ pub fn propellant_fraction_per_day(body: &CentralBody, altitude: f64, isp: f64) 
 
 - [ ] **Step 4: Run tests to verify they pass.**
 
-Run: `cargo test -p helixsim-orbits`
+Run: `cargo test -p terminus-orbits`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
@@ -726,7 +726,7 @@ git commit -m "feat(orbits): terminator plane-tracking cost model"
 
 **Interfaces:**
 - Consumes: everything from Tasks 4–6.
-- Produces: the runnable evidence artifact post 3 cites (`cargo run -p helixsim-orbits --example terminator_tracking`), and the first ADR.
+- Produces: the runnable evidence artifact post 3 cites (`cargo run -p terminus-orbits --example terminator_tracking`), and the first ADR.
 
 - [ ] **Step 1: Write the example.** `crates/orbits/examples/terminator_tracking.rs`:
 
@@ -734,14 +734,14 @@ git commit -m "feat(orbits): terminator plane-tracking cost model"
 //! Cost of actively rotating an orbital plane to track the terminator of a
 //! tidally locked, Earth-sized reference planet (11.2-day rotation).
 //!
-//! Run: cargo run -p helixsim-orbits --example terminator_tracking
+//! Run: cargo run -p terminus-orbits --example terminator_tracking
 
-use helixsim_orbits::circular::orbital_velocity;
-use helixsim_orbits::plane_tracking::{
+use terminus_orbits::circular::orbital_velocity;
+use terminus_orbits::plane_tracking::{
     cross_track_acceleration, ideal_plane_change_dv_per_day, propellant_fraction_per_day,
     terminator_rate,
 };
-use helixsim_orbits::CentralBody;
+use terminus_orbits::CentralBody;
 
 fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
@@ -785,7 +785,7 @@ fn main() {
 
 - [ ] **Step 2: Run the example and verify the table.**
 
-Run: `cargo run -p helixsim-orbits --example terminator_tracking`
+Run: `cargo run -p terminus-orbits --example terminator_tracking`
 Expected output values (within rounding): terminator rotation 32.14 deg/day; rows — 600 km: v 7.56, dv/day 4.24; 1200 km: v 7.26, dv/day 4.07; 1800 km: v 6.98, dv/day 3.92, accel 0.0453, thrust 22.7 N, propellant 12.5 %/day; 2000 km: v 6.90, dv/day 3.87. These must match the issue #2 tables.
 
 - [ ] **Step 3: Write the ADR.** `docs/terminus/decisions/0001-reject-active-terminator-tracking.md`:
@@ -796,7 +796,7 @@ Expected output values (within rounding): terminator rotation 32.14 deg/day; row
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-001, TER-REQ-016
-Evidence: `cargo run -p helixsim-orbits --example terminator_tracking` (tag: set when post 3 publishes)
+Evidence: `cargo run -p terminus-orbits --example terminator_tracking` (tag: set when post 3 publishes)
 
 ## Decision
 
@@ -824,11 +824,11 @@ spacecraft mass per day. No long-lived constellation survives this.
   on fixed planes.
 ```
 
-- [ ] **Step 4: Update the manuscript map.** In `docs/terminus/manuscript-map.md`, post 3's Evidence cell becomes: `helixsim-orbits example terminator_tracking (ADR-0001)`.
+- [ ] **Step 4: Update the manuscript map.** In `docs/terminus/manuscript-map.md`, post 3's Evidence cell becomes: `terminus-orbits example terminator_tracking (ADR-0001)`.
 
 - [ ] **Step 5: Run the full workspace checks.**
 
-Run: `cargo test -p helixsim-orbits && cargo check && cargo test`
+Run: `cargo test -p terminus-orbits && cargo check && cargo test`
 Expected: everything green (existing determinism/golden tests untouched).
 
 - [ ] **Step 6: Commit**
@@ -847,7 +847,7 @@ git commit -m "feat(orbits): terminator-tracking trade example; docs: ADR-0001"
 - Create: `content/terminus/rfp.md`
 
 **Interfaces:**
-- Consumes: requirement IDs and values from `helixsim/docs/terminus/requirements.md` (Task 2) — the post must quote them exactly; on divergence, fix the post, not the canon.
+- Consumes: requirement IDs and values from `terminus/docs/terminus/requirements.md` (Task 2) — the post must quote them exactly; on divergence, fix the post, not the canon.
 - Produces: the series' Zola section and the draft RFP post (post 1).
 
 - [ ] **Step 1: Create the site branch.** In the site repo:
@@ -875,7 +875,7 @@ An alien AI offers a young civilization on a tidally locked planet a gift:
 planet-wide access to a large language model, served from orbit. This series
 is the engineering answer — written as the winning contractor's technical
 proposal, with every number backed by a reproducible simulation in
-[helixsim](https://github.com/eventhelix/helixsim).
+[terminus](https://github.com/eventhelix/terminus).
 
 {% card_grid() %}
 {{ card(href="/terminus/rfp",

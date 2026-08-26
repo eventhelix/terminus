@@ -14,7 +14,7 @@ support. Apache-2.0/MIT.
 Verdict: **reference, not a dependency.** It is Earth-specific (Earth gravity
 models, Earth frames, TLE inputs) and requires external data downloads, which
 conflicts with configurable-planet design and deterministic CI. Use it to
-cross-validate helixsim-orbits results for Earth-parameter cases, and as a
+cross-validate terminus-orbits results for Earth-parameter cases, and as a
 design reference for numerical propagation and stability work (post 4's
 Hill-sphere / three-body checks).
 
@@ -28,10 +28,10 @@ MPL-2.0. Pre-1.0, API unstable.
 
 Verdict: **evaluate hands-on before building coverage/visibility code for
 post 5.** Its constellation and visibility features overlap what
-helixsim-orbits would otherwise grow; the open question is whether an
+terminus-orbits would otherwise grow; the open question is whether an
 arbitrary tidally locked body can be configured (examples are Earth-centric —
 inspect `lox-bodies`). MPL-2.0 is compatible as a dependency but must be
-noted. The first-order screening spike stays in helixsim-orbits regardless:
+noted. The first-order screening spike stays in terminus-orbits regardless:
 it is closed-form math over a fully generic body.
 
 ## Ground-coverage discretization

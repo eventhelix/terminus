@@ -2,15 +2,15 @@
 //! footprint of a 2,200 km access satellite versus across one narrow
 //! phased-array spot, at Ka band, for a tidally locked reference planet.
 //!
-//! Run: cargo run -p helixsim-orbits --example spot_beams
+//! Run: cargo run -p terminus-orbits --example spot_beams
 
-use helixsim_orbits::beams::{
+use terminus_orbits::beams::{
     delay_spread_across_spot, doppler_shift, doppler_spread_across_spot, nadir_spot_radius,
     range_rate, slant_range,
 };
-use helixsim_orbits::coverage::footprint_radius;
-use helixsim_orbits::placement::SPEED_OF_LIGHT;
-use helixsim_orbits::CentralBody;
+use terminus_orbits::coverage::footprint_radius;
+use terminus_orbits::placement::SPEED_OF_LIGHT;
+use terminus_orbits::CentralBody;
 
 const ALT: f64 = 2_200e3;
 const KA: f64 = 30e9;

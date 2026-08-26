@@ -2,14 +2,14 @@
 //! links, LEO→MEO feeder-link visibility and Doppler, and the light-time
 //! spread the anchor-selection policy works within.
 //!
-//! Run: cargo run -p helixsim-orbits --example backbone
+//! Run: cargo run -p terminus-orbits --example backbone
 
-use helixsim_orbits::backbone::{
+use terminus_orbits::backbone::{
     intra_plane_neighbor_range, max_shell_range_rate, max_shell_separation,
     shell_visible_fraction,
 };
-use helixsim_orbits::placement::{one_way_light_time, shell_distance};
-use helixsim_orbits::CentralBody;
+use terminus_orbits::placement::{one_way_light_time, shell_distance};
+use terminus_orbits::CentralBody;
 
 const LEO: f64 = 2_200e3;
 const MEO: f64 = 20_000e3;

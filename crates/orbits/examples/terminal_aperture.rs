@@ -3,9 +3,9 @@
 //! aperture across the served elevation range, and the aperture growth that
 //! buys the worst case back.
 //!
-//! Run: cargo run -p helixsim-orbits --example terminal_aperture
+//! Run: cargo run -p terminus-orbits --example terminal_aperture
 
-use helixsim_orbits::radio::{
+use terminus_orbits::radio::{
     beamwidth_deg, dish_gain_dbi, fspl_db, planar_array_gain_dbi, scan_loss_db,
     scanned_beamwidth_deg,
 };

@@ -12,9 +12,9 @@ fn scenario() -> PathBuf {
 #[test]
 #[ignore = "requires tshark on PATH; CI runs it"]
 fn tshark_dissects_all_captures_cleanly() {
-    let run = std::env::temp_dir().join(format!("helixsim-tshark-{}", std::process::id()));
+    let run = std::env::temp_dir().join(format!("terminus-tshark-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&run);
-    helixsim_cli::assemble::run_scenario(&scenario(), &run).unwrap();
+    terminus_cli::assemble::run_scenario(&scenario(), &run).unwrap();
     let lua = run.join("dissectors/link.lua");
 
     for node in ["term-a", "term-b", "sat-1", "sat-2", "sat-3", "gw"] {

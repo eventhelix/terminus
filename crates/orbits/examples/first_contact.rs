@@ -2,13 +2,13 @@
 //! clock, no position — under the reference access constellation (2,200 km,
 //! 25° min elevation, 1° spot beams, beacon raster at 10 ms per spot).
 //!
-//! Run: cargo run -p helixsim-orbits --example first_contact
+//! Run: cargo run -p terminus-orbits --example first_contact
 
-use helixsim_orbits::acquisition::{beacon_raster_period, spots_per_footprint};
-use helixsim_orbits::beams::nadir_spot_radius;
-use helixsim_orbits::coverage::{edge_slant_range, footprint_radius};
-use helixsim_orbits::placement::one_way_light_time;
-use helixsim_orbits::CentralBody;
+use terminus_orbits::acquisition::{beacon_raster_period, spots_per_footprint};
+use terminus_orbits::beams::nadir_spot_radius;
+use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
+use terminus_orbits::placement::one_way_light_time;
+use terminus_orbits::CentralBody;
 
 const ALT: f64 = 2_200e3;
 const BEACON_DWELL: f64 = 0.010;

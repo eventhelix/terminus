@@ -433,7 +433,7 @@ for name,field in pairs(LinkFrame_protocol_fields_table) do
     LinkFrame_protocol.fields[name] = field.field
 end
 -- ---------------------------------------------------------------------------
--- helixsim glue (appended by tools/regen-dissector.sh — do not hand-edit
+-- terminus glue (appended by tools/regen-dissector.sh — do not hand-edit
 -- link.lua; edit link_glue.lua and regenerate).
 --
 -- Registers the generated LinkFrame dissector on LINKTYPE_USER0 (147),
@@ -443,9 +443,9 @@ end
 -- `data_payload_offset_is_14` in tests/link_roundtrip.rs.
 -- ---------------------------------------------------------------------------
 local ip_dissector = Dissector.get("ip")
-local helixsim_proto = Proto("helixsim", "helixsim link layer")
+local terminus_proto = Proto("terminus", "terminus link layer")
 
-function helixsim_proto.dissector(buffer, pinfo, tree)
+function terminus_proto.dissector(buffer, pinfo, tree)
     LinkFrame_protocol.dissector(buffer, pinfo, tree)
     -- frame_type is byte 2; DATA = 0. Chain the embedded IP packet.
     if buffer:len() > 14 and buffer(2, 1):uint() == 0 then
@@ -453,4 +453,4 @@ function helixsim_proto.dissector(buffer, pinfo, tree)
     end
 end
 
-DissectorTable.get("wtap_encap"):add(wtap.USER0, helixsim_proto)
+DissectorTable.get("wtap_encap"):add(wtap.USER0, terminus_proto)
