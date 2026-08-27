@@ -153,6 +153,12 @@ pub fn handover_timeline(
     duration: f64,
     step: f64,
 ) -> Vec<HandoverEvent> {
+    // `active` gates ACQUISITION, never RETENTION. A plan says which satellites
+    // must be radiating; it does not get to switch one off mid-session, so the
+    // incumbent is held on geometry alone and the plan is consulted only when a
+    // new satellite has to be chosen. Gating retention as well makes the link
+    // chase the planner instead of the sky: at the 2,200 km baseline that more
+    // than doubles the handover rate (6/h -> 13/h) purely from plan churn.
     let drop_below = policy.min_elevation - policy.hysteresis;
     let mut events = Vec::new();
     let mut current: Option<SatelliteId> = None;
@@ -312,6 +318,47 @@ mod tests {
             unlit_moments * 100 < checked,
             "no lit satellite in view for {unlit_moments} of {checked} town-instants"
         );
+    }
+
+    /// An activation plan must not cost handovers. It decides who is radiating,
+    /// and a satellite already carrying a session is one of them -- so the plan
+    /// gates which satellite a town may move TO, never how long it keeps the one
+    /// it has. Get that wrong and the link re-homes every time the planner
+    /// changes its mind, which is churn the sky never asked for.
+    #[test]
+    fn a_plan_gates_acquisition_but_never_costs_a_handover() {
+        use crate::activation::{covering_satellites, duty_first_activation};
+        use crate::duty::duty_ring;
+
+        let p = reference_planet();
+        let c = baseline();
+        let phases = c.uniform_phases();
+        let band = 20.0_f64.to_radians();
+        let points: Vec<[f64; 3]> = (0..72)
+            .flat_map(|i| {
+                let az = i as f64 * 2.0 * std::f64::consts::PI / 72.0;
+                [-band, 0.0, band].map(|off| band_point(az, off))
+            })
+            .collect();
+        let policy = HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS);
+        let duration = 6.0 * 3_600.0;
+        let plan = duty_first_activation(
+            &covering_satellites(&p, &c, &phases, &points, MIN_ELEVATION, 0.0),
+            &c,
+            duty_ring(&p, &c, 0.0),
+            None,
+            true,
+        )
+        .active;
+
+        for town in towns() {
+            let free = handover_count(&p, &c, town, &phases, None, policy, duration, 5.0);
+            let planned = handover_count(&p, &c, town, &phases, Some(&plan), policy, duration, 5.0);
+            assert!(
+                planned <= free,
+                "a plan cost handovers: {planned} against {free} for the free fleet"
+            );
+        }
     }
 
     fn towns() -> [[f64; 3]; 5] {

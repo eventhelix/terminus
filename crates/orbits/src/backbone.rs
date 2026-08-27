@@ -47,10 +47,259 @@ pub fn max_shell_range_rate(body: &CentralBody, alt1: f64, alt2: f64) -> f64 {
     max_rate
 }
 
+/// The feeder-link separation the routing policy prefers (rad).
+///
+/// Not a visibility limit -- [`max_shell_separation`] is nearly twice this --
+/// but a latency one. At 2,200 km to 20,000 km, 60 deg of separation is a
+/// 23,299 km hop and 77.7 ms one way, which is what keeps the session budget
+/// honest. Anchors further out are reachable and are taken when nothing
+/// closer is up; they just cost more.
+pub const FEEDER_BUDGET: f64 = std::f64::consts::PI / 3.0;
+
+/// Central angle (rad) between two positions in the same frame.
+pub fn separation(a: [f64; 3], b: [f64; 3]) -> f64 {
+    let na = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+    let nb = (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt();
+    ((a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (na * nb))
+        .clamp(-1.0, 1.0)
+        .acos()
+}
+
+/// How long (s) `anchor` stays within `limit` of the serving satellite, from
+/// `t` and capped at `horizon`.
+///
+/// This is the quantity anchor selection actually wants, and the reason it is
+/// not "highest" or "closest": both of those are instantaneous, and an anchor
+/// on its way out is a re-anchor waiting to happen. Dwell also subsumes the
+/// rising/setting distinction -- an anchor just entering the budget has hours
+/// of it left, one just leaving has minutes -- without needing to test the
+/// sign of anything.
+pub fn anchor_dwell<S, A>(
+    serving_at: S,
+    anchor_at: A,
+    limit: f64,
+    t: f64,
+    horizon: f64,
+    step: f64,
+) -> f64
+where
+    S: Fn(f64) -> [f64; 3],
+    A: Fn(f64) -> [f64; 3],
+{
+    let mut u = t;
+    while u <= t + horizon {
+        if separation(serving_at(u), anchor_at(u)) > limit {
+            return u - t;
+        }
+        u += step;
+    }
+    horizon
+}
+
+/// Which anchor a session on the serving satellite should hold.
+///
+/// The policy the reference architecture describes: every ring reaches the MEO
+/// shell directly, so the candidates are the anchors above the serving
+/// satellite's limb; among them the routing policy prefers those inside
+/// [`FEEDER_BUDGET`]; and of those it takes the one that will stay there
+/// longest, so the session is not re-anchored again in a minute.
+///
+/// `current` is the anchor the session already holds, and it is kept while it
+/// stays REACHABLE -- above the limb -- not merely while it stays inside the
+/// budget. The budget is a preference applied when choosing; it is not a
+/// reason to move a running session. This is the same split
+/// [`crate::handover::best_visible`] makes for access satellites: acquisition
+/// answers to policy, retention answers to geometry.
+///
+/// It matters because the serving satellite changes every 11 minutes, and
+/// tying retention to the budget would let each of those access handovers
+/// knock the session off its anchor -- 20 to 79 re-anchors a day against the
+/// ~19 access handovers one anchored session is supposed to ride out
+/// (`compute_placement`: a 206.6 min MEO pass over an 11.0 min handover
+/// interval).
+///
+/// Returns the index into `anchors_at`, or `None` when nothing is above the
+/// limb at all.
+#[allow(clippy::too_many_arguments)]
+pub fn select_anchor<S, A>(
+    body: &CentralBody,
+    serving_alt: f64,
+    shell_alt: f64,
+    serving_at: S,
+    anchors_at: &[A],
+    current: Option<usize>,
+    t: f64,
+) -> Option<usize>
+where
+    S: Fn(f64) -> [f64; 3],
+    A: Fn(f64) -> [f64; 3],
+{
+    let limb = max_shell_separation(body, serving_alt, shell_alt);
+    let now = serving_at(t);
+
+    // Hold what we have while it is still reachable.
+    if let Some(i) = current {
+        if i < anchors_at.len() && separation(now, anchors_at[i](t)) <= limb {
+            return Some(i);
+        }
+    }
+
+    let horizon = 6.0 * 3_600.0;
+    let step = 60.0;
+    let mut best: Option<(usize, f64)> = None;
+    // Inside the budget first, on dwell. Only if nothing is inside the budget
+    // does the wider limb-limited set get a look, and then on separation --
+    // out there the honest goal is the shortest hop available, not the
+    // longest-lived one.
+    for (i, at) in anchors_at.iter().enumerate() {
+        if separation(now, at(t)) > FEEDER_BUDGET {
+            continue;
+        }
+        // Dwell to the limb, not to the budget: that is how long this anchor
+        // could carry the session, which is what the choice is between.
+        let d = anchor_dwell(&serving_at, at, limb, t, horizon, step);
+        if best.map_or(true, |(_, bd)| d > bd) {
+            best = Some((i, d));
+        }
+    }
+    if let Some((i, _)) = best {
+        return Some(i);
+    }
+
+    let mut fallback: Option<(usize, f64)> = None;
+    for (i, at) in anchors_at.iter().enumerate() {
+        let s = separation(now, at(t));
+        if s <= limb && fallback.map_or(true, |(_, bs)| s < bs) {
+            fallback = Some((i, s));
+        }
+    }
+    fallback.map(|(i, _)| i)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::constellation::polar_sat_position;
+
+    fn nav_shell() -> crate::walker::WalkerShell {
+        crate::walker::WalkerShell {
+            altitude: 20_000e3,
+            planes: 6,
+            sats_per_plane: 4,
+            inclination: 55.0_f64.to_radians(),
+            phase_factor: 1.0,
+        }
+    }
+
+    /// Anchor selection takes the anchor inside the budget that will stay
+    /// reachable longest, not the closest one. The two disagree often: closest
+    /// is instantaneous, and an anchor on its way out is a re-anchor waiting to
+    /// happen. Dwell is what a session actually cares about, and it subsumes
+    /// rising-versus-setting without testing the sign of anything.
+    #[test]
+    fn the_chosen_anchor_is_the_longest_reachable_one_in_budget() {
+        let p = reference_planet();
+        let shell = nav_shell();
+        let serving = |u: f64| polar_sat_position(&p, 2_200e3, 0.0, 0.0, u);
+        let anchors: Vec<_> = (0..shell.planes)
+            .flat_map(|k| (0..shell.sats_per_plane).map(move |j| (k, j)))
+            .map(|(k, j)| move |u: f64| crate::walker::shell_sat_position(&p, &shell, k, j, u))
+            .collect();
+
+        let mut disagreements = 0;
+        for i in 0..60 {
+            let t = i as f64 * 600.0;
+            let Some(pick) = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, None, t)
+            else {
+                continue;
+            };
+            let now = serving(t);
+            // Never beyond the limb, and inside the budget whenever anything is.
+            let limb = max_shell_separation(&p, 2_200e3, shell.altitude);
+            assert!(separation(now, anchors[pick](t)) <= limb);
+            let any_in_budget = anchors
+                .iter()
+                .any(|a| separation(now, a(t)) <= FEEDER_BUDGET);
+            if !any_in_budget {
+                continue;
+            }
+            let chosen = separation(now, anchors[pick](t));
+            assert!(
+                chosen <= FEEDER_BUDGET,
+                "took a {:.0} deg hop with the budget available",
+                chosen.to_degrees()
+            );
+            let d = anchor_dwell(serving, &anchors[pick], limb, t, 6.0 * 3_600.0, 60.0);
+            for a in anchors.iter() {
+                if separation(now, a(t)) > FEEDER_BUDGET {
+                    continue;
+                }
+                let other = anchor_dwell(serving, a, limb, t, 6.0 * 3_600.0, 60.0);
+                assert!(other <= d, "a longer-lived anchor was passed over");
+            }
+            // Closest-is-not-longest-lived happens; if it never did, the test
+            // would be pinning nothing.
+            let closest = anchors
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| separation(now, a(t)) <= FEEDER_BUDGET)
+                .min_by(|(_, x), (_, y)| {
+                    separation(now, x(t))
+                        .partial_cmp(&separation(now, y(t)))
+                        .expect("finite")
+                })
+                .map(|(i, _)| i);
+            if closest != Some(pick) {
+                disagreements += 1;
+            }
+        }
+        assert!(
+            disagreements > 0,
+            "dwell and proximity never disagreed -- the policy is untested"
+        );
+    }
+
+    /// A session is not re-anchored for a marginally better hop. The held
+    /// anchor is kept while it stays reachable, because a re-anchor costs a
+    /// make-before-break migration -- and because the serving satellite below
+    /// it changes every 11 minutes, which must not drag the anchor with it.
+    #[test]
+    fn a_held_anchor_is_kept_while_it_is_reachable() {
+        let p = reference_planet();
+        let shell = nav_shell();
+        let serving = |u: f64| polar_sat_position(&p, 2_200e3, 0.0, 0.0, u);
+        let anchors: Vec<_> = (0..shell.planes)
+            .flat_map(|k| (0..shell.sats_per_plane).map(move |j| (k, j)))
+            .map(|(k, j)| move |u: f64| crate::walker::shell_sat_position(&p, &shell, k, j, u))
+            .collect();
+
+        let mut held = None;
+        let mut switches = 0;
+        let mut free_switches = 0;
+        let mut prev_free = None;
+        for i in 0..1_440 {
+            let t = i as f64 * 60.0;
+            let next = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, held, t);
+            if let (Some(a), Some(b)) = (held, next) {
+                if a != b {
+                    switches += 1;
+                }
+            }
+            held = next;
+            // Same policy with no memory, for comparison.
+            let free = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, None, t);
+            if let (Some(a), Some(b)) = (prev_free, free) {
+                if a != b {
+                    free_switches += 1;
+                }
+            }
+            prev_free = free;
+        }
+        assert!(
+            switches < free_switches,
+            "holding saved nothing: {switches} switches against {free_switches} memoryless"
+        );
+    }
 
     fn reference_planet() -> CentralBody {
         CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0)
