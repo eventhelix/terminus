@@ -21,8 +21,8 @@ use std::collections::BTreeMap;
 
 use terminus_orbits::activation::{covering_satellites, duty_first_activation, satellite_index};
 use terminus_orbits::backbone::{
-    intra_plane_range, intra_plane_reach, max_intra_shell_range_rate, max_shell_range_rate,
-    max_shell_separation, separation,
+    intra_plane_diameter, intra_plane_range, intra_plane_reach, max_intra_shell_range_rate,
+    max_shell_range_rate, max_shell_separation, separation,
 };
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
 use terminus_orbits::duty::duty_ring;
@@ -41,10 +41,10 @@ const BAND: f64 = 20.0 * std::f64::consts::PI / 180.0;
 const TOWNS: usize = 1_000;
 const STEP: f64 = 300.0;
 const SPAN: f64 = 86_400.0;
-/// How far a session can travel along the necklace to borrow a feeder
-/// terminal. `intra_plane_reach` at 2,200 km says two hops, so a window of
-/// five satellites pools its terminals.
-const REACH: usize = 2;
+/// How far a session may travel along the necklace to borrow a feeder
+/// terminal. The lasers stay powered even where the radios are dark, so the
+/// necklace is a standing relay and hops chain: half a ring reaches all of it.
+const REACH: usize = 6;
 
 struct Town {
     unit: [f64; 3],
@@ -108,10 +108,12 @@ fn main() {
         );
     }
     println!(
-        "\n   So traffic on the wheel travels at most a hop or two along its ring\n\
-         \x20  and no further -- that phrase is geometry, not policy. In the shell a\n\
-         \x20  four-satellite plane reaches one neighbour each way and the satellite\n\
-         \x20  directly opposite is permanently occulted: a broken necklace."
+        "\n   So a single hop on the wheel reaches at most two ring mates -- that\n\
+         \x20  phrase is geometry, not policy -- though hops chain, and a ring of\n\
+         \x20  twelve crosses in three. There are no links between rings at all. In\n\
+         \x20  the shell a four-satellite plane reaches one neighbour each way and\n\
+         \x20  the satellite opposite is permanently occulted; the plane still\n\
+         \x20  closes, as a cycle of four with no chords."
     );
     for hops in 1..=2 {
         println!(
@@ -147,10 +149,10 @@ fn main() {
         "\n   The closed form reports 0.00 within a shell because it turns on the\n\
          \x20  difference in mean motion. That is right for a plane mate and wrong\n\
          \x20  across planes, where two inclined orbits cross at an angle and their\n\
-         \x20  satellites sweep past each other however equal their periods. So an\n\
-         \x20  anchor-to-anchor link is not a second necklace: only the one plane\n\
-         \x20  mate each anchor can reach is free to point, and the shell cannot be\n\
-         \x20  connected on those alone -- section A, the necklace that will not close."
+         \x20  satellites sweep past each other however equal their periods. An\n\
+         \x20  anchor-to-anchor link therefore splits in two. Plane mates are frozen\n\
+         \x20  and close their own plane into a cycle; joining plane to plane is the\n\
+         \x20  half that steers, and no arrangement of frozen links can do it."
     );
 
     // ---- the session population ------------------------------------------
@@ -288,21 +290,23 @@ fn main() {
         // Every satellite must sit within `reach` hops of a feeder host.
         let per_ring = wheel.sats_per_plane;
         let duty = duty_ring(&planet, &wheel, t);
-        // Only a satellite the plan has lit can relay. Pooling over a whole
-        // ring regardless would price a network that is switched off.
+        // Lasers stay powered whatever the radios are doing, so every
+        // satellite in a ring relays and the whole ring pools.
         relay_lit.push(uniform_relay_demand(
-            &sessions,
-            |a| (a / per_ring, a % per_ring),
-            |ring, pos| lit[ring * per_ring + pos],
-            per_ring,
-            REACH,
-        ));
-        relay_all.push(uniform_relay_demand(
             &sessions,
             |a| (a / per_ring, a % per_ring),
             |_, _| true,
             per_ring,
             REACH,
+        ));
+        // For contrast: what the necklace would be worth if a dark radio meant
+        // a dark satellite, and only lit satellites relayed.
+        relay_all.push(uniform_relay_demand(
+            &sessions,
+            |a| (a / per_ring, a % per_ring),
+            |ring, pos| lit[ring * per_ring + pos],
+            per_ring,
+            2,
         ));
         let on_duty = (0..per_ring).filter(|&j| lit[duty * per_ring + j]).count();
         lit_counts.push((on_duty, lit.iter().filter(|&&b| b).count() - on_duty));
@@ -312,7 +316,7 @@ fn main() {
     let direct = TerminalDemand::over_time(direct_instants);
     let gw = TerminalDemand::over_time(gateway_instants);
     let relay = TerminalDemand::over_time(relay_lit);
-    let relay_if_all_powered = TerminalDemand::over_time(relay_all);
+    let relay_if_only_lit_relayed = TerminalDemand::over_time(relay_all);
     let mean_duty = lit_counts.iter().map(|c| c.0).sum::<usize>() as f64 / lit_counts.len() as f64;
     let mean_other = lit_counts.iter().map(|c| c.1).sum::<usize>() as f64 / lit_counts.len() as f64;
 
@@ -347,7 +351,7 @@ fn main() {
     );
     println!(
         "   plus anchor-to-anchor links, which this model does not price --\n\
-         \x20  and which section A says a 4-satellite plane cannot fully close."
+         \x20  and which section E prices: a plane closes, joining planes steers."
     );
 
     println!("\n\nD. The necklace, with one drawing for the whole fleet\n");
@@ -355,16 +359,18 @@ fn main() {
         "   Every satellite is the same satellite, so each carries the worst\n\
          \x20  case -- designating a few feeder hosts would be a second model, and a\n\
          \x20  programme that builds two pays for two of everything. The necklace\n\
-         \x20  still helps: a session borrows a feeder terminal up to {} hops away,\n\
-         \x20  so a window of {} satellites pools what it has and sizing follows the\n\
-         \x20  busiest window rather than the busiest satellite.\n",
-        REACH,
-        2 * REACH + 1
+         \x20  still helps, and more than it looks: the lasers stay powered even\n\
+         \x20  where the radios are dark, so the necklace is a standing relay and a\n\
+         \x20  session can chain hops all the way round. The whole ring of {} pools\n\
+         \x20  its feeder terminals, {} hops worst case at {:.1} ms a hop.\n",
+        wheel.sats_per_plane,
+        intra_plane_diameter(&planet, ACCESS_ALT, wheel.sats_per_plane).unwrap_or(0),
+        intra_plane_range(&planet, ACCESS_ALT, wheel.sats_per_plane, 1) / 299_792_458.0 * 1e3
     );
     println!(
-        "   Of {:.0} satellites lit at a time, {:.0} are the duty ring -- a solid block\n\
-         \x20  that pools well -- and {:.0} are singles scattered through the other five\n\
-         \x20  rings, whose ring mates are dark. A single has nobody to borrow from.\n",
+        "   Of {:.0} satellites lit at a time, {:.0} are the duty ring and {:.0} are\n\
+         \x20  singles scattered through the other five rings. With the lasers on,\n\
+         \x20  that no longer matters: a single still has eleven ring mates relaying.\n",
         mean_duty + mean_other,
         mean_duty,
         mean_other
@@ -376,13 +382,85 @@ fn main() {
         relay.max_access()
     );
     println!(
-        "     had every satellite been available to relay: max {}",
-        relay_if_all_powered.max_access()
+        "     if a dark radio meant a dark satellite:    max {}",
+        relay_if_only_lit_relayed.max_access()
     );
     println!("   plus 2 necklace terminals on every one: 4,437 km, frozen, free to point");
     println!(
         "   feeder terminals on EVERY anchor:           max {}",
         relay.max_anchor()
+    );
+
+    // ---- E. the shell's own links ----------------------------------------
+    println!(
+        "
+
+E. Does the shell need links of its own?
+"
+    );
+    let plane_mate = intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1);
+    println!(
+        "   Intra-plane: {} anchors 90 deg apart, so each reaches both neighbours\n\
+         \x20  and the plane closes as a cycle -- {} hops across it. {:.0} km a hop,\n\
+         \x20  {:.0} ms, frozen at {:.2} km/s: two terminals each, pointed once.\n",
+        shell.sats_per_plane,
+        intra_plane_diameter(&planet, MEO_ALT, shell.sats_per_plane).unwrap_or(0),
+        plane_mate / 1e3,
+        plane_mate / 299_792_458.0 * 1e3,
+        max_shell_range_rate(&planet, MEO_ALT, MEO_ALT) / 1e3
+    );
+
+    // How long does a cross-plane pair stay usable, and how many partners does
+    // one anchor cycle through in a day?
+    let limb_shell = max_shell_separation(&planet, MEO_ALT, MEO_ALT);
+    let mut partners = 0usize;
+    let mut longest_gap = 0.0f64;
+    let a0 = (0usize, 0usize);
+    let mut current: Option<(usize, usize)> = None;
+    let mut held_since = 0.0f64;
+    let mut u = 0.0;
+    while u < SPAN {
+        let p0 = shell_sat_position(&planet, &shell, a0.0, a0.1, u);
+        // Nearest visible partner in another plane.
+        let mut best: Option<((usize, usize), f64)> = None;
+        for &(k, j) in anchor_ids.iter() {
+            if k == a0.0 {
+                continue;
+            }
+            let q = shell_sat_position(&planet, &shell, k, j, u);
+            let sep = separation(p0, q);
+            if sep <= limb_shell && best.map_or(true, |(_, b)| sep < b) {
+                best = Some(((k, j), sep));
+            }
+        }
+        if let Some((id, _)) = best {
+            if current != Some(id) {
+                if current.is_some() {
+                    longest_gap = longest_gap.max(u - held_since);
+                    partners += 1;
+                }
+                current = Some(id);
+                held_since = u;
+            }
+        }
+        u += STEP;
+    }
+    println!(
+        "   Inter-plane: one anchor's nearest partner in another plane changes\n\
+         \x20  {} times a day, holding {:.1} h at most. {:.2} km/s of Doppler, and a\n\
+         \x20  new partner means re-pointing: this terminal steers for a living.\n",
+        partners,
+        longest_gap / 3_600.0,
+        max_intra_shell_range_rate(&planet, &shell, 60.0) / 1e3
+    );
+    println!(
+        "   Whether the shell needs either is a routing question, not a geometry\n\
+         \x20  one. With the wheel pooling a whole ring, every ring already reaches\n\
+         \x20  every anchor it needs directly, and no session traffic crosses the\n\
+         \x20  shell. What would use these links is anchor migration -- gigabytes of\n\
+         \x20  working memory, make-before-break -- and clock transfer for the\n\
+         \x20  navigation service. Migration could instead route down through a ring\n\
+         \x20  and back up, at two feeder hops."
     );
 
     let fleet_direct = 72 * direct.max_access() + 24 * direct.max_anchor();

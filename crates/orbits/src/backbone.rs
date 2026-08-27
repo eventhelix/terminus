@@ -39,8 +39,10 @@ pub fn intra_plane_range(
 ///
 /// At 20,000 km the limit is 152.0° against 90.0° spacing, so an anchor
 /// reaches exactly one plane mate each way and the satellite directly opposite
-/// it is permanently behind the planet. A four-satellite plane is a broken
-/// necklace, not a closed one.
+/// it is permanently behind the planet. The plane still closes — a cycle of
+/// four, reached the long way round — it simply has no chords. Reach of one is
+/// connectivity without shortcuts, which costs hops rather than reachability;
+/// see [`intra_plane_diameter`].
 pub fn intra_plane_reach(body: &CentralBody, altitude: f64, sats_per_plane: usize) -> usize {
     let limit = 2.0 * (body.radius / (body.radius + altitude)).acos();
     let spacing = 2.0 * std::f64::consts::PI / sats_per_plane as f64;
@@ -219,6 +221,30 @@ where
     fallback.map(|(i, _)| i)
 }
 
+/// Most hops needed to reach any satellite in one's own ring, or `None` if
+/// the ring does not connect at all.
+///
+/// A ring of `n` with a reach of `r` is a circulant graph: every satellite
+/// links to the `r` on each side. It connects whenever `r >= 1`, and the
+/// farthest satellite is half a ring away, so the answer is `ceil((n/2) / r)`.
+///
+/// Both of this architecture's rings connect. The wheel's twelve at two hops
+/// of reach has a diameter of three; the shell's four at one hop has a
+/// diameter of two. That matters once relaying is real, because each hop is a
+/// hop's worth of light time — 14.8 ms around the wheel, 124 ms around a MEO
+/// plane — and a session pays it twice.
+pub fn intra_plane_diameter(
+    body: &CentralBody,
+    altitude: f64,
+    sats_per_plane: usize,
+) -> Option<usize> {
+    let reach = intra_plane_reach(body, altitude, sats_per_plane);
+    if reach == 0 {
+        return None;
+    }
+    Some((sats_per_plane / 2).div_ceil(reach))
+}
+
 /// Worst-case range rate (m/s) between two satellites in *different planes of
 /// one shell*, swept numerically over an orbital period.
 ///
@@ -298,11 +324,11 @@ mod tests {
 
     /// The shell runs the other way. A four-satellite plane is 90 deg between
     /// neighbours, so an anchor reaches one each side and the satellite
-    /// directly opposite is permanently behind the planet -- a necklace that
-    /// cannot be closed, which is why anchor-to-anchor routing cannot simply
-    /// go the long way round a plane.
+    /// directly opposite is permanently behind the planet. The plane still
+    /// closes, as a cycle of four with no chords: anchor-to-anchor traffic can
+    /// go the long way round, it just cannot cut across.
     #[test]
-    fn a_four_satellite_plane_cannot_close_its_necklace() {
+    fn a_four_satellite_plane_closes_the_long_way_round() {
         let p = reference_planet();
         assert_eq!(intra_plane_reach(&p, 20_000e3, 4), 1);
 
@@ -312,6 +338,9 @@ mod tests {
             "line of sight limit {limit} deg"
         );
         assert!(180.0 > limit, "the antipodal plane mate is occulted");
+        // Occulted diagonal, intact cycle: reachable in two hops, not one.
+        assert_eq!(intra_plane_diameter(&p, 20_000e3, 4), Some(2));
+        assert_eq!(intra_plane_diameter(&p, 2_200e3, 12), Some(3));
 
         // And the reachable one is a long way off: eight times the wheel's hop.
         let meo = intra_plane_range(&p, 20_000e3, 4, 1);
