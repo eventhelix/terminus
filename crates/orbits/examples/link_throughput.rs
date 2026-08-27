@@ -11,6 +11,11 @@
 //! simulation: the topology already fixed how many links there are and how
 //! many sessions ride the busiest of them.
 //!
+//! The sting is in section C. Nothing forces a session to change anchor -- a
+//! ring reaches every anchor at every instant -- so how much working memory
+//! the backbone carries is set by the re-anchor margin, a policy number, and
+//! it moves the answer across four orders of magnitude.
+//!
 //! Run: cargo run --release -p terminus-orbits --example link_throughput
 
 use terminus_orbits::placement::{transfer_time, KvCacheModel};
@@ -26,10 +31,29 @@ const TERMINALS_CEILING: f64 = 1_000_000.0;
 /// buried.
 const CONCURRENCY: f64 = 0.10;
 
-/// An anchor holds a session about three and a half hours — the MEO pass of
-/// 206.6 min from `compute_placement`, which is also the ~19 access handovers
-/// one anchored session rides out.
-const ANCHOR_DWELL: f64 = 3.4 * 3_600.0;
+/// How often a session changes anchor, per margin, from `feeder_terminals`
+/// section H. These are policy outcomes, not geometry: a ring can reach every
+/// anchor at every instant, so nothing forces a migration and the re-anchor
+/// margin decides how many happen. Keep in step with that example.
+const POLICY: [(f64, f64); 5] = [
+    (0.0, 113.37),
+    (2_500e3, 19.10),
+    (5_000e3, 12.06),
+    (10_000e3, 6.40),
+    (20_000e3, 0.0),
+];
+/// Index into `POLICY` of the margin the library states as `REANCHOR_MARGIN`.
+const CHOSEN: usize = 2;
+
+/// Seconds between migrations at a given rate per session per day. An infinite
+/// interval is a session that never moves.
+fn dwell_from(changes_per_day: f64) -> f64 {
+    if changes_per_day <= 0.0 {
+        f64::INFINITY
+    } else {
+        86_400.0 / changes_per_day
+    }
+}
 
 /// Share of sessions that leave their ring through a borrowed telescope
 /// rather than their own satellite's. Pooling left the median access
@@ -83,20 +107,20 @@ fn main() {
         profile.context_tokens
     );
     println!(
-        "   anchor dwell          {:>9.1} h   so one migration every {:.1} h",
-        ANCHOR_DWELL / 3_600.0,
-        ANCHOR_DWELL / 3_600.0
+        "   anchor hold           {:>9.1} h   = {:.2} changes/session/day",
+        dwell_from(POLICY[CHOSEN].1) / 3_600.0,
+        POLICY[CHOSEN].1
     );
     println!(
         "   migration, averaged   {:>12}",
-        gbps(profile.migration_bps(&model, ANCHOR_DWELL))
+        gbps(profile.migration_bps(&model, dwell_from(POLICY[CHOSEN].1)))
     );
     println!(
         "\n   Ratio: working memory outweighs the conversation it belongs to by\n\
          \x20  {:.0} to one. A backbone sized from token rates would be wrong by that\n\
          \x20  factor, not by a margin. Everything below is really a memory-moving\n\
          \x20  network that also carries speech.",
-        profile.migration_ratio(&model, ANCHOR_DWELL)
+        profile.migration_ratio(&model, dwell_from(POLICY[CHOSEN].1))
     );
     println!(
         "\n   The saving grace is that most conversations never migrate at all:\n\
@@ -110,7 +134,7 @@ fn main() {
         println!(
             "     {:<22} {:>5.2} migrations",
             label,
-            profile.migrations_per_session(secs, ANCHOR_DWELL)
+            profile.migrations_per_session(secs, dwell_from(POLICY[CHOSEN].1))
         );
     }
 
@@ -150,9 +174,10 @@ fn main() {
         // this is the share that does not.
         let per_necklace = sessions * BORROW_SHARE / (RINGS * SATS_PER_RING);
 
-        let radio = link_load(per_access_sat, &profile, &model, ANCHOR_DWELL, 0.0);
-        let necklace = link_load(per_necklace, &profile, &model, ANCHOR_DWELL, 2.0);
-        let feeder = link_load(per_feeder, &profile, &model, ANCHOR_DWELL, 2.0);
+        let dwell = dwell_from(POLICY[CHOSEN].1);
+        let radio = link_load(per_access_sat, &profile, &model, dwell, 0.0);
+        let necklace = link_load(per_necklace, &profile, &model, dwell, 2.0);
+        let feeder = link_load(per_feeder, &profile, &model, dwell, 2.0);
 
         println!(
             "{:<36} {:>9} {:>12} {:>12}",
@@ -182,8 +207,49 @@ fn main() {
         );
     }
 
+    println!("\n\nC. What the re-anchor margin costs the backbone\n");
     println!(
-        "\n\nC. What this does and does not settle\n\n\
+        "   Nothing forces a migration: a ring reaches every anchor at every\n\
+         \x20  instant, so a session could hold one for ever. The re-anchor margin\n\
+         \x20  decides how many happen, and because working memory outweighs\n\
+         \x20  conversation by three orders of magnitude, that one policy number\n\
+         \x20  sizes the entire backbone.\n"
+    );
+    let sessions = TERMINALS_CEILING * CONCURRENCY;
+    let per_feeder = sessions / (RINGS * SATS_PER_RING * 2.0);
+    println!(
+        "   At the million-terminal ceiling, {:.0} sessions, busiest feeder link:\n",
+        sessions
+    );
+    println!(
+        "{:>14} {:>14} {:>16} {:>16}",
+        "margin (km)", "changes/day", "conversation", "migration"
+    );
+    for (i, (margin, per_day)) in POLICY.iter().enumerate() {
+        let load = link_load(per_feeder, &profile, &model, dwell_from(*per_day), 2.0);
+        println!(
+            "{:>14.0} {:>14.2} {:>16} {:>16}{}",
+            margin / 1e3,
+            per_day,
+            gbps(load.conversational),
+            gbps(load.migration),
+            if i == CHOSEN { "  <- chosen" } else { "" }
+        );
+    }
+    println!(
+        "\n   The span is four orders of magnitude, and only the bottom row is\n\
+         \x20  free. Chasing the shortest path costs more backbone than a hundred\n\
+         \x20  gigabit link can carry; never moving at all costs none, and still\n\
+         \x20  meets the 300 ms round trip with a worst path of 34,198 km.\n\n\
+         \x20  So the honest reading is that this network is sized by a policy\n\
+         \x20  decision, not by its users. Latency and bandwidth are being traded\n\
+         \x20  directly against each other, and the trade is unusually lopsided:\n\
+         \x20  the whole span of mean path length across these five policies is\n\
+         \x20  18,569 km to 25,843 km -- 24 ms one way -- for a backbone bill that\n\
+         \x20  varies by ten thousand fold."
+    );
+    println!(
+        "\n\nD. What this does and does not settle\n\n\
          \x20  Concurrency is a guess at {:.0}%, and every number above scales\n\
          \x20  linearly in it. Context length is the other lever and it is worse\n\
          \x20  than linear in consequence: at 131,072 tokens the working memory is\n\
