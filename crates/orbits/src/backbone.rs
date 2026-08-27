@@ -141,84 +141,60 @@ where
     horizon
 }
 
-/// Which anchor a session on the serving satellite should hold.
+/// Hysteresis margin (m of path length) a rival anchor must beat the held one
+/// by before a session is moved.
 ///
-/// The policy the reference architecture describes: every ring reaches the MEO
-/// shell directly, so the candidates are the anchors above the serving
-/// satellite's limb; among them the routing policy prefers those inside
-/// [`FEEDER_BUDGET`]; and of those it takes the one that will stay there
-/// longest, so the session is not re-anchored again in a minute.
+/// A re-anchor costs a make-before-break transfer of the whole working memory,
+/// so the margin is not a tuning knob so much as a statement about what that
+/// transfer is worth. 5,000 km of path is about 17 ms one way, 33 ms on the
+/// round trip: enough to be worth gigabytes of traffic, where a millisecond
+/// plainly is not. `link_throughput` sweeps it.
+pub const REANCHOR_MARGIN: f64 = 5_000e3;
+
+/// Which anchor a session should hold, given what each one costs to reach.
 ///
-/// `current` is the anchor the session already holds, and it is kept while it
-/// stays REACHABLE -- above the limb -- not merely while it stays inside the
-/// budget. The budget is a preference applied when choosing; it is not a
-/// reason to move a running session. This is the same split
-/// [`crate::handover::best_visible`] makes for access satellites: acquisition
-/// answers to policy, retention answers to geometry.
+/// `path_cost(i)` is the total path length (m) to anchor `i` — necklace hops
+/// plus feeder link, as [`crate::routing::exit_gateway`] computes it — or
+/// `None` if the ring cannot reach that anchor at all.
 ///
-/// It matters because the serving satellite changes every 11 minutes, and
-/// tying retention to the budget would let each of those access handovers
-/// knock the session off its anchor -- 20 to 79 re-anchors a day against the
-/// ~19 access handovers one anchored session is supposed to ride out
-/// (`compute_placement`: a 206.6 min MEO pass over an 11.0 min handover
-/// interval).
+/// Two things are absent that an earlier version of this function had, and
+/// both went for the same reason. It used to filter candidates by what the
+/// *serving satellite* could see, and to break ties on how long an anchor
+/// would stay visible from it. Neither survives the necklace: a session can
+/// leave its ring through any ring mate, so the horizon that matters belongs
+/// to the ring, and a ring can see every anchor at every instant. Reachability
+/// stopped being the binding constraint, and dwell was only ever a way of
+/// predicting when reachability would expire.
 ///
-/// Returns the index into `anchors_at`, or `None` when nothing is above the
-/// limb at all.
-#[allow(clippy::too_many_arguments)]
-pub fn select_anchor<S, A>(
-    body: &CentralBody,
-    serving_alt: f64,
-    shell_alt: f64,
-    serving_at: S,
-    anchors_at: &[A],
+/// What binds instead is latency, so the rule is simply the shortest path —
+/// with `margin` of hysteresis, because a rival anchor has to be worth a
+/// migration, not merely worth a millisecond.
+pub fn select_anchor(
+    anchors: usize,
+    path_cost: impl Fn(usize) -> Option<f64>,
     current: Option<usize>,
-    t: f64,
-) -> Option<usize>
-where
-    S: Fn(f64) -> [f64; 3],
-    A: Fn(f64) -> [f64; 3],
-{
-    let limb = max_shell_separation(body, serving_alt, shell_alt);
-    let now = serving_at(t);
-
-    // Hold what we have while it is still reachable.
-    if let Some(i) = current {
-        if i < anchors_at.len() && separation(now, anchors_at[i](t)) <= limb {
-            return Some(i);
-        }
-    }
-
-    let horizon = 6.0 * 3_600.0;
-    let step = 60.0;
+    margin: f64,
+) -> Option<usize> {
     let mut best: Option<(usize, f64)> = None;
-    // Inside the budget first, on dwell. Only if nothing is inside the budget
-    // does the wider limb-limited set get a look, and then on separation --
-    // out there the honest goal is the shortest hop available, not the
-    // longest-lived one.
-    for (i, at) in anchors_at.iter().enumerate() {
-        if separation(now, at(t)) > FEEDER_BUDGET {
+    for i in 0..anchors {
+        let Some(cost) = path_cost(i) else {
             continue;
-        }
-        // Dwell to the limb, not to the budget: that is how long this anchor
-        // could carry the session, which is what the choice is between.
-        let d = anchor_dwell(&serving_at, at, limb, t, horizon, step);
-        if best.map_or(true, |(_, bd)| d > bd) {
-            best = Some((i, d));
+        };
+        if best.map_or(true, |(_, b)| cost < b) {
+            best = Some((i, cost));
         }
     }
-    if let Some((i, _)) = best {
-        return Some(i);
-    }
+    let (best_i, best_cost) = best?;
 
-    let mut fallback: Option<(usize, f64)> = None;
-    for (i, at) in anchors_at.iter().enumerate() {
-        let s = separation(now, at(t));
-        if s <= limb && fallback.map_or(true, |(_, bs)| s < bs) {
-            fallback = Some((i, s));
+    // Hold what we have unless the challenger clears the margin.
+    if let Some(held) = current {
+        if let Some(held_cost) = path_cost(held) {
+            if held_cost <= best_cost + margin {
+                return Some(held);
+            }
         }
     }
-    fallback.map(|(i, _)| i)
+    Some(best_i)
 }
 
 /// Most hops needed to reach any satellite in one's own ring, or `None` if
@@ -392,114 +368,68 @@ mod tests {
         }
     }
 
-    /// Anchor selection takes the anchor inside the budget that will stay
-    /// reachable longest, not the closest one. The two disagree often: closest
-    /// is instantaneous, and an anchor on its way out is a re-anchor waiting to
-    /// happen. Dwell is what a session actually cares about, and it subsumes
-    /// rising-versus-setting without testing the sign of anything.
+    /// Selection is now simply the shortest path, because reachability stopped
+    /// being the binding constraint the moment a session could leave its ring
+    /// through any ring mate. The dwell tiebreak went with it: dwell only ever
+    /// predicted when reachability would expire, and it no longer does.
     #[test]
-    fn the_chosen_anchor_is_the_longest_reachable_one_in_budget() {
-        let p = reference_planet();
-        let shell = nav_shell();
-        let serving = |u: f64| polar_sat_position(&p, 2_200e3, 0.0, 0.0, u);
-        let anchors: Vec<_> = (0..shell.planes)
-            .flat_map(|k| (0..shell.sats_per_plane).map(move |j| (k, j)))
-            .map(|(k, j)| move |u: f64| crate::walker::shell_sat_position(&p, &shell, k, j, u))
-            .collect();
-
-        let mut disagreements = 0;
-        for i in 0..60 {
-            let t = i as f64 * 600.0;
-            let Some(pick) = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, None, t)
-            else {
-                continue;
-            };
-            let now = serving(t);
-            // Never beyond the limb, and inside the budget whenever anything is.
-            let limb = max_shell_separation(&p, 2_200e3, shell.altitude);
-            assert!(separation(now, anchors[pick](t)) <= limb);
-            let any_in_budget = anchors
-                .iter()
-                .any(|a| separation(now, a(t)) <= FEEDER_BUDGET);
-            if !any_in_budget {
-                continue;
-            }
-            let chosen = separation(now, anchors[pick](t));
-            assert!(
-                chosen <= FEEDER_BUDGET,
-                "took a {:.0} deg hop with the budget available",
-                chosen.to_degrees()
-            );
-            let d = anchor_dwell(serving, anchors[pick], limb, t, 6.0 * 3_600.0, 60.0);
-            for a in anchors.iter() {
-                if separation(now, a(t)) > FEEDER_BUDGET {
-                    continue;
-                }
-                let other = anchor_dwell(serving, a, limb, t, 6.0 * 3_600.0, 60.0);
-                assert!(other <= d, "a longer-lived anchor was passed over");
-            }
-            // Closest-is-not-longest-lived happens; if it never did, the test
-            // would be pinning nothing.
-            let closest = anchors
-                .iter()
-                .enumerate()
-                .filter(|(_, a)| separation(now, a(t)) <= FEEDER_BUDGET)
-                .min_by(|(_, x), (_, y)| {
-                    separation(now, x(t))
-                        .partial_cmp(&separation(now, y(t)))
-                        .expect("finite")
-                })
-                .map(|(i, _)| i);
-            if closest != Some(pick) {
-                disagreements += 1;
-            }
-        }
-        assert!(
-            disagreements > 0,
-            "dwell and proximity never disagreed -- the policy is untested"
+    fn the_shortest_path_wins_when_nothing_is_held() {
+        let costs = [30_000e3, 19_000e3, 26_000e3];
+        assert_eq!(
+            select_anchor(3, |i| Some(costs[i]), None, REANCHOR_MARGIN),
+            Some(1)
         );
     }
 
-    /// A session is not re-anchored for a marginally better hop. The held
-    /// anchor is kept while it stays reachable, because a re-anchor costs a
-    /// make-before-break migration -- and because the serving satellite below
-    /// it changes every 11 minutes, which must not drag the anchor with it.
+    /// An anchor the ring cannot reach is not a candidate. With a whole ring
+    /// to pick a door from this is rare, but the rule has to exist.
     #[test]
-    fn a_held_anchor_is_kept_while_it_is_reachable() {
-        let p = reference_planet();
-        let shell = nav_shell();
-        let serving = |u: f64| polar_sat_position(&p, 2_200e3, 0.0, 0.0, u);
-        let anchors: Vec<_> = (0..shell.planes)
-            .flat_map(|k| (0..shell.sats_per_plane).map(move |j| (k, j)))
-            .map(|(k, j)| move |u: f64| crate::walker::shell_sat_position(&p, &shell, k, j, u))
-            .collect();
-
-        let mut held = None;
-        let mut switches = 0;
-        let mut free_switches = 0;
-        let mut prev_free = None;
-        for i in 0..1_440 {
-            let t = i as f64 * 60.0;
-            let next = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, held, t);
-            if let (Some(a), Some(b)) = (held, next) {
-                if a != b {
-                    switches += 1;
+    fn an_unreachable_anchor_is_not_a_candidate() {
+        let pick = select_anchor(
+            3,
+            |i| {
+                if i == 1 {
+                    None
+                } else {
+                    Some(30_000e3 - i as f64)
                 }
-            }
-            held = next;
-            // Same policy with no memory, for comparison.
-            let free = select_anchor(&p, 2_200e3, shell.altitude, serving, &anchors, None, t);
-            if let (Some(a), Some(b)) = (prev_free, free) {
-                if a != b {
-                    free_switches += 1;
-                }
-            }
-            prev_free = free;
-        }
-        assert!(
-            switches < free_switches,
-            "holding saved nothing: {switches} switches against {free_switches} memoryless"
+            },
+            None,
+            REANCHOR_MARGIN,
         );
+        assert_eq!(pick, Some(2));
+        assert_eq!(select_anchor(2, |_| None, None, REANCHOR_MARGIN), None);
+    }
+
+    /// A held anchor is not given up for a millisecond. A re-anchor costs a
+    /// make-before-break transfer of the whole working memory, so a rival has
+    /// to clear the margin rather than merely come first.
+    #[test]
+    fn a_held_anchor_is_not_traded_for_a_marginal_gain() {
+        let near = [26_000e3, 24_000e3];
+        assert_eq!(
+            select_anchor(2, |i| Some(near[i]), Some(0), REANCHOR_MARGIN),
+            Some(0),
+            "2,000 km of saving is not worth moving gigabytes"
+        );
+        let far = [31_000e3, 19_000e3];
+        assert_eq!(
+            select_anchor(2, |i| Some(far[i]), Some(0), REANCHOR_MARGIN),
+            Some(1)
+        );
+    }
+
+    /// If the held anchor becomes unreachable the session moves regardless of
+    /// margin: there is nothing left to weigh against.
+    #[test]
+    fn an_unreachable_held_anchor_is_released() {
+        let pick = select_anchor(
+            2,
+            |i| if i == 0 { None } else { Some(31_000e3) },
+            Some(0),
+            REANCHOR_MARGIN,
+        );
+        assert_eq!(pick, Some(1));
     }
 
     fn reference_planet() -> CentralBody {

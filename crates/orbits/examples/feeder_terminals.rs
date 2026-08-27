@@ -14,10 +14,11 @@
 //!   E. what links the shell would need of its own
 //!   F. whether it needs any at all, given the wheel can relay anchor to anchor
 //!   G. what one lost telescope costs, and what buys the loss back
+//!   H. how often a session actually moves, now that nothing forces it to
 //!
 //! The direct topology is the simplest thing to describe and the most
-//! expensive thing to build, because sessions hold their anchors across
-//! roughly nineteen access handovers and so end up scattered across the shell.
+//! expensive thing to build, because sessions hold their anchors for hours and
+//! so end up scattered across the shell.
 //!
 //! Run: cargo run --release -p terminus-orbits --example feeder_terminals
 
@@ -31,6 +32,7 @@ use terminus_orbits::backbone::{
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
+use terminus_orbits::routing::exit_gateway;
 use terminus_orbits::topology::{
     direct_demand, gateway_demand, pair_load, uniform_relay_demand, Session, TerminalDemand,
 };
@@ -49,11 +51,25 @@ const SPAN: f64 = 86_400.0;
 /// terminal. The lasers stay powered even where the radios are dark, so the
 /// necklace is a standing relay and hops chain: half a ring reaches all of it.
 const REACH: usize = 6;
+/// Necklace reach in ring positions, and the chord between neighbours: what a
+/// hop costs when a session leaves through a ring mate instead of its own
+/// satellite.
+const REACH_HOPS: usize = 2;
+const HOP_RANGE: f64 = 4_437e3;
+
+/// Re-anchor margins to sweep (m of path). The policy has to choose one, and
+/// choosing it from a curve beats choosing it from taste.
+const MARGINS: [f64; 5] = [0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3];
+/// Index into `MARGINS` of the policy the rest of this example reports on.
+/// It is the same number the library states as `REANCHOR_MARGIN`.
+const CHOSEN_MARGIN: usize = 2;
 
 struct Town {
     unit: [f64; 3],
     access: Option<(usize, usize)>,
-    anchor: Option<usize>,
+    /// Held anchor under each margin in `MARGINS`, tracked in parallel so one
+    /// pass of the simulation produces the whole curve.
+    anchor: Vec<Option<usize>>,
 }
 
 fn main() {
@@ -168,7 +184,7 @@ fn main() {
             Town {
                 unit: band_point(az, off),
                 access: None,
-                anchor: None,
+                anchor: vec![None; MARGINS.len()],
             }
         })
         .collect();
@@ -191,6 +207,12 @@ fn main() {
     // Two readings of the necklace, and the gap between them is the argument.
     let mut relay_lit: Vec<TerminalDemand> = Vec::new();
     let mut session_snapshots: Vec<Vec<Session>> = Vec::new();
+    // Migrations are now a policy outcome rather than a geometric
+    // certainty, so they have to be counted rather than assumed.
+    let mut anchor_changes = [0usize; MARGINS.len()];
+    let mut path_sum = [0.0f64; MARGINS.len()];
+    let mut path_worst = [0.0f64; MARGINS.len()];
+    let mut path_n = [0usize; MARGINS.len()];
     let mut relay_all: Vec<TerminalDemand> = Vec::new();
     let mut lit_counts: Vec<(usize, usize)> = Vec::new();
 
@@ -232,27 +254,58 @@ fn main() {
             // A satellite carrying a session is radiating by definition.
             plan[satellite_index(&wheel, k, j)] = true;
 
-            let raan = k as f64 * std::f64::consts::PI / wheel.planes as f64;
-            let theta0 = j as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64 + phases[k];
-            let serving_at = |u: f64| {
-                terminus_orbits::constellation::polar_sat_position(
-                    &planet,
-                    wheel.altitude,
-                    raan,
-                    theta0,
-                    u,
-                )
+            // The session may leave the ring through any ring mate, so the
+            // cost of an anchor is the best path the whole ring can offer, not
+            // the distance from the satellite that happens to be serving.
+            let ring_pos: Vec<[f64; 3]> = (0..wheel.sats_per_plane)
+                .map(|slot| {
+                    let raan = k as f64 * std::f64::consts::PI / wheel.planes as f64;
+                    let theta0 = slot as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64
+                        + phases[k];
+                    terminus_orbits::constellation::polar_sat_position(
+                        &planet,
+                        wheel.altitude,
+                        raan,
+                        theta0,
+                        t,
+                    )
+                })
+                .collect();
+            let path_cost = |a: usize| {
+                let ap = anchors_at[a](t);
+                exit_gateway(j, wheel.sats_per_plane, REACH_HOPS, HOP_RANGE, |slot| {
+                    let d = separation(ring_pos[slot], ap);
+                    if d > limb {
+                        None
+                    } else {
+                        let p = ring_pos[slot];
+                        Some(
+                            ((p[0] - ap[0]).powi(2)
+                                + (p[1] - ap[1]).powi(2)
+                                + (p[2] - ap[2]).powi(2))
+                            .sqrt(),
+                        )
+                    }
+                })
+                .map(|g| g.path)
             };
-            if let Some(pick) = terminus_orbits::backbone::select_anchor(
-                &planet,
-                ACCESS_ALT,
-                MEO_ALT,
-                serving_at,
-                &anchors_at,
-                town.anchor,
-                t,
-            ) {
-                town.anchor = Some(pick);
+            for (m, &margin) in MARGINS.iter().enumerate() {
+                if let Some(pick) = terminus_orbits::backbone::select_anchor(
+                    anchors_at.len(),
+                    path_cost,
+                    town.anchor[m],
+                    margin,
+                ) {
+                    if town.anchor[m].is_some_and(|held| held != pick) {
+                        anchor_changes[m] += 1;
+                    }
+                    town.anchor[m] = Some(pick);
+                    if let Some(c) = path_cost(pick) {
+                        path_sum[m] += c;
+                        path_worst[m] = path_worst[m].max(c);
+                        path_n[m] += 1;
+                    }
+                }
             }
         }
         let lit = plan.clone();
@@ -263,7 +316,7 @@ fn main() {
         let mut sessions = Vec::with_capacity(towns.len());
         let mut gateway: BTreeMap<usize, usize> = BTreeMap::new();
         for town in towns.iter() {
-            let (Some((k, j)), Some(anchor)) = (town.access, town.anchor) else {
+            let (Some((k, j)), Some(anchor)) = (town.access, town.anchor[CHOSEN_MARGIN]) else {
                 continue;
             };
             let access = satellite_index(&wheel, k, j);
@@ -531,6 +584,45 @@ E. Does the shell need links of its own?
          \x20  terminal is for: hold the old anchor and the new one at once, and\n\
          \x20  make-before-break falls out of the hardware already counted.",
         pairs, unreachable, worst_relays
+    );
+
+    println!("\n\nH. How often does a session actually move?\n");
+    println!(
+        "   Migration used to be forced: an anchor sank below the serving\n\
+         \x20  satellite's horizon and the session had to follow. It is not forced\n\
+         \x20  any more. A ring sees every anchor at every instant, so a session\n\
+         \x20  could hold one for ever. What moves it now is the latency policy,\n\
+         \x20  and the margin is a choice rather than a fact -- so here is the\n\
+         \x20  curve it gets chosen from.\n"
+    );
+    println!(
+        "{:>14} {:>20} {:>13} {:>13}",
+        "margin (km)", "changes/session/day", "mean path", "worst path"
+    );
+    for (m, &margin) in MARGINS.iter().enumerate() {
+        let per_day = anchor_changes[m] as f64 / TOWNS as f64 / (SPAN / 86_400.0);
+        let mean = path_sum[m] / path_n[m] as f64;
+        println!(
+            "{:>14.0} {:>20.2} {:>8.0} km {:>8.0} km{}",
+            margin / 1e3,
+            per_day,
+            mean / 1e3,
+            path_worst[m] / 1e3,
+            if m == CHOSEN_MARGIN {
+                "  <- chosen"
+            } else {
+                ""
+            }
+        );
+    }
+    println!(
+        "\n   Holding harder buys fewer migrations and pays for them in path\n\
+         \x20  length. Nothing on this curve threatens the RFP's 300 ms round\n\
+         \x20  trip: even the laziest policy keeps the worst path well inside it.\n\
+         \x20  At the far end the session never moves at all, and the backbone\n\
+         \x20  carries no working memory except after a failure. So this is not a\n\
+         \x20  latency choice, it is a choice about how much memory traffic to\n\
+         \x20  buy -- which `link_throughput` prices."
     );
 
     // ---- G. what one lost telescope costs -------------------------------
