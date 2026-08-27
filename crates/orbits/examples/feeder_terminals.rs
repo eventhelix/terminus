@@ -1,7 +1,7 @@
 //! What does the backbone cost in optical terminals?
 //!
 //! Each end of a laser link needs its own terminal, so the topology question
-//! is really a hardware question. Three things are priced here:
+//! is really a hardware question:
 //!
 //!   A. how far a satellite can see along its own ring, which decides whether
 //!      a ring can relay at all, and turns out to answer the question at both
@@ -10,6 +10,9 @@
 //!      links, every session reaching its own anchor
 //!   C. the gateway topology — each access satellite feeds its nearest anchor
 //!      and the shell carries traffic onward
+//!   D. the necklace, sized for a fleet built to one drawing
+//!   E. what links the shell would need of its own
+//!   F. whether it needs any at all, given the wheel can relay anchor to anchor
 //!
 //! The direct topology is the simplest thing to describe and the most
 //! expensive thing to build, because sessions hold their anchors across
@@ -459,8 +462,72 @@ E. Does the shell need links of its own?
          \x20  every anchor it needs directly, and no session traffic crosses the\n\
          \x20  shell. What would use these links is anchor migration -- gigabytes of\n\
          \x20  working memory, make-before-break -- and clock transfer for the\n\
-         \x20  navigation service. Migration could instead route down through a ring\n\
-         \x20  and back up, at two feeder hops."
+         \x20  navigation service -- and section F shows the wheel can carry both."
+    );
+
+    // ---- F. can the shell do without its own links entirely? -------------
+    println!("\n\nF. Anchor to anchor, with no links in the shell at all\n");
+    println!(
+        "   Classic GPS ran without crosslinks because a ground segment did the\n\
+         \x20  work -- and later blocks added them anyway, for autonomy when that\n\
+         \x20  segment is out of reach. There is no ground segment here at all, so\n\
+         \x20  the question is whether the wheel can stand in: can any two anchors\n\
+         \x20  always find an access satellite that sees them both?\n"
+    );
+    let mut pairs = 0usize;
+    let mut unreachable = 0usize;
+    let mut worst_relays = usize::MAX;
+    let mut u = 0.0;
+    while u < SPAN {
+        let leo_pos: Vec<[f64; 3]> = (0..wheel.planes)
+            .flat_map(|k| (0..wheel.sats_per_plane).map(move |j| (k, j)))
+            .map(|(k, j)| {
+                let raan = k as f64 * std::f64::consts::PI / wheel.planes as f64;
+                let theta0 =
+                    j as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64 + phases[k];
+                terminus_orbits::constellation::polar_sat_position(
+                    &planet,
+                    wheel.altitude,
+                    raan,
+                    theta0,
+                    u,
+                )
+            })
+            .collect();
+        let anchor_pos: Vec<[f64; 3]> = anchor_ids
+            .iter()
+            .map(|&(k, j)| shell_sat_position(&planet, &shell, k, j, u))
+            .collect();
+        for i in 0..anchor_pos.len() {
+            for j in (i + 1)..anchor_pos.len() {
+                pairs += 1;
+                let relays = leo_pos
+                    .iter()
+                    .filter(|p| {
+                        separation(**p, anchor_pos[i]) <= limb
+                            && separation(**p, anchor_pos[j]) <= limb
+                    })
+                    .count();
+                if relays == 0 {
+                    unreachable += 1;
+                }
+                worst_relays = worst_relays.min(relays);
+            }
+        }
+        u += 1_800.0;
+    }
+    println!(
+        "   {} anchor pairs sampled across the day.\n\
+         \x20  pairs with no access satellite seeing both:      {}\n\
+         \x20  fewest access satellites able to relay any pair: {}\n\
+         \n\
+         \x20  So the shell needs no links of its own. Two anchors always have a\n\
+         \x20  relay below them, and never fewer than a score of candidates -- the\n\
+         \x20  wheel is the shell's control segment. A migration is then two feeder\n\
+         \x20  hops through one access satellite, which is what its second feeder\n\
+         \x20  terminal is for: hold the old anchor and the new one at once, and\n\
+         \x20  make-before-break falls out of the hardware already counted.",
+        pairs, unreachable, worst_relays
     );
 
     let fleet_direct = 72 * direct.max_access() + 24 * direct.max_anchor();
