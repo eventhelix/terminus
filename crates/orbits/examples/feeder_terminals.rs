@@ -13,6 +13,7 @@
 //!   D. the necklace, sized for a fleet built to one drawing
 //!   E. what links the shell would need of its own
 //!   F. whether it needs any at all, given the wheel can relay anchor to anchor
+//!   G. what one lost telescope costs, and what buys the loss back
 //!
 //! The direct topology is the simplest thing to describe and the most
 //! expensive thing to build, because sessions hold their anchors across
@@ -31,7 +32,7 @@ use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarC
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
 use terminus_orbits::topology::{
-    direct_demand, gateway_demand, uniform_relay_demand, Session, TerminalDemand,
+    direct_demand, gateway_demand, pair_load, uniform_relay_demand, Session, TerminalDemand,
 };
 use terminus_orbits::walker::{shell_sat_position, WalkerShell};
 use terminus_orbits::CentralBody;
@@ -189,6 +190,7 @@ fn main() {
     let mut gateway_instants: Vec<TerminalDemand> = Vec::new();
     // Two readings of the necklace, and the gap between them is the argument.
     let mut relay_lit: Vec<TerminalDemand> = Vec::new();
+    let mut session_snapshots: Vec<Vec<Session>> = Vec::new();
     let mut relay_all: Vec<TerminalDemand> = Vec::new();
     let mut lit_counts: Vec<(usize, usize)> = Vec::new();
 
@@ -288,6 +290,7 @@ fn main() {
             });
         }
 
+        session_snapshots.push(sessions.clone());
         direct_instants.push(direct_demand(&sessions));
         gateway_instants.push(gateway_demand(&sessions, &gateway));
         // Every satellite must sit within `reach` hops of a feeder host.
@@ -528,6 +531,65 @@ E. Does the shell need links of its own?
          \x20  terminal is for: hold the old anchor and the new one at once, and\n\
          \x20  make-before-break falls out of the hardware already counted.",
         pairs, unreachable, worst_relays
+    );
+
+    // ---- G. what one lost telescope costs -------------------------------
+    println!("\n\nG. Losing one telescope\n");
+    println!(
+        "   The wheel is richly redundant: a ring pools two feeder telescopes on\n\
+         \x20  each of twelve satellites, so a session that loses one path borrows\n\
+         \x20  another. The shell has no such depth. With the ring pooling, an\n\
+         \x20  anchor holds exactly ONE telescope per ring that talks to it, so\n\
+         \x20  every (ring, anchor) pair is a single point of failure.\n"
+    );
+    let ring_of = |a: usize| a / wheel.sats_per_plane;
+    let mut worst_pair = 0usize;
+    let mut worst_anchor_total = 0usize;
+    for inst in session_snapshots.iter() {
+        let load = pair_load(inst, ring_of);
+        worst_pair = worst_pair.max(load.last().copied().unwrap_or(0));
+        let mut by_anchor: std::collections::BTreeMap<usize, usize> =
+            std::collections::BTreeMap::new();
+        for s in inst.iter() {
+            *by_anchor.entry(s.anchor).or_insert(0) += 1;
+        }
+        worst_anchor_total = worst_anchor_total.max(by_anchor.values().copied().max().unwrap_or(0));
+    }
+    println!(
+        "   Of {} sessions, the busiest single (ring, anchor) telescope carries {},\n\
+         \x20  and the busiest anchor holds {} across all six of its links. Lose one\n\
+         \x20  telescope and that first number is not degraded, it is stranded: every\n\
+         \x20  one of those sessions must re-anchor at once, each dragging its\n\
+         \x20  working memory across the sky. A migration storm out of one failure.\n",
+        TOWNS, worst_pair, worst_anchor_total
+    );
+    println!(
+        "   Two remedies, and they are not the same shape:\n\n\
+         \x20    a spare feeder telescope    +1 per anchor  (+{} fleet)\n\
+         \x20      A seventh, steerable, cold. It repoints at whichever ring went\n\
+         \x20      dark. No traffic moves and no neighbour is burdened -- but it\n\
+         \x20      must acquire before it carries, and it protects one failure.\n\n\
+         \x20    intra-plane links           +2 per anchor  (+{} fleet)\n\
+         \x20      The frozen kind: {:.0} km, {:.2} km/s, pointed once at launch and\n\
+         \x20      held. A crippled anchor reaches its ring through a plane mate\n\
+         \x20      that still has one, so the sessions never move at all. The plane\n\
+         \x20      is a cycle, so either neighbour will do.\n",
+        shell.total(),
+        2 * shell.total(),
+        intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1) / 1e3,
+        max_shell_range_rate(&planet, MEO_ALT, MEO_ALT) / 1e3
+    );
+    println!(
+        "   The second costs twice the telescopes and turns a stranding into a\n\
+         \x20  detour: the sessions never move at all. It is also the only path here\n\
+         \x20  that does not route a migration through the wheel. Two things it does\n\
+         \x20  NOT do. It cannot save a session from an anchor that dies outright --\n\
+         \x20  the working memory dies with the machine, and the vault answers that\n\
+         \x20  -- and the relaying neighbour now carries two rings' traffic on one\n\
+         \x20  telescope, which is a capacity question this model does not price.\n\n\
+         \x20  Section F showed the shell needs no links to be REACHABLE. What it\n\
+         \x20  costs to STAY reachable through a failure is a different question,\n\
+         \x20  and it gets a different answer."
     );
 
     let fleet_direct = 72 * direct.max_access() + 24 * direct.max_anchor();

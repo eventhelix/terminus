@@ -357,6 +357,28 @@ fn cover_ring(positions: &BTreeSet<usize>, ring_size: usize, window: usize) -> u
     best
 }
 
+/// Sessions riding each (access ring, anchor) pair, ascending.
+///
+/// With the wheel pooling a whole ring, an anchor holds exactly one telescope
+/// per ring that talks to it — which makes every such pair a single point of
+/// failure. Lose that one telescope and the anchor is not degraded toward
+/// that ring, it is unreachable from it, and every session in this bucket
+/// must move at once.
+///
+/// The wheel has no equivalent exposure: a ring pools two telescopes on each
+/// of twelve satellites, so a session that loses one path borrows another.
+/// The asymmetry is worth measuring rather than assuming, because it decides
+/// whether the shell needs links of its own after all.
+pub fn pair_load(sessions: &[Session], ring_of: impl Fn(usize) -> usize) -> Vec<usize> {
+    let mut counts: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+    for s in sessions {
+        *counts.entry((ring_of(s.access), s.anchor)).or_insert(0) += 1;
+    }
+    let mut out: Vec<usize> = counts.into_values().collect();
+    out.sort_unstable();
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,6 +590,25 @@ mod tests {
             .collect();
         let pooled = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
         assert_eq!(pooled.max_anchor(), 1);
+    }
+
+    /// The blast radius of one anchor telescope: every session on that ring
+    /// anchored there, all at once. Not a degradation -- a stranding.
+    #[test]
+    fn one_anchor_telescope_carries_a_whole_rings_sessions_to_it() {
+        // Ring 0 is satellites 0..12, ring 1 is 12..24.
+        let mut s: Vec<Session> = (0..9)
+            .map(|i| Session {
+                access: i,
+                anchor: 4,
+            })
+            .collect();
+        s.push(Session {
+            access: 13,
+            anchor: 4,
+        });
+        let load = pair_load(&s, |a| a / 12);
+        assert_eq!(load, vec![1, 9], "nine on ring 0's link, one on ring 1's");
     }
 
     #[test]
