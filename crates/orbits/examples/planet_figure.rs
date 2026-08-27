@@ -61,7 +61,10 @@ fn main() {
     let c22 = synchronous_c22(&planet, EARTH_FLUID_LOVE_NUMBER);
     println!("   spin alone would give J2 = {j2_rot:.4e}");
     println!("   synchronous J2           = {j2:.4e}");
-    println!("   synchronous C22          = {c22:.4e}   (J2/C22 = {:.2})", j2 / c22);
+    println!(
+        "   synchronous C22          = {c22:.4e}   (J2/C22 = {:.2})",
+        j2 / c22
+    );
     println!("   => {:.0}x rounder than Earth", EARTH_J2 / j2);
     println!(
         "   flattening               = 1/{:.0}   (Earth 1/298)",

@@ -30,7 +30,10 @@ fn main() {
         RTT_MS / STALL_BUDGET_MS
     );
 
-    for (label, p) in [("calm sky (1% residual loss)", 0.01), ("flare / handover (5% residual loss)", 0.05)] {
+    for (label, p) in [
+        ("calm sky (1% residual loss)", 0.01),
+        ("flare / handover (5% residual loss)", 0.05),
+    ] {
         println!("{label}:");
         println!(
             "  ARQ only:              a {RTT_MS:.0} ms stall every {}",

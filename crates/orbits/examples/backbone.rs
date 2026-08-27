@@ -5,8 +5,7 @@
 //! Run: cargo run -p terminus-orbits --example backbone
 
 use terminus_orbits::backbone::{
-    intra_plane_neighbor_range, max_shell_range_rate, max_shell_separation,
-    shell_visible_fraction,
+    intra_plane_neighbor_range, max_shell_range_rate, max_shell_separation, shell_visible_fraction,
 };
 use terminus_orbits::placement::{one_way_light_time, shell_distance};
 use terminus_orbits::CentralBody;
@@ -33,7 +32,11 @@ fn main() {
         psi.to_degrees(),
         shell_visible_fraction(&planet, LEO, MEO) * 100.0
     );
-    for (label, sep_deg) in [("overhead", 0.0_f64), ("60° (budget policy)", 60.0), ("limb-to-limb", psi.to_degrees())] {
+    for (label, sep_deg) in [
+        ("overhead", 0.0_f64),
+        ("60° (budget policy)", 60.0),
+        ("limb-to-limb", psi.to_degrees()),
+    ] {
         let d = shell_distance(&planet, LEO, MEO, sep_deg.to_radians());
         println!(
             "  range at {label:<20} {:>8.0} km  ({:>5.1} ms one way)",

@@ -84,7 +84,10 @@ mod tests {
 
     fn assert_close(actual: f64, expected: f64, rel_tol: f64) {
         let rel = ((actual - expected) / expected).abs();
-        assert!(rel < rel_tol, "actual {actual}, expected {expected}, rel err {rel}");
+        assert!(
+            rel < rel_tol,
+            "actual {actual}, expected {expected}, rel err {rel}"
+        );
     }
 
     #[test]
@@ -101,10 +104,7 @@ mod tests {
     fn a_hundred_metre_injection_error_eats_a_slot_within_two_years() {
         let p = reference_planet();
         let walk = slot_walk_time(&p, 2_200e3, 100.0, 12) / 86_400.0;
-        assert!(
-            (400.0..470.0).contains(&walk),
-            "slot walk {walk} days"
-        );
+        assert!((400.0..470.0).contains(&walk), "slot walk {walk} days");
         // Stopping it is nearly free per burn - the cost is that it never ends.
         let dv = phase_hold_dv(&p, 2_200e3, 100.0);
         assert!(dv < 0.05, "dv {dv} m/s");

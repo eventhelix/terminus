@@ -111,7 +111,10 @@ mod tests {
 
     fn assert_close(actual: f64, expected: f64, rel_tol: f64) {
         let rel = ((actual - expected) / expected).abs();
-        assert!(rel < rel_tol, "actual {actual}, expected {expected}, rel err {rel}");
+        assert!(
+            rel < rel_tol,
+            "actual {actual}, expected {expected}, rel err {rel}"
+        );
     }
 
     fn earth() -> CentralBody {
@@ -130,7 +133,11 @@ mod tests {
         let e = earth();
         assert_close(rotational_parameter(&e), 3.4498e-3, 1e-3);
         // The calibration must reproduce Earth's measured J2.
-        assert_close(free_rotation_j2(&e, EARTH_FLUID_LOVE_NUMBER), 1.0826e-3, 1e-3);
+        assert_close(
+            free_rotation_j2(&e, EARTH_FLUID_LOVE_NUMBER),
+            1.0826e-3,
+            1e-3,
+        );
         // ...and Earth's measured flattening, 1/298.257.
         assert_close(flattening(&e, 1.0826e-3), 1.0 / 298.257, 2e-3);
     }
@@ -151,7 +158,11 @@ mod tests {
         // Locked, it is still ~50x rounder than Earth.
         assert!((1.0826e-3 / j2 - 50.0).abs() < 1.0);
         // The star's bulge dominates: 2.5x the spin-only figure.
-        assert_close(j2 / free_rotation_j2(&p, EARTH_FLUID_LOVE_NUMBER), 2.5, 1e-9);
+        assert_close(
+            j2 / free_rotation_j2(&p, EARTH_FLUID_LOVE_NUMBER),
+            2.5,
+            1e-9,
+        );
     }
 
     #[test]

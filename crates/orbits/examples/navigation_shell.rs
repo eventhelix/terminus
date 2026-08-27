@@ -100,7 +100,6 @@ fn main() {
          bunched in one quarter of the sky dilute precision, and the GDOP and
          integrity work that turns this count into the 10 m / 100 ns of
          TER-REQ-015 is Series 3.",
-        stats.min_visible,
-        stats.mean_visible
+        stats.min_visible, stats.mean_visible
     );
 }

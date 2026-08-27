@@ -77,8 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn stellar_tide_is_a_thousand_times_earths()
-    {
+    fn stellar_tide_is_a_thousand_times_earths() {
         // Proxima-like star at 0.0485 AU vs the Sun at 1 AU (GPS radius):
         // ~28 ns/day of periodic modulation vs ~0.027 ns/day.
         let p = reference_planet();

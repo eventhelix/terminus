@@ -99,9 +99,8 @@ mod tests {
     #[test]
     fn dropping_the_mask_costs_low_shelves_most() {
         let p = reference_planet();
-        let cost = |alt: f64| {
-            footprint_radius(&p, alt, 0.0) / footprint_radius(&p, alt, MIN_ELEVATION)
-        };
+        let cost =
+            |alt: f64| footprint_radius(&p, alt, 0.0) / footprint_radius(&p, alt, MIN_ELEVATION);
         assert_close(cost(300e3), 3.40, 1e-2);
         assert_close(cost(20_000e3), 1.45, 1e-2);
     }
@@ -115,9 +114,8 @@ mod tests {
             let h = altitude_km * 1e3;
             let lambda = coverage_half_angle(&p, h, MIN_ELEVATION);
             let r = p.radius + h;
-            let by_cosines = (p.radius * p.radius + r * r
-                - 2.0 * p.radius * r * lambda.cos())
-            .sqrt();
+            let by_cosines =
+                (p.radius * p.radius + r * r - 2.0 * p.radius * r * lambda.cos()).sqrt();
             assert_close(edge_slant_range(&p, h, MIN_ELEVATION), by_cosines, 1e-9);
         }
     }
@@ -145,10 +143,10 @@ mod tests {
         let p = reference_planet();
         let (lo, hi) = (300e3, 50_000e3);
         let period_ratio = orbital_period(&p, hi) / orbital_period(&p, lo);
-        let angle_ratio = coverage_half_angle(&p, hi, MIN_ELEVATION)
-            / coverage_half_angle(&p, lo, MIN_ELEVATION);
-        let dwell_ratio = max_pass_duration(&p, hi, MIN_ELEVATION)
-            / max_pass_duration(&p, lo, MIN_ELEVATION);
+        let angle_ratio =
+            coverage_half_angle(&p, hi, MIN_ELEVATION) / coverage_half_angle(&p, lo, MIN_ELEVATION);
+        let dwell_ratio =
+            max_pass_duration(&p, hi, MIN_ELEVATION) / max_pass_duration(&p, lo, MIN_ELEVATION);
         assert_close(period_ratio, 24.564, 1e-4);
         assert_close(angle_ratio, 11.697, 1e-4);
         assert_close(dwell_ratio, 287.32, 1e-4);
@@ -161,7 +159,11 @@ mod tests {
         // 3,089 km at 1,800 km (≈10.3 ms one way); 23,039 km at 20,000 km
         // (≈77 ms one way).
         assert_close(edge_slant_range(&p, 1_800e3, MIN_ELEVATION), 3.089e6, 1e-3);
-        assert_close(edge_slant_range(&p, 20_000e3, MIN_ELEVATION), 2.3039e7, 1e-3);
+        assert_close(
+            edge_slant_range(&p, 20_000e3, MIN_ELEVATION),
+            2.3039e7,
+            1e-3,
+        );
     }
 
     #[test]
@@ -169,6 +171,10 @@ mod tests {
         let p = reference_planet();
         // ≈13.6 min at 1,800 km; ≈3.4 h at 20,000 km.
         assert_close(max_pass_duration(&p, 1_800e3, MIN_ELEVATION), 818.0, 2e-3);
-        assert_close(max_pass_duration(&p, 20_000e3, MIN_ELEVATION), 1.2395e4, 2e-3);
+        assert_close(
+            max_pass_duration(&p, 20_000e3, MIN_ELEVATION),
+            1.2395e4,
+            2e-3,
+        );
     }
 }

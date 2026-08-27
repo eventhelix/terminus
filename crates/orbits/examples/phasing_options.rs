@@ -18,12 +18,12 @@
 //!
 //! Run: cargo run --release -p terminus-orbits --example phasing_options
 
+use std::f64::consts::PI;
 use terminus_orbits::constellation::{
     band_point, plane_phases, visible_count_with_phases, PhaseMode, PolarConstellation,
     EXPLORER_PHASE_SEED,
 };
 use terminus_orbits::CentralBody;
-use std::f64::consts::PI;
 
 const MASK: f64 = 25.0 * PI / 180.0;
 const BAND: f64 = 20.0 * PI / 180.0;

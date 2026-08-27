@@ -14,6 +14,7 @@
 //!
 //! Run: cargo run --release -p terminus-orbits --example activation_plan
 
+use std::f64::consts::PI;
 use terminus_orbits::activation::{
     covering_satellites, duty_first_activation, exact_activation, fleet_size, satellite_index,
     select_active, ActivationPlan,
@@ -21,7 +22,6 @@ use terminus_orbits::activation::{
 use terminus_orbits::constellation::{band_point, PolarConstellation};
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::CentralBody;
-use std::f64::consts::PI;
 
 const MASK: f64 = 25.0 * PI / 180.0;
 const BAND: f64 = 20.0 * PI / 180.0;
@@ -38,7 +38,14 @@ struct Stat {
 
 impl Stat {
     fn new(name: &'static str) -> Self {
-        Stat { name, total: 0, max: 0, steps: 0, churn: 0, gaps: 0 }
+        Stat {
+            name,
+            total: 0,
+            max: 0,
+            steps: 0,
+            churn: 0,
+            gaps: 0,
+        }
     }
     fn record(&mut self, plan: &ActivationPlan, prev: &Option<Vec<bool>>, covered_all: bool) {
         self.total += plan.lit as u64;
@@ -48,7 +55,9 @@ impl Stat {
             self.gaps += 1;
         }
         if let Some(p) = prev {
-            self.churn += (0..plan.active.len()).filter(|&s| p[s] != plan.active[s]).count() as u64;
+            self.churn += (0..plan.active.len())
+                .filter(|&s| p[s] != plan.active[s])
+                .count() as u64;
         }
     }
     fn print(&self, fleet: usize, hours: f64) {
@@ -59,7 +68,11 @@ impl Stat {
             self.max,
             100.0 * self.total as f64 / self.steps as f64 / fleet as f64,
             self.churn as f64 / hours,
-            if self.gaps == 0 { "none".to_string() } else { format!("{} steps", self.gaps) }
+            if self.gaps == 0 {
+                "none".to_string()
+            } else {
+                format!("{} steps", self.gaps)
+            }
         );
     }
 }
@@ -111,14 +124,22 @@ fn main() {
         let cov = covering_satellites(&p, &c, &phases, &pts, MASK, t);
         let duty = duty_ring(&p, &c, t);
 
-        let on = ActivationPlan { active: vec![true; fleet], lit: fleet, unservable: vec![] };
+        let on = ActivationPlan {
+            active: vec![true; fleet],
+            lit: fleet,
+            unservable: vec![],
+        };
         all_on.record(&on, &None, covers_all(&cov, &on.active));
 
         let mut only = vec![false; fleet];
         for j in 0..c.sats_per_plane {
             only[satellite_index(&c, duty, j)] = true;
         }
-        let only_plan = ActivationPlan { lit: c.sats_per_plane, active: only, unservable: vec![] };
+        let only_plan = ActivationPlan {
+            lit: c.sats_per_plane,
+            active: only,
+            unservable: vec![],
+        };
         let ok = covers_all(&cov, &only_plan.active);
         duty_only.record(&only_plan, &None, ok);
 
@@ -146,7 +167,14 @@ fn main() {
         t += step;
     }
 
-    for s in [&all_on, &duty_only, &duty_first, &duty_first_p, &greedy, &exact] {
+    for s in [
+        &all_on,
+        &duty_only,
+        &duty_first,
+        &duty_first_p,
+        &greedy,
+        &exact,
+    ] {
         s.print(fleet, hours);
     }
 

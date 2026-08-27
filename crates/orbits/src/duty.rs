@@ -168,7 +168,11 @@ mod tests {
             hi = hi.max(m);
             t += 60.0;
         }
-        assert!(lo.to_degrees() < 0.1, "min misalignment {}", lo.to_degrees());
+        assert!(
+            lo.to_degrees() < 0.1,
+            "min misalignment {}",
+            lo.to_degrees()
+        );
         assert!(
             (hi.to_degrees() - 15.0).abs() < 0.1,
             "max misalignment {}",
@@ -243,7 +247,10 @@ mod tests {
             t += 120.0;
         }
         assert_eq!(low_max, 2, "equatorial towns see at most two rings");
-        assert!(ever_alone, "equatorial towns are sometimes down to one ring");
+        assert!(
+            ever_alone,
+            "equatorial towns are sometimes down to one ring"
+        );
         assert_eq!(high_min, c.planes, "polar towns always see every ring");
     }
 }

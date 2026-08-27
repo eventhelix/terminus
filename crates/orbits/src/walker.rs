@@ -189,14 +189,8 @@ mod tests {
         let p = reference_planet();
         for &(raan, theta0, t) in &[(0.0, 0.0, 0.0), (0.4, 1.1, 500.0), (2.9, -0.7, 40_000.0)] {
             let polar = polar_sat_position(&p, 2_200e3, raan, theta0, t);
-            let inc = inclined_sat_position(
-                &p,
-                2_200e3,
-                raan,
-                theta0,
-                std::f64::consts::FRAC_PI_2,
-                t,
-            );
+            let inc =
+                inclined_sat_position(&p, 2_200e3, raan, theta0, std::f64::consts::FRAC_PI_2, t);
             for axis in 0..3 {
                 assert!(
                     (polar[axis] - inc[axis]).abs() < 1e-6,

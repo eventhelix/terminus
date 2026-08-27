@@ -8,6 +8,7 @@
 //!
 //! Run: cargo run --release -p terminus-orbits --example duty_ring_trade
 
+use std::f64::consts::PI;
 use terminus_orbits::circular::orbital_period;
 use terminus_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
 use terminus_orbits::coverage::edge_slant_range;
@@ -15,7 +16,6 @@ use terminus_orbits::duty::{
     duty_ring, min_sats_per_ring_for_duty_only, rings_in_reach, rings_serving, worst_cross_track,
 };
 use terminus_orbits::{constellation::plane_visible_count, CentralBody};
-use std::f64::consts::PI;
 
 const BAND: f64 = 20.0 * PI / 180.0;
 const MASK: f64 = 25.0 * PI / 180.0;
@@ -36,7 +36,13 @@ fn ring(altitude: f64, planes: usize, sats: usize) -> PolarConstellation {
 }
 
 /// Fewest satellites visible from any sampled band point over a full rotation.
-fn min_visible(p: &CentralBody, c: &PolarConstellation, phases: &[f64], mask: f64, step: f64) -> usize {
+fn min_visible(
+    p: &CentralBody,
+    c: &PolarConstellation,
+    phases: &[f64],
+    mask: f64,
+    step: f64,
+) -> usize {
     let mut min = usize::MAX;
     let mut t = 0.0;
     while t < ROTATION {
@@ -167,7 +173,13 @@ fn main() {
         "|latitude|", "rings in reach (min/mean/max)", "rings serving (min/mean/max)", "duty share"
     );
     let phases = vec![0.0; baseline.planes];
-    let buckets = [(0.0, 15.0), (15.0, 30.0), (30.0, 50.0), (50.0, 70.0), (70.0, 90.0)];
+    let buckets = [
+        (0.0, 15.0),
+        (15.0, 30.0),
+        (30.0, 50.0),
+        (50.0, 70.0),
+        (70.0, 90.0),
+    ];
     for (lo, hi) in buckets {
         let (mut rmin, mut rmax, mut rsum) = (usize::MAX, 0usize, 0u64);
         let (mut smin, mut smax, mut ssum) = (usize::MAX, 0usize, 0u64);
@@ -192,7 +204,8 @@ fn main() {
                     smax = smax.max(serve);
                     ssum += serve as u64;
                     duty_sats += plane_visible_count(&p, &baseline, k, g, 0.0, MASK, t) as u64;
-                    all_sats += visible_count_with_phases(&p, &baseline, g, &phases, MASK, t) as u64;
+                    all_sats +=
+                        visible_count_with_phases(&p, &baseline, g, &phases, MASK, t) as u64;
                     n += 1;
                 }
             }
@@ -225,7 +238,13 @@ fn main() {
     let threads = std::thread::available_parallelism().map_or(8, |n| n.get());
     println!(
         "{:>9} {:>7} {:>9} {:>7} {:>18} {:>18} {:>11}",
-        "alt (km)", "rings", "sats/ring", "total", "phase-locked min", "worst random min", "failures"
+        "alt (km)",
+        "rings",
+        "sats/ring",
+        "total",
+        "phase-locked min",
+        "worst random min",
+        "failures"
     );
     for (alt, planes, sats) in [
         (2_200.0, 6, 12),
@@ -244,8 +263,8 @@ fn main() {
                     sc.spawn(move || {
                         let (mut worst, mut fails) = (usize::MAX, 0u64);
                         for idx in (ti * per)..((ti + 1) * per).min(trials) {
-                            let mut rng =
-                                Rng(0x5EED_1234u64.wrapping_add(idx.wrapping_mul(0x9E37_79B9_7F4A_7C15)));
+                            let mut rng = Rng(0x5EED_1234u64
+                                .wrapping_add(idx.wrapping_mul(0x9E37_79B9_7F4A_7C15)));
                             rng.next();
                             let ph: Vec<f64> = (0..planes)
                                 .map(|_| rng.next() * 2.0 * PI / sats as f64)

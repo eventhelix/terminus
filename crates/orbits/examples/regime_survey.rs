@@ -38,8 +38,10 @@ fn main() {
     }
 
     // What the edge user actually pays, and how much of a lap a pass is.
-    println!("
-Path length and dwell:");
+    println!(
+        "
+Path length and dwell:"
+    );
     println!(
         "{:>10} {:>13} {:>13} {:>10} {:>14}",
         "alt (km)", "slant (km)", "vs overhead", "lambda", "% of a lap"
@@ -59,17 +61,20 @@ Path length and dwell:");
     }
     let (lo, hi) = (300e3, 50_000e3);
     let period_ratio = orbital_period(&planet, hi) / orbital_period(&planet, lo);
-    let angle_ratio = footprint_radius(&planet, hi, min_elevation)
-        / footprint_radius(&planet, lo, min_elevation);
+    let angle_ratio =
+        footprint_radius(&planet, hi, min_elevation) / footprint_radius(&planet, lo, min_elevation);
     println!(
         "  dwell grows {:.0}x from 300 to 50,000 km = {:.1}x period x {:.1}x half-angle",
-        max_pass_duration(&planet, hi, min_elevation) / max_pass_duration(&planet, lo, min_elevation),
+        max_pass_duration(&planet, hi, min_elevation)
+            / max_pass_duration(&planet, lo, min_elevation),
         period_ratio,
         angle_ratio
     );
 
-    println!("
-What the 25 deg mask costs (footprint radius):");
+    println!(
+        "
+What the 25 deg mask costs (footprint radius):"
+    );
     println!(
         "{:>10} {:>14} {:>16} {:>12}",
         "alt (km)", "masked (km)", "horizon (km)", "shrink"
@@ -103,8 +108,10 @@ What the 25 deg mask costs (footprint radius):");
     let earth = CentralBody::from_earth_masses(1.0, 6.371e6, 23.9344696 * 3_600.0);
     let r_sync_earth = synchronous_radius(&earth);
     let spin_ratio = planet.rotation_period / earth.rotation_period;
-    println!("
-Stationary shelf, scaled from Earth's:");
+    println!(
+        "
+Stationary shelf, scaled from Earth's:"
+    );
     println!(
         "  Earth synchronous radius:  {:>9.0} km (altitude {:.0} km)",
         r_sync_earth / 1e3,

@@ -89,7 +89,11 @@ mod tests {
     fn propellant_fraction_is_ruinous_even_at_isp_3000() {
         let p = reference_planet();
         // exp(-3918 / (9.80665 × 3000)) ≈ 0.8753 remaining ⇒ ~12.5%/day burned.
-        assert_close(propellant_fraction_per_day(&p, 1_800e3, 3_000.0), 0.1247, 2e-3);
+        assert_close(
+            propellant_fraction_per_day(&p, 1_800e3, 3_000.0),
+            0.1247,
+            2e-3,
+        );
     }
 
     #[test]
@@ -97,7 +101,15 @@ mod tests {
         let p = reference_planet();
         // 0.8753^11.2 ≈ 0.2250 after one local year (11.2 Earth days);
         // 0.8753^30 ≈ 0.0184 after 30 Earth days.
-        assert_close(remaining_mass_fraction(&p, 1_800e3, 3_000.0, 11.2), 0.2250, 2e-3);
-        assert_close(remaining_mass_fraction(&p, 1_800e3, 3_000.0, 30.0), 0.0184, 5e-3);
+        assert_close(
+            remaining_mass_fraction(&p, 1_800e3, 3_000.0, 11.2),
+            0.2250,
+            2e-3,
+        );
+        assert_close(
+            remaining_mass_fraction(&p, 1_800e3, 3_000.0, 30.0),
+            0.0184,
+            5e-3,
+        );
     }
 }

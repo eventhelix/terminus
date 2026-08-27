@@ -43,7 +43,11 @@ fn main() {
             fspl_db(slant, f),
             beamwidth_deg(DISH_M, f),
             link_figure(f) - link_figure(l_band),
-            if in_stellar { "IN STELLAR BAND" } else { "clear" }
+            if in_stellar {
+                "IN STELLAR BAND"
+            } else {
+                "clear"
+            }
         );
     }
 

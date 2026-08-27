@@ -60,7 +60,9 @@ fn main() {
         zenith_pass / 60.0
     );
 
-    println!("  town                       handovers/{HOURS:.0}h   mean interval   greedy   sticky");
+    println!(
+        "  town                       handovers/{HOURS:.0}h   mean interval   greedy   sticky"
+    );
     for (label, town) in towns() {
         let greedy = handover_timeline(
             &planet,

@@ -105,7 +105,11 @@ mod tests {
 
     #[test]
     fn one_degree_beam_paints_a_19_km_spot() {
-        assert_close(nadir_spot_radius(2_200e3, 1.0_f64.to_radians()), 1.92e4, 1e-3);
+        assert_close(
+            nadir_spot_radius(2_200e3, 1.0_f64.to_radians()),
+            1.92e4,
+            1e-3,
+        );
     }
 
     #[test]

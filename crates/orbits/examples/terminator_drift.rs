@@ -10,8 +10,14 @@ const DAY: f64 = 86_400.0;
 
 fn report(name: &str, radius: f64, rotation_period: f64, orbital_period: f64) {
     println!("{name}:");
-    println!("  rotation period: {:>8.3} Earth days", rotation_period / DAY);
-    println!("  orbital period:  {:>8.3} Earth days", orbital_period / DAY);
+    println!(
+        "  rotation period: {:>8.3} Earth days",
+        rotation_period / DAY
+    );
+    println!(
+        "  orbital period:  {:>8.3} Earth days",
+        orbital_period / DAY
+    );
     match solar_day(rotation_period, orbital_period) {
         Some(s) => {
             println!("  solar day:       {:>8.1} Earth days", s / DAY);
@@ -29,7 +35,12 @@ fn report(name: &str, radius: f64, rotation_period: f64, orbital_period: f64) {
 }
 
 fn main() {
-    report("Mercury (3:2 resonance)", 2.4397e6, 58.646 * DAY, 87.969 * DAY);
+    report(
+        "Mercury (3:2 resonance)",
+        2.4397e6,
+        58.646 * DAY,
+        87.969 * DAY,
+    );
     report(
         "Tidally locked reference planet (11.2-day period)",
         6.371e6,

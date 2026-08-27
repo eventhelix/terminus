@@ -177,10 +177,7 @@ pub fn select_active(
         (was_on, serves[s].len())
     });
     for s in order {
-        if serves[s]
-            .iter()
-            .all(|&p| cover_count[p] > required[p])
-        {
+        if serves[s].iter().all(|&p| cover_count[p] > required[p]) {
             active[s] = false;
             lit -= 1;
             for &p in &serves[s] {
@@ -268,12 +265,7 @@ pub fn duty_first_activation(
     if prune {
         let mut order: Vec<usize> = (0..fleet).filter(|&s| active[s]).collect();
         // Shed satellites that were dark last step first, then the least useful.
-        order.sort_by_key(|&s| {
-            (
-                previous.is_some_and(|prev| prev[s]),
-                serves[s].len(),
-            )
-        });
+        order.sort_by_key(|&s| (previous.is_some_and(|prev| prev[s]), serves[s].len()));
         for s in order {
             let removable = serves[s]
                 .iter()
@@ -670,7 +662,11 @@ mod tests {
             let cov = covering_satellites(&p, &c, &phases, &pts, MASK, t);
             let greedy = select_active(&cov, fleet_size(&c), 1, None).lit;
             if let Some(plan) = exact_activation(&cov, fleet_size(&c), None, 4_000_000) {
-                assert!(plan.lit <= greedy, "exact {} above greedy {greedy}", plan.lit);
+                assert!(
+                    plan.lit <= greedy,
+                    "exact {} above greedy {greedy}",
+                    plan.lit
+                );
                 for (i, sats) in cov.iter().enumerate() {
                     assert!(
                         sats.iter().any(|&s| plan.active[s]),
@@ -736,7 +732,9 @@ mod tests {
             let cold = select_active(&cov, fleet_size(&c), 1, None);
             let sticky = select_active(&cov, fleet_size(&c), 1, prev_sticky.as_deref());
             if let Some(prev) = &prev_cold {
-                churn_cold += (0..fleet_size(&c)).filter(|&s| prev[s] != cold.active[s]).count();
+                churn_cold += (0..fleet_size(&c))
+                    .filter(|&s| prev[s] != cold.active[s])
+                    .count();
             }
             if let Some(prev) = &prev_sticky {
                 churn_sticky += (0..fleet_size(&c))
@@ -821,9 +819,14 @@ mod tests {
         let mut t = 0.0;
         while t < 11.2 * 86_400.0 && !short {
             let cov = covering_satellites(&p, &c, &phases, &pts, MASK, t);
-            short = !select_active(&cov, fleet_size(&c), 2, None).unservable.is_empty();
+            short = !select_active(&cov, fleet_size(&c), 2, None)
+                .unservable
+                .is_empty();
             t += 120.0;
         }
-        assert!(short, "expected the baseline to fall short of dual coverage");
+        assert!(
+            short,
+            "expected the baseline to fall short of dual coverage"
+        );
     }
 }

@@ -24,10 +24,15 @@ pub struct PolarConstellation {
 /// Position (m, planet-fixed frame) of a satellite in a circular polar
 /// orbit with ascending node `raan` (rad, at t = 0) and along-orbit phase
 /// `theta0` (rad, at t = 0), evaluated at time `t` (s).
-pub fn polar_sat_position(body: &CentralBody, altitude: f64, raan: f64, theta0: f64, t: f64) -> [f64; 3] {
+pub fn polar_sat_position(
+    body: &CentralBody,
+    altitude: f64,
+    raan: f64,
+    theta0: f64,
+    t: f64,
+) -> [f64; 3] {
     let r = body.radius + altitude;
-    let n = 2.0 * std::f64::consts::PI
-        / crate::circular::orbital_period(body, altitude);
+    let n = 2.0 * std::f64::consts::PI / crate::circular::orbital_period(body, altitude);
     let spin = 2.0 * std::f64::consts::PI / body.rotation_period;
     let theta = theta0 + n * t;
     let node = raan - spin * t;
@@ -391,8 +396,8 @@ mod tests {
     }
 
     use super::*;
-    use std::f64::consts::PI;
     use crate::coverage::footprint_radius;
+    use std::f64::consts::PI;
 
     const MIN_ELEVATION: f64 = 25.0 * std::f64::consts::PI / 180.0;
 
@@ -487,28 +492,28 @@ mod tests {
             (8, 12, 0.4),
         ] {
             for altitude in [1_800e3, 2_200e3] {
-            let c = PolarConstellation {
-                altitude,
-                planes,
-                sats_per_plane: sats,
-                interplane_phase: stagger,
-            };
-            let phases: Vec<f64> = (0..planes).map(|k| c.plane_phase(k)).collect();
-            let mut t = 0.0;
-            while t < 2.0 * 86_400.0 {
-                for i in 0..72 {
-                    let az = i as f64 * 2.0 * PI / 72.0;
-                    for off in [-0.349_066, -0.1, 0.0, 0.2, 0.349_066] {
-                        let g = band_point(az, off);
-                        assert_eq!(
+                let c = PolarConstellation {
+                    altitude,
+                    planes,
+                    sats_per_plane: sats,
+                    interplane_phase: stagger,
+                };
+                let phases: Vec<f64> = (0..planes).map(|k| c.plane_phase(k)).collect();
+                let mut t = 0.0;
+                while t < 2.0 * 86_400.0 {
+                    for i in 0..72 {
+                        let az = i as f64 * 2.0 * PI / 72.0;
+                        for off in [-0.349_066, -0.1, 0.0, 0.2, 0.349_066] {
+                            let g = band_point(az, off);
+                            assert_eq!(
                             visible_count_with_phases(&p, &c, g, &phases, MIN_ELEVATION, t),
                             visible_count(&p, &c, g, MIN_ELEVATION, t),
                             "planes {planes} sats {sats} alt {altitude} az {az} off {off} t {t}"
                         );
+                        }
                     }
+                    t += 30.0;
                 }
-                t += 30.0;
-            }
             }
         }
     }
@@ -561,7 +566,10 @@ mod tests {
             // Plane 3's node lies along this ground point, so it serves it...
             assert!(plane_visible_count(&p, &c, 3, g, 0.0, MIN_ELEVATION, 0.0) > 0);
             // ...while plane 0's node is 90 deg away: hopeless at any count.
-            assert_eq!(plane_visible_count(&p, &c, 0, g, 0.0, MIN_ELEVATION, 0.0), 0);
+            assert_eq!(
+                plane_visible_count(&p, &c, 0, g, 0.0, MIN_ELEVATION, 0.0),
+                0
+            );
         }
     }
 

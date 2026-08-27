@@ -3,11 +3,11 @@
 //! Everything is parameterized by a [`CentralBody`]; no planet is hard-coded.
 //! Units are SI throughout: meters, seconds, kilograms, radians.
 
-mod body;
 pub mod acquisition;
 pub mod activation;
 pub mod backbone;
 pub mod beams;
+mod body;
 pub mod circular;
 pub mod constellation;
 pub mod coverage;

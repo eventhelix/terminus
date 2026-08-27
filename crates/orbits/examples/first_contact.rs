@@ -37,10 +37,22 @@ fn main() {
         raster / 60.0
     );
     println!("\nWorst-case budget vs TER-REQ-008 (15 min):");
-    println!("  wait for beacon paint:      {:>6.1} s  (one full raster)", raster);
-    println!("  frequency search:           {:>6.1} s  (none — beam is precompensated)", 0.0);
-    println!("  timing alignment:           {:>6.3} s  (one round trip)", rtt);
-    println!("  registration allowance:     {:>6.1} s", REGISTRATION_ALLOWANCE);
+    println!(
+        "  wait for beacon paint:      {:>6.1} s  (one full raster)",
+        raster
+    );
+    println!(
+        "  frequency search:           {:>6.1} s  (none — beam is precompensated)",
+        0.0
+    );
+    println!(
+        "  timing alignment:           {:>6.3} s  (one round trip)",
+        rtt
+    );
+    println!(
+        "  registration allowance:     {:>6.1} s",
+        REGISTRATION_ALLOWANCE
+    );
     let total = raster + rtt + REGISTRATION_ALLOWANCE;
     println!(
         "  total:                      {:>6.1} s  ({:.1} min) — {:.1}x inside the {:.0} min requirement",

@@ -8,9 +8,7 @@
 use terminus_orbits::circular::orbital_period;
 use terminus_orbits::coverage::{edge_slant_range, max_pass_duration};
 use terminus_orbits::hill::{hill_radius, SUN_MU};
-use terminus_orbits::placement::{
-    one_way_light_time, shell_distance, transfer_time, KvCacheModel,
-};
+use terminus_orbits::placement::{one_way_light_time, shell_distance, transfer_time, KvCacheModel};
 use terminus_orbits::CentralBody;
 
 const ACCESS_ALT: f64 = 2_200e3;
@@ -26,10 +24,17 @@ fn main() {
     let min_elevation = 25.0_f64.to_radians();
 
     let user_leg = one_way_light_time(edge_slant_range(&planet, ACCESS_ALT, min_elevation));
-    println!("User to access satellite (2,200 km, edge of footprint): {:.1} ms one way\n", ms(user_leg));
+    println!(
+        "User to access satellite (2,200 km, edge of footprint): {:.1} ms one way\n",
+        ms(user_leg)
+    );
 
     println!("Anchor candidates:");
-    for (label, sep_deg) in [("MEO 20,000 km, overhead", 0.0), ("MEO 20,000 km, 30° away", 30.0), ("MEO 20,000 km, 60° away", 60.0)] {
+    for (label, sep_deg) in [
+        ("MEO 20,000 km, overhead", 0.0),
+        ("MEO 20,000 km, 30° away", 30.0),
+        ("MEO 20,000 km, 60° away", 60.0),
+    ] {
         let d = shell_distance(&planet, ACCESS_ALT, MEO_ALT, (sep_deg as f64).to_radians());
         println!(
             "  {label:<28} {:>8.0} km  {:>6.1} ms one way from access",
@@ -40,11 +45,15 @@ fn main() {
     let l12 = hill_radius(&planet, 0.122 * SUN_MU, 7.2555e9);
     println!(
         "  {:<28} {:>8.0} km  {:>6.2} s one way from planet",
-        "L1/L2 balance points", l12 / 1e3, one_way_light_time(l12)
+        "L1/L2 balance points",
+        l12 / 1e3,
+        one_way_light_time(l12)
     );
     println!(
         "  {:<28} {:>8.2e} km {:>6.1} s one way from planet",
-        "L4/L5 (orbital radius)", 7.2555e6, one_way_light_time(7.2555e9)
+        "L4/L5 (orbital radius)",
+        7.2555e6,
+        one_way_light_time(7.2555e9)
     );
 
     let worst = shell_distance(&planet, ACCESS_ALT, MEO_ALT, 60.0_f64.to_radians());

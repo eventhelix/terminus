@@ -70,7 +70,11 @@ mod tests {
         let p = 11.2 * DAY;
         let just_off = f64::from_bits(p.to_bits() + 1);
         assert!(just_off > p);
-        assert_eq!(1.0 / p - 1.0 / just_off, 0.0, "premise: the old form cancels");
+        assert_eq!(
+            1.0 / p - 1.0 / just_off,
+            0.0,
+            "premise: the old form cancels"
+        );
 
         let s = solar_day(p, just_off).expect("not locked, so it has a solar day");
         assert!(s.is_finite() && s > 0.0, "solar day {s}");
