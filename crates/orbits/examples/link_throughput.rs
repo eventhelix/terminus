@@ -43,7 +43,7 @@ const POLICY: [(f64, f64); 5] = [
     (20_000e3, 0.0),
 ];
 /// Index into `POLICY` of the margin the library states as `REANCHOR_MARGIN`.
-const CHOSEN: usize = 2;
+const CHOSEN: usize = 4;
 
 /// Seconds between migrations at a given rate per session per day. An infinite
 /// interval is a session that never moves.
@@ -107,36 +107,41 @@ fn main() {
         profile.context_tokens
     );
     println!(
-        "   anchor hold           {:>9.1} h   = {:.2} changes/session/day",
-        dwell_from(POLICY[CHOSEN].1) / 3_600.0,
-        POLICY[CHOSEN].1
+        "   one migration costs   {:>9.2} s of a 100 Gbps link ({:.1} s at 10)",
+        transfer_time(profile.kv_bytes(&model), 100e9),
+        transfer_time(profile.kv_bytes(&model), 10e9)
     );
     println!(
-        "   migration, averaged   {:>12}",
-        gbps(profile.migration_bps(&model, dwell_from(POLICY[CHOSEN].1)))
+        "\n   The two flows are not the same order of magnitude, and how far\n\
+         \x20  apart they end up is decided by how often a session migrates -- not\n\
+         \x20  by anything the users do:\n"
     );
     println!(
-        "\n   Ratio: working memory outweighs the conversation it belongs to by\n\
-         \x20  {:.0} to one. A backbone sized from token rates would be wrong by that\n\
-         \x20  factor, not by a margin. Everything below is really a memory-moving\n\
-         \x20  network that also carries speech.",
-        profile.migration_ratio(&model, dwell_from(POLICY[CHOSEN].1))
+        "{:>22} {:>16} {:>14}",
+        "if a session moved", "migration rate", "vs conversation"
     );
-    println!(
-        "\n   The saving grace is that most conversations never migrate at all:\n\
-         \x20  a session must outlive the anchor's hold to move even once."
-    );
-    for (label, secs) in [
-        ("a 10-minute question", 600.0),
-        ("a 1-hour lesson", 3_600.0),
-        ("a 6-hour working day", 6.0 * 3_600.0),
+    for (label, hours) in [
+        ("every 2 h", 2.0),
+        ("every 6 h", 6.0),
+        ("once a day", 24.0),
+        ("never", f64::INFINITY),
     ] {
+        let dwell = hours * 3_600.0;
+        let ratio = profile.migration_ratio(&model, dwell);
         println!(
-            "     {:<22} {:>5.2} migrations",
+            "{:>22} {:>16} {:>13}x",
             label,
-            profile.migrations_per_session(secs, dwell_from(POLICY[CHOSEN].1))
+            gbps(profile.migration_bps(&model, dwell)),
+            ratio.round()
         );
     }
+    println!(
+        "\n   At the top of that table the backbone is a memory-moving network\n\
+         \x20  that also carries speech, and sizing it from token rates would be\n\
+         \x20  wrong by three orders of magnitude. At the bottom it carries speech\n\
+         \x20  and nothing else. Section C is about which end the policy chooses,\n\
+         \x20  and the default chooses the bottom."
+    );
 
     for (fleet_label, terminals) in [
         ("first light (TER-REQ-005)", TERMINALS_FIRST_LIGHT),
@@ -197,9 +202,11 @@ fn main() {
             );
         }
         println!(
-            "\n   Busiest link total: {}. A migration itself is a burst, not a\n\
-         \x20  trickle: {:.1} GB moves in {:.2} s on a 100 Gbps link and {:.1} s on\n\
-         \x20  10 Gbps, so the link must be sized for the burst as well as the mean.",
+            "\n   Busiest link total: {}. Steady-state migration is zero at the\n\
+         \x20  default policy, but it is never zero on the day something breaks:\n\
+         \x20  {:.1} GB moves in {:.2} s on a 100 Gbps link and {:.1} s on 10 Gbps,\n\
+         \x20  and one failed telescope strands a whole bucket of sessions at once.\n\
+         \x20  This link is sized by that burst, not by this mean.",
             gbps(feeder.total()),
             profile.kv_bytes(&model) / 1e9,
             transfer_time(profile.kv_bytes(&model), 100e9),
@@ -257,8 +264,24 @@ fn main() {
          \x20  Uniform towns is the assumption doing the quiet work. Real settlements\n\
          \x20  cluster, and a clustered band would load a few links far harder than\n\
          \x20  this arithmetic suggests while leaving others idle. The averages here\n\
-         \x20  are a floor on the busiest link, never a description of it.",
+         \x20  are a floor on the busiest link, never a description of it.\n\n\
+         \x20  The default policy buys its quiet backbone on credit: a session that\n\
+         \x20  never moves never rebalances. Nothing here models anchor compute, so\n\
+         \x20  nothing here notices sessions piling onto whichever anchor happened\n\
+         \x20  to be nearest when they began. That is exactly why the margin has to\n\
+         \x20  be tunable in flight rather than fixed at launch.\n\n\
+         \x20  What it does buy is a feature that need not be built yet. Streaming\n\
+         \x20  working memory from one anchor to another -- make-before-break, the\n\
+         \x20  {:.0} GB in {:.2} s that section A prices -- has no steady-state\n\
+         \x20  customer at this setting. The only sessions that must move are the\n\
+         \x20  ones whose anchor failed, and those are already answered by re-reading\n\
+         \x20  the transcript from the vault, which the proposal committed to long\n\
+         \x20  before this section existed. Context transfer becomes an optimization\n\
+         \x20  for planned maintenance, deferrable to a later block, and its absence\n\
+         \x20  costs a prefill rather than a conversation.",
         CONCURRENCY * 100.0,
-        model.bytes(131_072) / 1e9
+        model.bytes(131_072) / 1e9,
+        profile.kv_bytes(&model) / 1e9,
+        transfer_time(profile.kv_bytes(&model), 100e9)
     );
 }

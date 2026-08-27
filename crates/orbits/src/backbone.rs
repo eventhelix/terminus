@@ -141,15 +141,32 @@ where
     horizon
 }
 
-/// Hysteresis margin (m of path length) a rival anchor must beat the held one
-/// by before a session is moved.
+/// Default hysteresis margin (m of path length) a rival anchor must beat the
+/// held one by before a session is moved.
 ///
-/// A re-anchor costs a make-before-break transfer of the whole working memory,
-/// so the margin is not a tuning knob so much as a statement about what that
-/// transfer is worth. 5,000 km of path is about 17 ms one way, 33 ms on the
-/// round trip: enough to be worth gigabytes of traffic, where a millisecond
-/// plainly is not. `link_throughput` sweeps it.
-pub const REANCHOR_MARGIN: f64 = 5_000e3;
+/// **This is an operating parameter, not a constant of the sky.** It is the
+/// one number in the anchor policy that geometry does not fix, and it should
+/// be tunable in flight: a fleet that later finds itself short of backbone,
+/// or short of anchor compute, will want to move it. The default is stated
+/// here so that everything downstream has something to quote, not because
+/// 20,000 km is a law.
+///
+/// The default is deliberately large enough that a session, once anchored,
+/// never moves again. Nothing forces it to: a ring reaches every anchor at
+/// every instant, so the only reason to re-anchor is to shorten the path, and
+/// `feeder_terminals` measures what that costs. Across the whole span from
+/// zero margin to this one, mean path length varies by 24 ms one way while
+/// the working-memory traffic on the busiest feeder link varies by four
+/// orders of magnitude — from more than a 100 Gbps link can carry down to
+/// nothing at all. At this setting the worst path any session ever holds is
+/// 34,198 km, a 253 ms round trip, inside the RFP's 300 ms with room to
+/// spare.
+///
+/// What it does not buy is load balancing. A session that never moves never
+/// rebalances, and nothing in this crate models anchor compute. That is the
+/// reason to expect this number to come down in service, and the reason it
+/// must be a parameter rather than a constant.
+pub const REANCHOR_MARGIN: f64 = 20_000e3;
 
 /// Which anchor a session should hold, given what each one costs to reach.
 ///
@@ -406,16 +423,40 @@ mod tests {
     /// to clear the margin rather than merely come first.
     #[test]
     fn a_held_anchor_is_not_traded_for_a_marginal_gain() {
+        // The margin is a parameter, so the behaviour is tested against a
+        // stated one rather than against whatever the default happens to be.
+        let margin = 5_000e3;
         let near = [26_000e3, 24_000e3];
         assert_eq!(
-            select_anchor(2, |i| Some(near[i]), Some(0), REANCHOR_MARGIN),
+            select_anchor(2, |i| Some(near[i]), Some(0), margin),
             Some(0),
             "2,000 km of saving is not worth moving gigabytes"
         );
         let far = [31_000e3, 19_000e3];
+        assert_eq!(select_anchor(2, |i| Some(far[i]), Some(0), margin), Some(1));
+    }
+
+    /// At the default margin a session stays put. The whole spread of path
+    /// lengths the geometry produces -- roughly 18,000 to 34,000 km -- is
+    /// narrower than the margin, so no rival ever clears it and the working
+    /// memory never moves. That is the intent, and it is worth a test rather
+    /// than a comment.
+    #[test]
+    fn the_default_margin_holds_an_anchor_for_good() {
+        let held_worst = 34_198e3;
+        let rival_best = 18_569e3;
+        assert!(
+            held_worst - rival_best < REANCHOR_MARGIN,
+            "the observed spread must sit inside the default margin"
+        );
         assert_eq!(
-            select_anchor(2, |i| Some(far[i]), Some(0), REANCHOR_MARGIN),
-            Some(1)
+            select_anchor(
+                2,
+                |i| Some(if i == 0 { held_worst } else { rival_best }),
+                Some(0),
+                REANCHOR_MARGIN
+            ),
+            Some(0)
         );
     }
 

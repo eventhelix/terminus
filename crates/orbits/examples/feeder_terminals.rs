@@ -62,7 +62,7 @@ const HOP_RANGE: f64 = 4_437e3;
 const MARGINS: [f64; 5] = [0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3];
 /// Index into `MARGINS` of the policy the rest of this example reports on.
 /// It is the same number the library states as `REANCHOR_MARGIN`.
-const CHOSEN_MARGIN: usize = 2;
+const CHOSEN_MARGIN: usize = 4;
 
 struct Town {
     unit: [f64; 3],
