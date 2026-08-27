@@ -9,8 +9,44 @@ use crate::CentralBody;
 /// ring: the chord 2r·sin(π/n). Constant for all time — satellites sharing
 /// a circular orbit do not move relative to each other.
 pub fn intra_plane_neighbor_range(body: &CentralBody, altitude: f64, sats_per_plane: usize) -> f64 {
+    intra_plane_range(body, altitude, sats_per_plane, 1)
+}
+
+/// Distance (m) to the satellite `hops` places away around one's own ring:
+/// the chord 2r·sin(hops·π/n). Also constant, for the same reason.
+pub fn intra_plane_range(
+    body: &CentralBody,
+    altitude: f64,
+    sats_per_plane: usize,
+    hops: usize,
+) -> f64 {
     let r = body.radius + altitude;
-    2.0 * r * (std::f64::consts::PI / sats_per_plane as f64).sin()
+    2.0 * r * (hops as f64 * std::f64::consts::PI / sats_per_plane as f64).sin()
+}
+
+/// How many places around its own ring a satellite can still see, before the
+/// planet cuts the chord.
+///
+/// A satellite sees its own shell out to `2·acos(R/r)` of separation, and ring
+/// mates sit `2π/n` apart, so the answer is a division — but it is a division
+/// with consequences, and they run opposite ways at the two altitudes this
+/// architecture uses.
+///
+/// At 2,200 km the limit is 84.0° against 30.0° spacing, so an access
+/// satellite reaches two ring mates in each direction and the third is
+/// occulted. That is not a routing policy: it is why traffic along the ring
+/// travels "at most a hop or two" and no further.
+///
+/// At 20,000 km the limit is 152.0° against 90.0° spacing, so an anchor
+/// reaches exactly one plane mate each way and the satellite directly opposite
+/// it is permanently behind the planet. A four-satellite plane is a broken
+/// necklace, not a closed one.
+pub fn intra_plane_reach(body: &CentralBody, altitude: f64, sats_per_plane: usize) -> usize {
+    let limit = 2.0 * (body.radius / (body.radius + altitude)).acos();
+    let spacing = 2.0 * std::f64::consts::PI / sats_per_plane as f64;
+    // A ring mate more than half way round is approached from the other side.
+    let reach = (limit / spacing).floor() as usize;
+    reach.min(sats_per_plane / 2)
 }
 
 /// Largest central angle (rad) at which satellites on two shells still see
@@ -30,6 +66,13 @@ pub fn shell_visible_fraction(body: &CentralBody, alt1: f64, alt2: f64) -> f64 {
 /// Worst-case range rate (m/s) between satellites on two circular shells,
 /// scanning the coplanar separation angle over the mutually visible range:
 /// ρ̇(Δ) = r₁r₂·(ω₁−ω₂)·sinΔ/ρ(Δ). Fully deterministic for known orbits.
+///
+/// **Only meaningful for shells at different altitudes.** The model turns on
+/// the difference in mean motion, so equal altitudes give exactly zero — which
+/// is the right answer for two satellites sharing a plane, and the wrong one
+/// for two satellites in different planes of the same shell, which do move
+/// relative to each other however equal their periods. Reach for a numerical
+/// sweep over the actual shell for that case, not for this.
 pub fn max_shell_range_rate(body: &CentralBody, alt1: f64, alt2: f64) -> f64 {
     let r1 = body.radius + alt1;
     let r2 = body.radius + alt2;
@@ -181,6 +224,48 @@ mod tests {
     use super::*;
     use crate::constellation::polar_sat_position;
 
+    /// The published claim that traffic travels "at most a hop or two" along
+    /// its ring is not a routing choice. It is the planet: 84.0 deg of line of
+    /// sight against 30.0 deg of spacing leaves room for two ring mates and no
+    /// more.
+    #[test]
+    fn the_wheel_reaches_two_ring_mates_and_the_third_is_occulted() {
+        let p = reference_planet();
+        assert_eq!(intra_plane_reach(&p, 2_200e3, 12), 2);
+
+        let limit = max_shell_separation(&p, 2_200e3, 2_200e3).to_degrees();
+        assert!(
+            (limit - 84.0).abs() < 0.1,
+            "line of sight limit {limit} deg"
+        );
+        assert!(2.0 * 30.0 <= limit, "two hops must fit");
+        assert!(3.0 * 30.0 > limit, "three must not");
+    }
+
+    /// The shell runs the other way. A four-satellite plane is 90 deg between
+    /// neighbours, so an anchor reaches one each side and the satellite
+    /// directly opposite is permanently behind the planet -- a necklace that
+    /// cannot be closed, which is why anchor-to-anchor routing cannot simply
+    /// go the long way round a plane.
+    #[test]
+    fn a_four_satellite_plane_cannot_close_its_necklace() {
+        let p = reference_planet();
+        assert_eq!(intra_plane_reach(&p, 20_000e3, 4), 1);
+
+        let limit = max_shell_separation(&p, 20_000e3, 20_000e3).to_degrees();
+        assert!(
+            (limit - 152.0).abs() < 0.1,
+            "line of sight limit {limit} deg"
+        );
+        assert!(180.0 > limit, "the antipodal plane mate is occulted");
+
+        // And the reachable one is a long way off: eight times the wheel's hop.
+        let meo = intra_plane_range(&p, 20_000e3, 4, 1);
+        let leo = intra_plane_range(&p, 2_200e3, 12, 1);
+        assert!((meo / 1e3 - 37_294.0).abs() < 1.0, "{meo} m");
+        assert!(meo / leo > 8.0, "ratio {}", meo / leo);
+    }
+
     fn nav_shell() -> crate::walker::WalkerShell {
         crate::walker::WalkerShell {
             altitude: 20_000e3,
@@ -229,7 +314,7 @@ mod tests {
                 "took a {:.0} deg hop with the budget available",
                 chosen.to_degrees()
             );
-            let d = anchor_dwell(serving, &anchors[pick], limb, t, 6.0 * 3_600.0, 60.0);
+            let d = anchor_dwell(serving, anchors[pick], limb, t, 6.0 * 3_600.0, 60.0);
             for a in anchors.iter() {
                 if separation(now, a(t)) > FEEDER_BUDGET {
                     continue;
