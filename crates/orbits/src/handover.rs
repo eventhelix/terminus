@@ -24,6 +24,7 @@
 //! satellite means landing on whatever is left when it finally goes, and
 //! handovers go up. Hysteresis is a knob to be set per shell, not a default.
 
+use crate::activation::satellite_index;
 use crate::constellation::{elevation, polar_sat_position, PolarConstellation};
 use crate::CentralBody;
 
@@ -94,17 +95,37 @@ fn sat_elevation(
 /// scans the whole fleet, so which satellite wins genuinely depends on how the
 /// rings are phased against each other -- this is not a parameter the caller
 /// can skip and still get the same answer.
+///
+/// `active` is an activation plan from [`crate::activation`], indexed by
+/// [`satellite_index`]. `None` considers every satellite; `Some(plan)`
+/// considers only the ones the plan has lit, which is the honest question --
+/// a satellite that is coasting between shifts cannot take a session, however
+/// high it happens to be sitting. The two subsystems answered separately for
+/// a long time: `activation` decided who was radiating, `handover` decided who
+/// served, and nothing joined them, so a town could be shown attached to a
+/// satellite the same plan had switched off.
+///
+/// Returns `None` when nothing in the allowed set is above the mask. With a
+/// plan that is the caller's cue: a plan covers the band *sample points* it was
+/// built from, and a town between two of them can briefly see no lit satellite
+/// at all.
 pub fn best_visible(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
     phases: &[f64],
+    active: Option<&[bool]>,
     min_elevation: f64,
     t: f64,
 ) -> Option<(SatelliteId, f64)> {
     let mut best: Option<(SatelliteId, f64)> = None;
     for k in 0..c.planes {
         for j in 0..c.sats_per_plane {
+            if let Some(plan) = active {
+                if !plan[satellite_index(c, k, j)] {
+                    continue;
+                }
+            }
             let e = sat_elevation(body, c, (k, j), ground_unit, phases, t);
             if e >= min_elevation && best.map_or(true, |(_, be)| e > be) {
                 best = Some(((k, j), e));
@@ -114,6 +135,10 @@ pub fn best_visible(
     best
 }
 
+// Every argument here names a distinct physical input -- body, fleet, place,
+// phasing, lit set, policy, span, resolution -- and bundling any pair of them
+// would invent a concept the model does not have.
+#[allow(clippy::too_many_arguments)]
 /// Serving-satellite changes over `duration` (s), sampled every `step` (s).
 ///
 /// The first entry is the initial acquisition (`from: None`); every later
@@ -123,6 +148,7 @@ pub fn handover_timeline(
     c: &PolarConstellation,
     ground_unit: [f64; 3],
     phases: &[f64],
+    active: Option<&[bool]>,
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
@@ -136,9 +162,15 @@ pub fn handover_timeline(
             .map(|id| sat_elevation(body, c, id, ground_unit, phases, t) >= drop_below)
             .unwrap_or(false);
         if !hold {
-            if let Some((id, _)) =
-                best_visible(body, c, ground_unit, phases, policy.min_elevation, t)
-            {
+            if let Some((id, _)) = best_visible(
+                body,
+                c,
+                ground_unit,
+                phases,
+                active,
+                policy.min_elevation,
+                t,
+            ) {
                 if current != Some(id) {
                     events.push(HandoverEvent {
                         time: t,
@@ -156,22 +188,31 @@ pub fn handover_timeline(
     events
 }
 
+// Every argument here names a distinct physical input -- body, fleet, place,
+// phasing, lit set, policy, span, resolution -- and bundling any pair of them
+// would invent a concept the model does not have.
+#[allow(clippy::too_many_arguments)]
 /// Number of handovers (excluding the first acquisition) over `duration`.
 pub fn handover_count(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
     phases: &[f64],
+    active: Option<&[bool]>,
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
 ) -> usize {
-    handover_timeline(body, c, ground_unit, phases, policy, duration, step)
+    handover_timeline(body, c, ground_unit, phases, active, policy, duration, step)
         .iter()
         .filter(|e| e.from.is_some())
         .count()
 }
 
+// Every argument here names a distinct physical input -- body, fleet, place,
+// phasing, lit set, policy, span, resolution -- and bundling any pair of them
+// would invent a concept the model does not have.
+#[allow(clippy::too_many_arguments)]
 /// Mean interval (s) between handovers — how long a link lasts in practice.
 /// Returns `None` if the ground point never handed over.
 pub fn mean_service_interval(
@@ -179,11 +220,12 @@ pub fn mean_service_interval(
     c: &PolarConstellation,
     ground_unit: [f64; 3],
     phases: &[f64],
+    active: Option<&[bool]>,
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
 ) -> Option<f64> {
-    let events = handover_timeline(body, c, ground_unit, phases, policy, duration, step);
+    let events = handover_timeline(body, c, ground_unit, phases, active, policy, duration, step);
     if events.len() < 2 {
         return None;
     }
@@ -215,6 +257,63 @@ mod tests {
         }
     }
 
+    /// A serving satellite must be one the plan actually lit. `activation` and
+    /// `handover` answered separately until now -- one decided who was
+    /// radiating, the other who served -- so nothing stopped a town being
+    /// handed to a satellite the same plan had switched off.
+    ///
+    /// The gap this test leaves open is deliberate and measured: a plan covers
+    /// the band *sample points* it was built from, so a town between two of
+    /// them can briefly see no lit satellite. The assertion is therefore
+    /// conditional -- when a lit satellite is in view, that is who serves --
+    /// and the rate at which none is in view is pinned below.
+    #[test]
+    fn a_served_satellite_is_one_the_plan_lit() {
+        use crate::activation::{covering_satellites, duty_first_activation, satellite_index};
+        use crate::duty::duty_ring;
+
+        let p = reference_planet();
+        let c = baseline();
+        let phases = c.uniform_phases();
+        let band = 20.0_f64.to_radians();
+        let points: Vec<[f64; 3]> = (0..72)
+            .flat_map(|i| {
+                let az = i as f64 * 2.0 * std::f64::consts::PI / 72.0;
+                [-band, 0.0, band].map(|off| band_point(az, off))
+            })
+            .collect();
+        // Off the plan's own sample grid on purpose: a town does not stand
+        // where the planner happened to look.
+        let towns: Vec<[f64; 3]> = (0..11)
+            .flat_map(|i| {
+                let az = 0.137 + i as f64 * 0.5717;
+                [0.0, band * 0.5, band, -band * 0.77].map(|off| band_point(az, off))
+            })
+            .collect();
+
+        let (mut checked, mut unlit_moments) = (0, 0);
+        for i in 0..40 {
+            let t = (i as f64 / 40.0) * 11.2 * 86_400.0;
+            let cov = covering_satellites(&p, &c, &phases, &points, MIN_ELEVATION, t);
+            let plan = duty_first_activation(&cov, &c, duty_ring(&p, &c, t), None, true).active;
+            for &town in &towns {
+                checked += 1;
+                match best_visible(&p, &c, town, &phases, Some(&plan), MIN_ELEVATION, t) {
+                    Some(((k, j), _)) => assert!(
+                        plan[satellite_index(&c, k, j)],
+                        "served by a satellite the plan left dark"
+                    ),
+                    None => unlit_moments += 1,
+                }
+            }
+        }
+        // Sampling artefact, not a coverage hole: well under 1% of instants.
+        assert!(
+            unlit_moments * 100 < checked,
+            "no lit satellite in view for {unlit_moments} of {checked} town-instants"
+        );
+    }
+
     fn towns() -> [[f64; 3]; 5] {
         let edge = 20.0_f64.to_radians();
         [
@@ -239,8 +338,9 @@ mod tests {
         let spacing = orbital_period(&p, c.altitude) / c.sats_per_plane as f64;
         let policy = HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS);
         for town in towns() {
-            let interval = mean_service_interval(&p, &c, town, &phases, policy, 6.0 * 3_600.0, 5.0)
-                .expect("a band town hands over many times in six hours");
+            let interval =
+                mean_service_interval(&p, &c, town, &phases, None, policy, 6.0 * 3_600.0, 5.0)
+                    .expect("a band town hands over many times in six hours");
             let rel = ((interval - spacing) / spacing).abs();
             assert!(
                 rel < 0.05,
@@ -271,6 +371,7 @@ mod tests {
                 &c,
                 town,
                 &phases,
+                None,
                 HandoverPolicy::greedy(MIN_ELEVATION),
                 duration,
                 5.0,
@@ -280,6 +381,7 @@ mod tests {
                 &c,
                 town,
                 &phases,
+                None,
                 HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS),
                 duration,
                 5.0,
@@ -316,6 +418,7 @@ mod tests {
                 &thin,
                 town,
                 &phases,
+                None,
                 HandoverPolicy::greedy(MIN_ELEVATION),
                 duration,
                 5.0,
@@ -325,6 +428,7 @@ mod tests {
                 &thin,
                 town,
                 &phases,
+                None,
                 HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS),
                 duration,
                 5.0,
@@ -343,7 +447,7 @@ mod tests {
         let phases = c.uniform_phases();
         let town = band_point(1.9, 0.1);
         let policy = HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS);
-        let events = handover_timeline(&p, &c, town, &phases, policy, 3.0 * 3_600.0, 10.0);
+        let events = handover_timeline(&p, &c, town, &phases, None, policy, 3.0 * 3_600.0, 10.0);
         assert!(events.len() > 2);
         for e in &events {
             let elev = sat_elevation(&p, &c, e.to, town, &phases, e.time);
