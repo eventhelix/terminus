@@ -20,6 +20,7 @@ pub mod plane_tracking;
 pub mod radio;
 pub mod relativity;
 pub mod reliability;
+pub mod routing;
 pub mod spin_orbit;
 pub mod station_keeping;
 pub mod topology;
