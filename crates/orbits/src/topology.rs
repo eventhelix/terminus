@@ -214,6 +214,133 @@ pub fn relay_demand(
     }
 }
 
+/// Terminals required when every satellite is the same satellite.
+///
+/// A fleet is built to one drawing. [`relay_demand`] quietly assumed
+/// otherwise: designating three feeder hosts in a ring of twelve is two
+/// different spacecraft, one with feeder terminals and one without, and a
+/// programme that builds two models pays for two of everything — two
+/// qualification campaigns, two spares pools, two of every lesson learned in
+/// orbit. So the real question is not how few terminals the fleet needs on
+/// average but how many *each* satellite must carry, since every one of them
+/// carries the worst case.
+///
+/// The necklace still helps, but differently. A session on satellite `i` can
+/// use a feeder terminal on any satellite within `reach` hops, so a window of
+/// `2·reach + 1` satellites pools its terminals. Sizing is therefore set by
+/// the busiest window, not by the busiest satellite and not by the ring
+/// average:
+///
+/// ```text
+///     terminals per satellite = max over windows of ceil(anchors / window)
+/// ```
+///
+/// `slot_of` gives each access satellite its (ring, position) so windows can
+/// be formed. `ring_size` is how many satellites are in a ring, and the window
+/// wraps, because a ring does.
+///
+/// This is a sizing floor rather than a solved assignment: it assumes a window
+/// can divide its anchors evenly across its members, which an optimal
+/// allocation can always do and a real timetable might not quite.
+pub fn uniform_relay_demand(
+    sessions: &[Session],
+    slot_of: impl Fn(usize) -> (usize, usize),
+    ring_size: usize,
+    reach: usize,
+) -> TerminalDemand {
+    assert!(ring_size > 0 && reach > 0);
+    let window = (2 * reach + 1).min(ring_size);
+
+    // Anchors wanted by the sessions sitting on each (ring, position).
+    let mut wanted: BTreeMap<(usize, usize), BTreeSet<usize>> = BTreeMap::new();
+    // Which ring positions want each anchor, so the shell side can be counted
+    // the same way the wheel side is: one terminal covers a whole window, so
+    // an anchor does not see every access satellite that talks to it, only one
+    // endpoint per window that needs it.
+    let mut anchor_positions: BTreeMap<usize, BTreeMap<usize, BTreeSet<usize>>> = BTreeMap::new();
+    for s in sessions {
+        let (ring, pos) = slot_of(s.access);
+        wanted.entry((ring, pos)).or_default().insert(s.anchor);
+        anchor_positions
+            .entry(s.anchor)
+            .or_default()
+            .entry(ring)
+            .or_default()
+            .insert(pos);
+    }
+
+    let rings: BTreeSet<usize> = wanted.keys().map(|&(r, _)| r).collect();
+    let mut per_access = Vec::new();
+    let mut links = 0usize;
+    for ring in rings {
+        let mut ring_union: BTreeSet<usize> = BTreeSet::new();
+        let mut worst = 0usize;
+        for start in 0..ring_size {
+            let mut union: BTreeSet<usize> = BTreeSet::new();
+            for d in 0..window {
+                let pos = (start + d) % ring_size;
+                if let Some(a) = wanted.get(&(ring, pos)) {
+                    union.extend(a.iter().copied());
+                    ring_union.extend(a.iter().copied());
+                }
+            }
+            worst = worst.max(union.len().div_ceil(window));
+        }
+        links += ring_union.len();
+        for _ in 0..ring_size {
+            per_access.push(worst);
+        }
+    }
+    // An anchor's feeder terminals: one per window that needs it, per ring.
+    let mut per_anchor: Vec<usize> = anchor_positions
+        .values()
+        .map(|rings| {
+            rings
+                .values()
+                .map(|positions| cover_ring(positions, ring_size, window))
+                .sum()
+        })
+        .collect();
+    per_access.sort_unstable();
+    per_anchor.sort_unstable();
+    TerminalDemand {
+        per_access,
+        per_anchor,
+        links,
+    }
+}
+
+/// Fewest windows of `window` consecutive positions needed to cover every
+/// position in `positions`, around a ring of `ring_size`.
+///
+/// Greedy from each possible starting offset: a ring has no natural left end,
+/// so the best cover depends on where you begin, and there are only
+/// `ring_size` places to begin.
+fn cover_ring(positions: &BTreeSet<usize>, ring_size: usize, window: usize) -> usize {
+    if positions.is_empty() {
+        return 0;
+    }
+    let mut best = usize::MAX;
+    for offset in 0..ring_size {
+        let mut ordered: Vec<usize> = positions
+            .iter()
+            .map(|&p| (p + ring_size - offset) % ring_size)
+            .collect();
+        ordered.sort_unstable();
+        let mut count = 0;
+        let mut i = 0;
+        while i < ordered.len() {
+            let reach_end = ordered[i] + window - 1;
+            count += 1;
+            while i < ordered.len() && ordered[i] <= reach_end {
+                i += 1;
+            }
+        }
+        best = best.min(count);
+    }
+    best
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,6 +441,90 @@ mod tests {
         let relay = relay_demand(&s, |_| 0, 3);
         assert_eq!(relay.per_access.len(), 3, "nine satellites carry none");
         assert_eq!(relay.max_access(), 2, "six anchors over three hosts");
+    }
+
+    /// One drawing means every satellite carries the worst window, so a fleet
+    /// of identical satellites is sized by its busiest neighbourhood and never
+    /// by its average one.
+    #[test]
+    fn one_drawing_means_every_satellite_carries_the_worst_window() {
+        // A ring of 12. All the anchor spread sits on positions 0..=4.
+        let s: Vec<Session> = (0..5)
+            .flat_map(|i| {
+                (0..5).map(move |a| Session {
+                    access: i,
+                    anchor: a,
+                })
+            })
+            .collect();
+
+        // Window of 5 (reach 2) covering positions 0..=4 sees 5 anchors: one each.
+        let d = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        assert_eq!(d.max_access(), 1);
+        assert_eq!(d.per_access.len(), 12, "every satellite is built the same");
+        assert!(
+            d.per_access.iter().all(|&n| n == d.max_access()),
+            "one drawing: no satellite is cheaper than another"
+        );
+    }
+
+    /// Reach is what makes the necklace worth having: a longer window pools
+    /// more terminals, so each satellite carries fewer.
+    #[test]
+    fn more_reach_means_fewer_terminals_each() {
+        let s: Vec<Session> = (0..12)
+            .flat_map(|i| {
+                (0..6).map(move |a| Session {
+                    access: i,
+                    anchor: a,
+                })
+            })
+            .collect();
+        let one_hop = uniform_relay_demand(&s, |a| (0, a), 12, 1);
+        let two_hop = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        assert!(
+            two_hop.max_access() <= one_hop.max_access(),
+            "two hops {} should not cost more than one {}",
+            two_hop.max_access(),
+            one_hop.max_access()
+        );
+    }
+
+    /// Pooling has to be counted on both sides. A ring exits through one
+    /// terminal per window, so an anchor sees a handful of endpoints rather
+    /// than every access satellite whose sessions it holds -- counting the
+    /// shell as if traffic never pooled would price the necklace as no better
+    /// than the direct topology on that side.
+    #[test]
+    fn an_anchor_sees_windows_not_satellites() {
+        // Every satellite of one ring of 12 carries a session to anchor 0.
+        let s: Vec<Session> = (0..12)
+            .map(|i| Session {
+                access: i,
+                anchor: 0,
+            })
+            .collect();
+
+        let direct = direct_demand(&s);
+        assert_eq!(direct.max_anchor(), 12, "direct: twelve endpoints");
+
+        // Windows of 5 cover twelve positions three times over.
+        let pooled = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        assert_eq!(pooled.max_anchor(), 3, "pooled: three endpoints");
+    }
+
+    /// And a ring that wants an anchor from one place needs exactly one link
+    /// to it, however many of its satellites carry sessions there.
+    #[test]
+    fn neighbouring_positions_share_one_anchor_link() {
+        let s: Vec<Session> = (0..3)
+            .map(|i| Session {
+                access: i,
+                anchor: 7,
+            })
+            .collect();
+        let pooled = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        assert_eq!(pooled.max_anchor(), 1);
     }
 
     #[test]

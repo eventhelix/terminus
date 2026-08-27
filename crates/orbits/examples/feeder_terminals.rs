@@ -28,7 +28,7 @@ use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarC
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
 use terminus_orbits::topology::{
-    direct_demand, gateway_demand, relay_demand, Session, TerminalDemand,
+    direct_demand, gateway_demand, uniform_relay_demand, Session, TerminalDemand,
 };
 use terminus_orbits::walker::{shell_sat_position, WalkerShell};
 use terminus_orbits::CentralBody;
@@ -41,9 +41,10 @@ const BAND: f64 = 20.0 * std::f64::consts::PI / 180.0;
 const TOWNS: usize = 1_000;
 const STEP: f64 = 300.0;
 const SPAN: f64 = 86_400.0;
-/// Feeder-equipped satellites per ring. Twelve satellites at two hops of
-/// reach need a host at least every five places, so three is the floor.
-const FEEDER_HOSTS: usize = 3;
+/// How far a session can travel along the necklace to borrow a feeder
+/// terminal. `intra_plane_reach` at 2,200 km says two hops, so a window of
+/// five satellites pools its terminals.
+const REACH: usize = 2;
 
 struct Town {
     unit: [f64; 3],
@@ -282,7 +283,12 @@ fn main() {
         gateway_instants.push(gateway_demand(&sessions, &gateway));
         // Every satellite must sit within `reach` hops of a feeder host.
         let per_ring = wheel.sats_per_plane;
-        relay_instants.push(relay_demand(&sessions, |a| a / per_ring, FEEDER_HOSTS));
+        relay_instants.push(uniform_relay_demand(
+            &sessions,
+            |a| (a / per_ring, a % per_ring),
+            per_ring,
+            REACH,
+        ));
         t += STEP;
     }
 
@@ -324,24 +330,26 @@ fn main() {
          \x20  and which section A says a 4-satellite plane cannot fully close."
     );
 
-    println!("\n\nD. The necklace: pool each ring, only some satellites feed\n");
+    println!("\n\nD. The necklace, with one drawing for the whole fleet\n");
     println!(
-        "   {} feeder hosts per ring of {}. Anchor spread belongs to the sessions\n\
-         \x20  and does not shrink -- but the ring stops paying for it twelve times.\n",
-        FEEDER_HOSTS, wheel.sats_per_plane
+        "   Every satellite is the same satellite, so each carries the worst\n\
+         \x20  case -- designating a few feeder hosts would be a second model, and a\n\
+         \x20  programme that builds two pays for two of everything. The necklace\n\
+         \x20  still helps: a session borrows a feeder terminal up to {} hops away,\n\
+         \x20  so a window of {} satellites pools what it has and sizing follows the\n\
+         \x20  busiest window rather than the busiest satellite.\n",
+        REACH,
+        2 * REACH + 1
     );
     println!(
-        "   feeder terminals on a host:               median {}, p90 {}, max {}",
+        "   feeder terminals on EVERY access satellite: median {}, p90 {}, max {}",
         relay.access_quantile(0.5),
         relay.access_quantile(0.9),
         relay.max_access()
     );
+    println!("   plus 2 necklace terminals on every one: 4,437 km, frozen, free to point");
     println!(
-        "   the other {} satellites in the ring:       0 feeder, 2 necklace each",
-        wheel.sats_per_plane - FEEDER_HOSTS
-    );
-    println!(
-        "   feeder terminals on one anchor:           max {}",
+        "   feeder terminals on EVERY anchor:           max {}",
         relay.max_anchor()
     );
 
@@ -366,7 +374,7 @@ fn main() {
         24 * gw.max_anchor(),
         fleet_gateway
     );
-    let ring_wheel = 6 * (FEEDER_HOSTS * relay.max_access()) + 72 * 2;
+    let ring_wheel = 72 * (relay.max_access() + 2);
     let fleet_relay = ring_wheel + 24 * relay.max_anchor();
     println!(
         "{:>34} {:>10} {:>10} {:>8}",
