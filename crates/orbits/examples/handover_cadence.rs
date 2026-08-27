@@ -40,6 +40,9 @@ fn main() {
     let min_el = MIN_ELEVATION.to_radians();
     let hyst = HYSTERESIS.to_radians();
     let duration = HOURS * 3_600.0;
+    // The baseline files every ring in step; `thin` only changes altitude, so
+    // one phase vector serves both shells.
+    let phases = baseline.uniform_phases();
 
     let period = orbital_period(&planet, baseline.altitude);
     let spacing = period / baseline.sats_per_plane as f64;
@@ -63,6 +66,7 @@ fn main() {
             &planet,
             &baseline,
             town,
+            &phases,
             HandoverPolicy::greedy(min_el),
             duration,
             STEP,
@@ -71,6 +75,7 @@ fn main() {
             &planet,
             &baseline,
             town,
+            &phases,
             HandoverPolicy::sticky(min_el, hyst),
             duration,
             STEP,
@@ -79,6 +84,7 @@ fn main() {
             &planet,
             &baseline,
             town,
+            &phases,
             HandoverPolicy::sticky(min_el, hyst),
             duration,
             STEP,
@@ -100,6 +106,7 @@ fn main() {
                 &planet,
                 &baseline,
                 *town,
+                &phases,
                 HandoverPolicy::greedy(min_el),
                 duration,
                 STEP,
@@ -141,6 +148,7 @@ fn main() {
             &planet,
             &thin,
             town,
+            &phases,
             HandoverPolicy::greedy(min_el),
             duration,
             STEP,
@@ -152,6 +160,7 @@ fn main() {
             &planet,
             &thin,
             town,
+            &phases,
             HandoverPolicy::sticky(min_el, hyst),
             duration,
             STEP,

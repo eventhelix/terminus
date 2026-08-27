@@ -73,12 +73,12 @@ fn sat_elevation(
     c: &PolarConstellation,
     id: SatelliteId,
     ground_unit: [f64; 3],
+    phases: &[f64],
     t: f64,
 ) -> f64 {
     let (k, j) = id;
     let raan = k as f64 * std::f64::consts::PI / c.planes as f64;
-    let theta0 =
-        j as f64 * 2.0 * std::f64::consts::PI / c.sats_per_plane as f64 + k as f64 * c.interplane_phase;
+    let theta0 = j as f64 * 2.0 * std::f64::consts::PI / c.sats_per_plane as f64 + phases[k];
     elevation(
         body,
         ground_unit,
@@ -87,17 +87,25 @@ fn sat_elevation(
 }
 
 /// Highest satellite at or above `min_elevation`, if any.
+///
+/// `phases` carries one along-orbit phase (rad) per plane; build it with
+/// [`crate::constellation::plane_phases`], or with
+/// [`PolarConstellation::uniform_phases`] for the uniform stagger. Selection
+/// scans the whole fleet, so which satellite wins genuinely depends on how the
+/// rings are phased against each other -- this is not a parameter the caller
+/// can skip and still get the same answer.
 pub fn best_visible(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
+    phases: &[f64],
     min_elevation: f64,
     t: f64,
 ) -> Option<(SatelliteId, f64)> {
     let mut best: Option<(SatelliteId, f64)> = None;
     for k in 0..c.planes {
         for j in 0..c.sats_per_plane {
-            let e = sat_elevation(body, c, (k, j), ground_unit, t);
+            let e = sat_elevation(body, c, (k, j), ground_unit, phases, t);
             if e >= min_elevation && best.map_or(true, |(_, be)| e > be) {
                 best = Some(((k, j), e));
             }
@@ -114,6 +122,7 @@ pub fn handover_timeline(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
+    phases: &[f64],
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
@@ -124,10 +133,12 @@ pub fn handover_timeline(
     let mut t = 0.0;
     while t <= duration {
         let hold = current
-            .map(|id| sat_elevation(body, c, id, ground_unit, t) >= drop_below)
+            .map(|id| sat_elevation(body, c, id, ground_unit, phases, t) >= drop_below)
             .unwrap_or(false);
         if !hold {
-            if let Some((id, _)) = best_visible(body, c, ground_unit, policy.min_elevation, t) {
+            if let Some((id, _)) =
+                best_visible(body, c, ground_unit, phases, policy.min_elevation, t)
+            {
                 if current != Some(id) {
                     events.push(HandoverEvent {
                         time: t,
@@ -150,11 +161,12 @@ pub fn handover_count(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
+    phases: &[f64],
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
 ) -> usize {
-    handover_timeline(body, c, ground_unit, policy, duration, step)
+    handover_timeline(body, c, ground_unit, phases, policy, duration, step)
         .iter()
         .filter(|e| e.from.is_some())
         .count()
@@ -166,11 +178,12 @@ pub fn mean_service_interval(
     body: &CentralBody,
     c: &PolarConstellation,
     ground_unit: [f64; 3],
+    phases: &[f64],
     policy: HandoverPolicy,
     duration: f64,
     step: f64,
 ) -> Option<f64> {
-    let events = handover_timeline(body, c, ground_unit, policy, duration, step);
+    let events = handover_timeline(body, c, ground_unit, phases, policy, duration, step);
     if events.len() < 2 {
         return None;
     }
@@ -222,10 +235,11 @@ mod tests {
         // zenith pass.
         let p = reference_planet();
         let c = baseline();
+        let phases = c.uniform_phases();
         let spacing = orbital_period(&p, c.altitude) / c.sats_per_plane as f64;
         let policy = HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS);
         for town in towns() {
-            let interval = mean_service_interval(&p, &c, town, policy, 6.0 * 3_600.0, 5.0)
+            let interval = mean_service_interval(&p, &c, town, &phases, policy, 6.0 * 3_600.0, 5.0)
                 .expect("a band town hands over many times in six hours");
             let rel = ((interval - spacing) / spacing).abs();
             assert!(
@@ -249,14 +263,23 @@ mod tests {
         // just left. Hysteresis is a guard here, not a fix.
         let p = reference_planet();
         let c = baseline();
+        let phases = c.uniform_phases();
         let duration = 6.0 * 3_600.0;
         for town in towns() {
-            let greedy =
-                handover_timeline(&p, &c, town, HandoverPolicy::greedy(MIN_ELEVATION), duration, 5.0);
+            let greedy = handover_timeline(
+                &p,
+                &c,
+                town,
+                &phases,
+                HandoverPolicy::greedy(MIN_ELEVATION),
+                duration,
+                5.0,
+            );
             let sticky = handover_timeline(
                 &p,
                 &c,
                 town,
+                &phases,
                 HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS),
                 duration,
                 5.0,
@@ -283,6 +306,7 @@ mod tests {
             altitude: 1_200e3,
             ..baseline()
         };
+        let phases = thin.uniform_phases();
         let duration = 6.0 * 3_600.0;
         let mut greedy_total = 0;
         let mut sticky_total = 0;
@@ -291,6 +315,7 @@ mod tests {
                 &p,
                 &thin,
                 town,
+                &phases,
                 HandoverPolicy::greedy(MIN_ELEVATION),
                 duration,
                 5.0,
@@ -299,6 +324,7 @@ mod tests {
                 &p,
                 &thin,
                 town,
+                &phases,
                 HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS),
                 duration,
                 5.0,
@@ -314,12 +340,13 @@ mod tests {
     fn a_chosen_satellite_is_always_above_the_floor() {
         let p = reference_planet();
         let c = baseline();
+        let phases = c.uniform_phases();
         let town = band_point(1.9, 0.1);
         let policy = HandoverPolicy::sticky(MIN_ELEVATION, HYSTERESIS);
-        let events = handover_timeline(&p, &c, town, policy, 3.0 * 3_600.0, 10.0);
+        let events = handover_timeline(&p, &c, town, &phases, policy, 3.0 * 3_600.0, 10.0);
         assert!(events.len() > 2);
         for e in &events {
-            let elev = sat_elevation(&p, &c, e.to, town, e.time);
+            let elev = sat_elevation(&p, &c, e.to, town, &phases, e.time);
             assert!(
                 elev >= policy.min_elevation - 1e-9,
                 "chose a satellite at {elev} rad, below the {} rad floor",

@@ -93,6 +93,12 @@ impl PolarConstellation {
         k as f64 * self.interplane_phase
     }
 
+    /// The uniform stagger written out as one phase per plane, for the
+    /// functions that take an explicit `phases` slice.
+    pub fn uniform_phases(&self) -> Vec<f64> {
+        (0..self.planes).map(|k| self.plane_phase(k)).collect()
+    }
+
     /// Ascending node (rad) of plane `k` at time `t`, in the planet-fixed
     /// frame where it regresses at the planet's spin rate.
     pub fn node(&self, body: &CentralBody, k: usize, t: f64) -> f64 {
@@ -195,6 +201,75 @@ pub fn plane_visible_count(
     count
 }
 
+/// How the rings' along-orbit phases relate to one another.
+///
+/// A ring's phase is a single angle added to every satellite in it, so these
+/// modes do not change how satellites are spaced *within* a ring — only where
+/// each ring sits relative to its neighbours.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhaseMode {
+    /// Every ring in step. The published baseline, and what
+    /// `interplane_phase = 0` produces.
+    Aligned,
+    /// Each ring offset half an in-plane slot from the last, so neighbouring
+    /// rings' satellites interleave. This is the phasing a cellular instinct
+    /// reaches for — the triangular lattice that covers a plane with the
+    /// fewest cells — and a Walker phasing factor. The
+    /// `phasing_options` example is where it fails to buy satellites.
+    HalfSlot,
+    /// An independent, arbitrary offset per ring, which is what an
+    /// uncoordinated launch campaign actually produces. See
+    /// [`crate::station_keeping`] for why a campaign cannot target a ring's
+    /// phase relative to its neighbours.
+    Random,
+}
+
+/// The 64-bit LCG behind [`PhaseMode::Random`].
+///
+/// Deliberately the plainest possible generator, and deliberately part of the
+/// library rather than a detail of one example: the constellation explorer on
+/// the web draws its phase vector by reimplementing exactly this recurrence,
+/// so a phasing anyone can see in the browser is one `cargo run` away from
+/// being reproduced here. Any change to the constants or to the 53-bit
+/// extraction changes what that scene shows.
+struct PhaseRng(u64);
+
+impl PhaseRng {
+    /// Next draw in `[0, 1)`, as the top 53 bits of the new state.
+    fn next_f64(&mut self) -> f64 {
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (self.0 >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+/// The seed the constellation explorer draws its random phasing with.
+///
+/// Fixed so that the scene is the same for every reader and every reload, and
+/// so the vector it shows can be printed here rather than described.
+pub const EXPLORER_PHASE_SEED: u64 = 0x51E7_2026;
+
+/// One along-orbit phase (rad) per ring under `mode`.
+///
+/// `seed` is used only by [`PhaseMode::Random`], and the generator is
+/// constructed fresh per call — so a given `(mode, planes, sats_per_plane,
+/// seed)` always yields the same vector, whatever else has drawn before it.
+/// Feed the result to [`visible_count_with_phases`],
+/// [`crate::activation::satellite_units`], or [`crate::handover::best_visible`].
+pub fn plane_phases(mode: PhaseMode, planes: usize, sats_per_plane: usize, seed: u64) -> Vec<f64> {
+    let slot = 2.0 * std::f64::consts::PI / sats_per_plane as f64;
+    let mut rng = PhaseRng(seed);
+    (0..planes)
+        .map(|k| match mode {
+            PhaseMode::Aligned => 0.0,
+            PhaseMode::HalfSlot => k as f64 * slot / 2.0,
+            PhaseMode::Random => rng.next_f64() * slot,
+        })
+        .collect()
+}
+
 /// Total satellites visible at `t`, with an independent along-orbit phase for
 /// each plane. `phases` must have one entry per plane.
 ///
@@ -261,6 +336,60 @@ pub fn band_coverage(
 
 #[cfg(test)]
 mod tests {
+    /// The web constellation explorer draws its phasing by reimplementing
+    /// `PhaseRng` in JavaScript, where there is no u64 and the recurrence has
+    /// to be run in `BigInt`. Pinning the vector here rather than describing
+    /// it gives that port something to be checked against: if these six
+    /// numbers ever change, the scene readers see changes with them.
+    #[test]
+    fn the_explorer_phase_vector_is_fixed() {
+        let ph = plane_phases(PhaseMode::Random, 6, 12, EXPLORER_PHASE_SEED);
+        let expected = [
+            0.05075556215960516,
+            0.2781275504907797,
+            0.3103694398582766,
+            0.2622527495817053,
+            0.2760803509942688,
+            0.014762893105412532,
+        ];
+        for (k, (got, want)) in ph.iter().zip(expected).enumerate() {
+            assert!(
+                (got - want).abs() < 1e-15,
+                "ring {k}: {got} is not the pinned {want}"
+            );
+        }
+    }
+
+    /// A fresh generator per call, so a vector does not depend on what drew
+    /// before it -- the property that lets one row of `phasing_options` be
+    /// re-run on its own.
+    #[test]
+    fn a_phase_vector_depends_only_on_its_arguments() {
+        let once = plane_phases(PhaseMode::Random, 6, 12, EXPLORER_PHASE_SEED);
+        let _ = plane_phases(PhaseMode::Random, 8, 9, 12345);
+        let again = plane_phases(PhaseMode::Random, 6, 12, EXPLORER_PHASE_SEED);
+        assert_eq!(once, again);
+    }
+
+    /// Aligned is the `interplane_phase = 0` baseline; half-slot is the
+    /// uniform stagger written out. Both must agree with the struct field, or
+    /// the explorer and the sizing examples are modelling different fleets.
+    #[test]
+    fn the_uniform_modes_agree_with_interplane_phase() {
+        let slot = 2.0 * std::f64::consts::PI / 12.0;
+        assert_eq!(plane_phases(PhaseMode::Aligned, 6, 12, 0), vec![0.0; 6]);
+        let c = PolarConstellation {
+            altitude: 2_200e3,
+            planes: 6,
+            sats_per_plane: 12,
+            interplane_phase: slot / 2.0,
+        };
+        assert_eq!(
+            plane_phases(PhaseMode::HalfSlot, 6, 12, 0),
+            c.uniform_phases()
+        );
+    }
+
     use super::*;
     use std::f64::consts::PI;
     use crate::coverage::footprint_radius;

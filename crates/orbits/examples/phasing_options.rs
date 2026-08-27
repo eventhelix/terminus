@@ -3,20 +3,25 @@
 //! Three phasings are worth asking about:
 //!
 //!   aligned  every ring in step (the baseline; `interplane_phase = 0`)
-//!   optimal  each ring offset half an in-plane slot from the last, so
+//!   half-slot  each ring offset half an in-plane slot from the last, so
 //!            neighbouring rings' satellites interleave -- the triangular
 //!            lattice a cellular network uses to cover a plane with the
-//!            fewest cells (a Walker phasing factor)
+//!            fewest cells (a Walker phasing factor). Named for what it does,
+//!            not for the optimum the instinct assumes it is; section C is
+//!            why that assumption does not survive a polar wheel.
 //!   random   an independent, arbitrary offset per ring, which is what an
 //!            uncoordinated launch campaign actually produces
 //!
-//! The sizing question is whether the optimal phasing buys satellites. It does
+//! The sizing question is whether the half-slot phasing buys satellites. It does
 //! not, and section C explains why the cellular instinct does not survive the
 //! move from a plane to a polar wheel.
 //!
 //! Run: cargo run --release -p terminus-orbits --example phasing_options
 
-use terminus_orbits::constellation::{band_point, visible_count_with_phases, PolarConstellation};
+use terminus_orbits::constellation::{
+    band_point, plane_phases, visible_count_with_phases, PhaseMode, PolarConstellation,
+    EXPLORER_PHASE_SEED,
+};
 use terminus_orbits::CentralBody;
 use std::f64::consts::PI;
 
@@ -24,27 +29,18 @@ const MASK: f64 = 25.0 * PI / 180.0;
 const BAND: f64 = 20.0 * PI / 180.0;
 const ROTATION: f64 = 11.2 * 86_400.0;
 
-struct Rng(u64);
+const MODES: [(&str, PhaseMode); 3] = [
+    ("aligned", PhaseMode::Aligned),
+    ("half-slot", PhaseMode::HalfSlot),
+    ("random", PhaseMode::Random),
+];
 
-impl Rng {
-    fn next(&mut self) -> f64 {
-        self.0 = self
-            .0
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        (self.0 >> 11) as f64 / (1u64 << 53) as f64
-    }
-}
-
-fn phases(mode: &str, planes: usize, sats: usize, rng: &mut Rng) -> Vec<f64> {
-    let slot = 2.0 * PI / sats as f64;
-    (0..planes)
-        .map(|k| match mode {
-            "optimal" => k as f64 * slot / 2.0,
-            "random" => rng.next() * slot,
-            _ => 0.0,
-        })
-        .collect()
+/// Each random draw gets its own seed rather than sharing one running
+/// generator, so a row of these tables can be re-run on its own and still
+/// print what it printed here. Draw 0 is the vector the web constellation
+/// explorer shows.
+fn phases(mode: PhaseMode, planes: usize, sats: usize, draw: u64) -> Vec<f64> {
+    plane_phases(mode, planes, sats, EXPLORER_PHASE_SEED.wrapping_add(draw))
 }
 
 fn min_visible(p: &CentralBody, c: &PolarConstellation, ph: &[f64], step: f64, az: usize) -> usize {
@@ -77,11 +73,10 @@ fn ring(alt: f64, sats: usize) -> PolarConstellation {
 
 fn main() {
     let p = CentralBody::from_earth_masses(1.0, 6.371e6, ROTATION);
-    let mut rng = Rng(0x51E7_2026);
 
     println!("A. The sampling trap, reproduced deliberately\n");
     println!(
-        "   At coarse sampling the optimal phasing looks like it rescues 1,800 km.\n\
+        "   At coarse sampling the half-slot phasing looks like it rescues 1,800 km.\n\
          \x20  It does not: the silences are simply narrower than the sample grid.\n"
     );
     println!(
@@ -89,23 +84,23 @@ fn main() {
         "alt (km)", "phasing", "min @ 120 s / 36 az", "min @ 30 s / 72 az"
     );
     for alt in [1_800.0, 2_200.0] {
-        for mode in ["aligned", "optimal", "random"] {
+        for (name, mode) in MODES {
             let c = ring(alt * 1e3, 12);
-            let ph = phases(mode, 6, 12, &mut rng);
+            let ph = phases(mode, 6, 12, 0);
             println!(
                 "{:>10.0} {:>10} {:>22} {:>22}",
                 alt,
-                mode,
+                name,
                 min_visible(&p, &c, &ph, 120.0, 36),
                 min_visible(&p, &c, &ph, 30.0, 72)
             );
         }
     }
 
-    println!("\n\nB. Does the optimal phasing buy satellites?\n");
+    println!("\n\nB. Does the half-slot phasing buy satellites?\n");
     println!(
         "   Not a question with a monotone answer, so the whole profile is shown\n\
-         \x20  rather than the first count that happens to work. `optimal` offsets each\n\
+         \x20  rather than the first count that happens to work. `half-slot` offsets each\n\
          \x20  ring by half a slot, and a slot is 2*pi/sats -- so changing the count\n\
          \x20  changes the geometry, and coverage can come back and go away again.\n"
     );
@@ -115,14 +110,14 @@ fn main() {
     }
     println!("   <- sats/ring");
     for alt in [2_200.0, 2_400.0] {
-        for mode in ["aligned", "optimal", "random"] {
-            print!("{:>10.0} {:>10}  ", alt, mode);
+        for (name, mode) in MODES {
+            print!("{:>10.0} {:>10}  ", alt, name);
             for sats in 9..=14 {
                 let c = ring(alt * 1e3, sats);
-                let draws = if mode == "random" { 4 } else { 1 };
+                let draws = if mode == PhaseMode::Random { 4 } else { 1 };
                 let mut worst = usize::MAX;
-                for _ in 0..draws {
-                    let ph = phases(mode, 6, sats, &mut rng);
+                for draw in 0..draws {
+                    let ph = phases(mode, 6, sats, draw);
                     worst = worst.min(min_visible(&p, &c, &ph, 30.0, 72));
                 }
                 print!("{worst:>5}");
@@ -155,7 +150,7 @@ fn main() {
     );
 
     println!(
-        "The optimal phasing is not reliably better, and at the 12-satellite baseline\n\
+        "The half-slot phasing is not reliably better, and at the 12-satellite baseline\n\
          it is worse: it breaks coverage that the aligned and random wheels hold. The\n\
          honeycomb buys nothing here, so the fleet keeps the freedom to ignore\n\
          inter-ring phase entirely (ADR-0016) -- worth far more than the satellites it\n\
