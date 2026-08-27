@@ -23,6 +23,7 @@ pub mod reliability;
 pub mod spin_orbit;
 pub mod station_keeping;
 pub mod topology;
+pub mod traffic;
 pub mod walker;
 
 pub use body::{CentralBody, EARTH_MU};
