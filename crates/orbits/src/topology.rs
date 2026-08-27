@@ -158,6 +158,62 @@ pub fn gateway_demand(sessions: &[Session], gateway: &BTreeMap<usize, usize>) ->
     }
 }
 
+/// Terminals required when a ring pools its traffic over intra-ring links and
+/// only some of its satellites carry feeder terminals.
+///
+/// This is what the necklace is for. Anchor spread is a property of the
+/// *sessions*, not of the satellite carrying them, so it does not shrink when
+/// you move sessions around — but it stops being paid once per satellite. A
+/// ring reaching `u` distinct anchors needs `u` feeder links however they are
+/// arranged, and spreading them over `hosts` feeder-equipped satellites costs
+/// each host `ceil(u / hosts)` rather than costing all twelve satellites their
+/// own private view of the shell.
+///
+/// `group_of` names each access satellite's ring. `hosts` is how many
+/// satellites in that ring carry feeder terminals, which is bounded below by
+/// reach: every satellite must be within
+/// [`crate::backbone::intra_plane_reach`] hops of a host, or its traffic
+/// cannot get out.
+///
+/// The `per_access` distribution here counts hosts only. The satellites that
+/// carry no feeder terminal still need two necklace terminals each, and those
+/// are cheap — 4,437 km, frozen, zero Doppler — but they are not free, so the
+/// caller adds them.
+pub fn relay_demand(
+    sessions: &[Session],
+    group_of: impl Fn(usize) -> usize,
+    hosts: usize,
+) -> TerminalDemand {
+    assert!(
+        hosts > 0,
+        "a ring with no feeder host cannot reach the shell"
+    );
+    let mut by_group: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+    let mut by_anchor: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
+    for s in sessions {
+        let g = group_of(s.access);
+        by_group.entry(g).or_default().insert(s.anchor);
+        by_anchor.entry(s.anchor).or_default().insert(g);
+    }
+    let links: usize = by_group.values().map(|a| a.len()).sum();
+    let mut per_access = Vec::new();
+    for anchors in by_group.values() {
+        // Split the ring's links as evenly as the hosts allow.
+        let each = anchors.len().div_ceil(hosts);
+        for _ in 0..hosts {
+            per_access.push(each);
+        }
+    }
+    let mut per_anchor: Vec<usize> = by_anchor.values().map(|a| a.len()).collect();
+    per_access.sort_unstable();
+    per_anchor.sort_unstable();
+    TerminalDemand {
+        per_access,
+        per_anchor,
+        links,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,6 +277,43 @@ mod tests {
         assert_eq!(pooled.per_access, vec![1, 1, 2, 3]);
         assert_eq!(pooled.max_access(), 3);
         assert_eq!(pooled.links, 4, "links peak, they do not add up");
+    }
+
+    /// The necklace does not reduce anchor spread -- that belongs to the
+    /// sessions -- it stops the ring paying for it twelve times over. Twelve
+    /// satellites each seeing a different anchor need twelve terminals between
+    /// them, not twelve each.
+    #[test]
+    fn pooling_a_ring_pays_for_its_anchors_once_not_once_per_satellite() {
+        // One ring, twelve satellites, each carrying a session to its own anchor.
+        let s: Vec<Session> = (0..12)
+            .map(|i| Session {
+                access: i,
+                anchor: i,
+            })
+            .collect();
+        let direct = direct_demand(&s);
+        assert_eq!(direct.max_access(), 1, "each satellite sees one anchor...");
+        assert_eq!(direct.links, 12, "...but the ring still buys twelve links");
+
+        // Three feeder hosts share the ring's twelve links, four each.
+        let relay = relay_demand(&s, |_| 0, 3);
+        assert_eq!(relay.links, 12);
+        assert_eq!(relay.max_access(), 4);
+    }
+
+    /// The saving is in the satellites that carry no feeder terminal at all.
+    #[test]
+    fn only_the_hosts_carry_feeder_terminals() {
+        let s: Vec<Session> = (0..12)
+            .map(|i| Session {
+                access: i,
+                anchor: i % 6,
+            })
+            .collect();
+        let relay = relay_demand(&s, |_| 0, 3);
+        assert_eq!(relay.per_access.len(), 3, "nine satellites carry none");
+        assert_eq!(relay.max_access(), 2, "six anchors over three hosts");
     }
 
     #[test]

@@ -21,12 +21,15 @@ use std::collections::BTreeMap;
 
 use terminus_orbits::activation::{covering_satellites, duty_first_activation, satellite_index};
 use terminus_orbits::backbone::{
-    intra_plane_range, intra_plane_reach, max_shell_separation, separation,
+    intra_plane_range, intra_plane_reach, max_intra_shell_range_rate, max_shell_range_rate,
+    max_shell_separation, separation,
 };
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
-use terminus_orbits::topology::{direct_demand, gateway_demand, Session, TerminalDemand};
+use terminus_orbits::topology::{
+    direct_demand, gateway_demand, relay_demand, Session, TerminalDemand,
+};
 use terminus_orbits::walker::{shell_sat_position, WalkerShell};
 use terminus_orbits::CentralBody;
 
@@ -38,6 +41,9 @@ const BAND: f64 = 20.0 * std::f64::consts::PI / 180.0;
 const TOWNS: usize = 1_000;
 const STEP: f64 = 300.0;
 const SPAN: f64 = 86_400.0;
+/// Feeder-equipped satellites per ring. Twelve satellites at two hops of
+/// reach need a host at least every five places, so three is the floor.
+const FEEDER_HOSTS: usize = 3;
 
 struct Town {
     unit: [f64; 3],
@@ -115,6 +121,37 @@ fn main() {
         );
     }
 
+    println!(
+        "
+   And whether those links can be pointed once and left alone:
+"
+    );
+    println!(
+        "     wheel, ring mate         : {:>6.2} km/s -- frozen, point once and hold",
+        max_shell_range_rate(&planet, ACCESS_ALT, ACCESS_ALT) / 1e3
+    );
+    println!(
+        "     shell, plane mate        : {:>6.2} km/s -- frozen for the same reason",
+        max_shell_range_rate(&planet, MEO_ALT, MEO_ALT) / 1e3
+    );
+    println!(
+        "     shell, ACROSS planes     : {:>6.2} km/s -- steers, and precompensates",
+        max_intra_shell_range_rate(&planet, &shell, 60.0) / 1e3
+    );
+    println!(
+        "     wheel to shell (feeder)  : {:>6.2} km/s -- steers, and precompensates",
+        max_shell_range_rate(&planet, ACCESS_ALT, MEO_ALT) / 1e3
+    );
+    println!(
+        "\n   The closed form reports 0.00 within a shell because it turns on the\n\
+         \x20  difference in mean motion. That is right for a plane mate and wrong\n\
+         \x20  across planes, where two inclined orbits cross at an angle and their\n\
+         \x20  satellites sweep past each other however equal their periods. So an\n\
+         \x20  anchor-to-anchor link is not a second necklace: only the one plane\n\
+         \x20  mate each anchor can reach is free to point, and the shell cannot be\n\
+         \x20  connected on those alone -- section A, the necklace that will not close."
+    );
+
     // ---- the session population ------------------------------------------
     let mut towns: Vec<Town> = (0..TOWNS)
         .map(|i| {
@@ -144,6 +181,7 @@ fn main() {
     // satellites, so its p99 and its maximum are the same number.
     let mut direct_instants: Vec<TerminalDemand> = Vec::new();
     let mut gateway_instants: Vec<TerminalDemand> = Vec::new();
+    let mut relay_instants: Vec<TerminalDemand> = Vec::new();
 
     let mut t = 0.0;
     while t < SPAN {
@@ -242,11 +280,15 @@ fn main() {
 
         direct_instants.push(direct_demand(&sessions));
         gateway_instants.push(gateway_demand(&sessions, &gateway));
+        // Every satellite must sit within `reach` hops of a feeder host.
+        let per_ring = wheel.sats_per_plane;
+        relay_instants.push(relay_demand(&sessions, |a| a / per_ring, FEEDER_HOSTS));
         t += STEP;
     }
 
     let direct = TerminalDemand::over_time(direct_instants);
     let gw = TerminalDemand::over_time(gateway_instants);
+    let relay = TerminalDemand::over_time(relay_instants);
 
     println!("\n\nB. The direct topology: no ring-to-ring, no anchor-to-anchor\n");
     println!(
@@ -282,6 +324,27 @@ fn main() {
          \x20  and which section A says a 4-satellite plane cannot fully close."
     );
 
+    println!("\n\nD. The necklace: pool each ring, only some satellites feed\n");
+    println!(
+        "   {} feeder hosts per ring of {}. Anchor spread belongs to the sessions\n\
+         \x20  and does not shrink -- but the ring stops paying for it twelve times.\n",
+        FEEDER_HOSTS, wheel.sats_per_plane
+    );
+    println!(
+        "   feeder terminals on a host:               median {}, p90 {}, max {}",
+        relay.access_quantile(0.5),
+        relay.access_quantile(0.9),
+        relay.max_access()
+    );
+    println!(
+        "   the other {} satellites in the ring:       0 feeder, 2 necklace each",
+        wheel.sats_per_plane - FEEDER_HOSTS
+    );
+    println!(
+        "   feeder terminals on one anchor:           max {}",
+        relay.max_anchor()
+    );
+
     let fleet_direct = 72 * direct.max_access() + 24 * direct.max_anchor();
     let fleet_gateway = 72 * 2 + 24 * gw.max_anchor();
     println!("\n\nSized to the peak each spacecraft must meet:\n");
@@ -302,6 +365,15 @@ fn main() {
         72 * 2,
         24 * gw.max_anchor(),
         fleet_gateway
+    );
+    let ring_wheel = 6 * (FEEDER_HOSTS * relay.max_access()) + 72 * 2;
+    let fleet_relay = ring_wheel + 24 * relay.max_anchor();
+    println!(
+        "{:>34} {:>10} {:>10} {:>8}",
+        "necklace + direct feeder",
+        ring_wheel,
+        24 * relay.max_anchor(),
+        fleet_relay
     );
     println!(
         "\n   The gateway row counts feeder terminals only, so its total is a\n\

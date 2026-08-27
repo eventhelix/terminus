@@ -71,8 +71,8 @@ pub fn shell_visible_fraction(body: &CentralBody, alt1: f64, alt2: f64) -> f64 {
 /// the difference in mean motion, so equal altitudes give exactly zero — which
 /// is the right answer for two satellites sharing a plane, and the wrong one
 /// for two satellites in different planes of the same shell, which do move
-/// relative to each other however equal their periods. Reach for a numerical
-/// sweep over the actual shell for that case, not for this.
+/// relative to each other however equal their periods. Use
+/// [`max_intra_shell_range_rate`] for that case, not this one.
 pub fn max_shell_range_rate(body: &CentralBody, alt1: f64, alt2: f64) -> f64 {
     let r1 = body.radius + alt1;
     let r2 = body.radius + alt2;
@@ -219,6 +219,60 @@ where
     fallback.map(|(i, _)| i)
 }
 
+/// Worst-case range rate (m/s) between two satellites in *different planes of
+/// one shell*, swept numerically over an orbital period.
+///
+/// [`max_shell_range_rate`] cannot answer this. Its closed form turns on the
+/// difference in mean motion, which is exactly zero within a shell — true for
+/// two satellites sharing a plane, which really are frozen relative to each
+/// other, and badly false across planes. Two inclined planes cross at an
+/// angle, and satellites in them sweep past each other at a good fraction of
+/// orbital velocity however identical their periods.
+///
+/// It decides whether anchor-to-anchor links can be pointed once and left,
+/// the way the wheel's necklace can, or have to steer and precompensate like
+/// the feeder links. The answer is the second one.
+///
+/// Pairs the planet is blocking are skipped: Doppler on a link that cannot
+/// close is not a design constraint.
+pub fn max_intra_shell_range_rate(
+    body: &CentralBody,
+    shell: &crate::walker::WalkerShell,
+    step: f64,
+) -> f64 {
+    let limb = max_shell_separation(body, shell.altitude, shell.altitude);
+    let period = orbital_period(body, shell.altitude);
+    let ids: Vec<(usize, usize)> = (0..shell.planes)
+        .flat_map(|k| (0..shell.sats_per_plane).map(move |j| (k, j)))
+        .collect();
+    let range = |a: (usize, usize), b: (usize, usize), t: f64| {
+        let p = crate::walker::shell_sat_position(body, shell, a.0, a.1, t);
+        let q = crate::walker::shell_sat_position(body, shell, b.0, b.1, t);
+        ((p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2)).sqrt()
+    };
+
+    let mut worst: f64 = 0.0;
+    let mut t = 0.0;
+    while t < period {
+        for (i, &a) in ids.iter().enumerate() {
+            for &b in ids.iter().skip(i + 1) {
+                if a.0 == b.0 {
+                    continue; // same plane: frozen, and the closed form knows it
+                }
+                let p = crate::walker::shell_sat_position(body, shell, a.0, a.1, t);
+                let q = crate::walker::shell_sat_position(body, shell, b.0, b.1, t);
+                if separation(p, q) > limb {
+                    continue;
+                }
+                let rate = (range(a, b, t + step) - range(a, b, t)).abs() / step;
+                worst = worst.max(rate);
+            }
+        }
+        t += step;
+    }
+    worst
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,6 +318,39 @@ mod tests {
         let leo = intra_plane_range(&p, 2_200e3, 12, 1);
         assert!((meo / 1e3 - 37_294.0).abs() < 1.0, "{meo} m");
         assert!(meo / leo > 8.0, "ratio {}", meo / leo);
+    }
+
+    /// The trap, pinned. Within one shell the closed form reports no Doppler at
+    /// all, which is right for a plane mate and wrong for everything else --
+    /// cross-plane pairs sweep past each other at kilometres per second. An
+    /// anchor-to-anchor link is therefore nothing like the wheel's necklace: it
+    /// steers, and it precompensates.
+    #[test]
+    fn cross_plane_links_have_doppler_the_closed_form_reports_as_zero() {
+        let p = reference_planet();
+        let shell = nav_shell();
+
+        let closed = max_shell_range_rate(&p, shell.altitude, shell.altitude);
+        assert_eq!(closed, 0.0, "the closed form sees no relative motion");
+
+        let swept = max_intra_shell_range_rate(&p, &shell, 60.0);
+        assert!(
+            swept > 4_000.0,
+            "cross-plane range rate {swept} m/s should be kilometres per second"
+        );
+        assert!((swept - 4_890.0).abs() < 400.0, "{swept} m/s");
+
+        // A plane mate really is frozen, which is why the closed form is not
+        // simply wrong -- it answers a narrower question than it looks like it
+        // answers.
+        let a = crate::walker::shell_sat_position(&p, &shell, 0, 0, 0.0);
+        let b = crate::walker::shell_sat_position(&p, &shell, 0, 1, 0.0);
+        let a2 = crate::walker::shell_sat_position(&p, &shell, 0, 0, 600.0);
+        let b2 = crate::walker::shell_sat_position(&p, &shell, 0, 1, 600.0);
+        let d1 = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt();
+        let d2 =
+            ((a2[0] - b2[0]).powi(2) + (a2[1] - b2[1]).powi(2) + (a2[2] - b2[2]).powi(2)).sqrt();
+        assert!((d1 - d2).abs() < 1.0, "plane mates drifted {} m", d1 - d2);
     }
 
     fn nav_shell() -> crate::walker::WalkerShell {
