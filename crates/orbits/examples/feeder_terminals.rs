@@ -182,7 +182,10 @@ fn main() {
     // satellites, so its p99 and its maximum are the same number.
     let mut direct_instants: Vec<TerminalDemand> = Vec::new();
     let mut gateway_instants: Vec<TerminalDemand> = Vec::new();
-    let mut relay_instants: Vec<TerminalDemand> = Vec::new();
+    // Two readings of the necklace, and the gap between them is the argument.
+    let mut relay_lit: Vec<TerminalDemand> = Vec::new();
+    let mut relay_all: Vec<TerminalDemand> = Vec::new();
+    let mut lit_counts: Vec<(usize, usize)> = Vec::new();
 
     let mut t = 0.0;
     while t < SPAN {
@@ -245,6 +248,7 @@ fn main() {
                 town.anchor = Some(pick);
             }
         }
+        let lit = plan.clone();
         previous = Some(plan);
 
         // Sessions as the topology model sees them, plus each access
@@ -283,18 +287,34 @@ fn main() {
         gateway_instants.push(gateway_demand(&sessions, &gateway));
         // Every satellite must sit within `reach` hops of a feeder host.
         let per_ring = wheel.sats_per_plane;
-        relay_instants.push(uniform_relay_demand(
+        let duty = duty_ring(&planet, &wheel, t);
+        // Only a satellite the plan has lit can relay. Pooling over a whole
+        // ring regardless would price a network that is switched off.
+        relay_lit.push(uniform_relay_demand(
             &sessions,
             |a| (a / per_ring, a % per_ring),
+            |ring, pos| lit[ring * per_ring + pos],
             per_ring,
             REACH,
         ));
+        relay_all.push(uniform_relay_demand(
+            &sessions,
+            |a| (a / per_ring, a % per_ring),
+            |_, _| true,
+            per_ring,
+            REACH,
+        ));
+        let on_duty = (0..per_ring).filter(|&j| lit[duty * per_ring + j]).count();
+        lit_counts.push((on_duty, lit.iter().filter(|&&b| b).count() - on_duty));
         t += STEP;
     }
 
     let direct = TerminalDemand::over_time(direct_instants);
     let gw = TerminalDemand::over_time(gateway_instants);
-    let relay = TerminalDemand::over_time(relay_instants);
+    let relay = TerminalDemand::over_time(relay_lit);
+    let relay_if_all_powered = TerminalDemand::over_time(relay_all);
+    let mean_duty = lit_counts.iter().map(|c| c.0).sum::<usize>() as f64 / lit_counts.len() as f64;
+    let mean_other = lit_counts.iter().map(|c| c.1).sum::<usize>() as f64 / lit_counts.len() as f64;
 
     println!("\n\nB. The direct topology: no ring-to-ring, no anchor-to-anchor\n");
     println!(
@@ -342,10 +362,22 @@ fn main() {
         2 * REACH + 1
     );
     println!(
+        "   Of {:.0} satellites lit at a time, {:.0} are the duty ring -- a solid block\n\
+         \x20  that pools well -- and {:.0} are singles scattered through the other five\n\
+         \x20  rings, whose ring mates are dark. A single has nobody to borrow from.\n",
+        mean_duty + mean_other,
+        mean_duty,
+        mean_other
+    );
+    println!(
         "   feeder terminals on EVERY access satellite: median {}, p90 {}, max {}",
         relay.access_quantile(0.5),
         relay.access_quantile(0.9),
         relay.max_access()
+    );
+    println!(
+        "     had every satellite been available to relay: max {}",
+        relay_if_all_powered.max_access()
     );
     println!("   plus 2 necklace terminals on every one: 4,437 km, frozen, free to point");
     println!(

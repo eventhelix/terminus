@@ -239,12 +239,21 @@ pub fn relay_demand(
 /// be formed. `ring_size` is how many satellites are in a ring, and the window
 /// wraps, because a ring does.
 ///
+/// `available` says whether the satellite at a (ring, position) can act as a
+/// relay at all. This is not a formality. The activation plan lights the duty
+/// ring as a block and then scatters single satellites through the other five
+/// rings, so a lit satellite outside the duty ring usually has *no lit
+/// neighbour to borrow from*: its window is itself, and it must carry its own
+/// sessions' anchors alone. Pooling over the whole ring regardless would price
+/// a relay network that is switched off.
+///
 /// This is a sizing floor rather than a solved assignment: it assumes a window
-/// can divide its anchors evenly across its members, which an optimal
-/// allocation can always do and a real timetable might not quite.
+/// can divide its anchors evenly across its available members, which an
+/// optimal allocation can always do and a real timetable might not quite.
 pub fn uniform_relay_demand(
     sessions: &[Session],
     slot_of: impl Fn(usize) -> (usize, usize),
+    available: impl Fn(usize, usize) -> bool,
     ring_size: usize,
     reach: usize,
 ) -> TerminalDemand {
@@ -277,14 +286,21 @@ pub fn uniform_relay_demand(
         let mut worst = 0usize;
         for start in 0..ring_size {
             let mut union: BTreeSet<usize> = BTreeSet::new();
+            let mut relays = 0usize;
             for d in 0..window {
                 let pos = (start + d) % ring_size;
+                if available(ring, pos) {
+                    relays += 1;
+                }
                 if let Some(a) = wanted.get(&(ring, pos)) {
                     union.extend(a.iter().copied());
                     ring_union.extend(a.iter().copied());
                 }
             }
-            worst = worst.max(union.len().div_ceil(window));
+            // A window with nothing switched on cannot pool: whichever
+            // satellite holds the sessions carries their anchors by itself.
+            let share = union.len().div_ceil(relays.max(1));
+            worst = worst.max(share);
         }
         links += ring_union.len();
         for _ in 0..ring_size {
@@ -459,7 +475,7 @@ mod tests {
             .collect();
 
         // Window of 5 (reach 2) covering positions 0..=4 sees 5 anchors: one each.
-        let d = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        let d = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
         assert_eq!(d.max_access(), 1);
         assert_eq!(d.per_access.len(), 12, "every satellite is built the same");
         assert!(
@@ -480,13 +496,40 @@ mod tests {
                 })
             })
             .collect();
-        let one_hop = uniform_relay_demand(&s, |a| (0, a), 12, 1);
-        let two_hop = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        let one_hop = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 1);
+        let two_hop = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
         assert!(
             two_hop.max_access() <= one_hop.max_access(),
             "two hops {} should not cost more than one {}",
             two_hop.max_access(),
             one_hop.max_access()
+        );
+    }
+
+    /// An isolated satellite cannot pool. The activation plan lights the duty
+    /// ring as a block and scatters singles through the other rings, so a lit
+    /// satellite outside the duty ring has no lit neighbour to lean on and
+    /// must carry its own sessions' anchors alone -- which is the direct
+    /// topology again, on that satellite. Since one drawing sizes the fleet by
+    /// its worst case, a single isolated satellite sets the whole build.
+    #[test]
+    fn an_isolated_satellite_carries_its_own_anchors() {
+        // One lit satellite at position 6, four anchors, neighbours all dark.
+        let s: Vec<Session> = (0..4)
+            .map(|a| Session {
+                access: 6,
+                anchor: a,
+            })
+            .collect();
+
+        let pooled = uniform_relay_demand(&s, |a| (0, a), |_, p| p == 6, 12, 2);
+        assert_eq!(pooled.max_access(), 4, "alone, it carries all four");
+
+        let with_neighbours = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
+        assert_eq!(
+            with_neighbours.max_access(),
+            1,
+            "with four to lean on, one each"
         );
     }
 
@@ -509,7 +552,7 @@ mod tests {
         assert_eq!(direct.max_anchor(), 12, "direct: twelve endpoints");
 
         // Windows of 5 cover twelve positions three times over.
-        let pooled = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        let pooled = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
         assert_eq!(pooled.max_anchor(), 3, "pooled: three endpoints");
     }
 
@@ -523,7 +566,7 @@ mod tests {
                 anchor: 7,
             })
             .collect();
-        let pooled = uniform_relay_demand(&s, |a| (0, a), 12, 2);
+        let pooled = uniform_relay_demand(&s, |a| (0, a), |_, _| true, 12, 2);
         assert_eq!(pooled.max_anchor(), 1);
     }
 
