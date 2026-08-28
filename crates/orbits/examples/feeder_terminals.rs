@@ -27,15 +27,15 @@ use std::collections::BTreeMap;
 use terminus_orbits::activation::{covering_satellites, duty_first_activation, satellite_index};
 use terminus_orbits::backbone::{
     intra_plane_diameter, intra_plane_range, intra_plane_reach, max_intra_shell_range_rate,
-    max_shell_range_rate, max_shell_separation, separation,
+    max_shell_range_rate, max_shell_separation, separation, REANCHOR_MARGIN,
 };
 use terminus_orbits::circular::orbital_period;
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
 use terminus_orbits::coverage::edge_slant_range;
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
-use terminus_orbits::placement::{one_way_latency, one_way_light_time};
-use terminus_orbits::routing::{exit_gateway, feeder_route, RELAY_DELAY};
+use terminus_orbits::placement::{one_way_latency, one_way_light_time, SPEED_OF_LIGHT};
+use terminus_orbits::routing::{exit_gateway, feeder_route, ISL_REACQUIRE, RELAY_DELAY};
 use terminus_orbits::topology::{
     direct_demand, gateway_demand, pair_load, uniform_relay_demand, Session, TerminalDemand,
 };
@@ -864,8 +864,23 @@ E. Does the shell need links of its own?
     // anchor the policy would have chosen from the town's own serving
     // satellite, so these totals are the geometry's whole range and not
     // section H's population. The conclusion does not turn on the difference --
-    // the plane link alone is 249 ms of round trip -- but the basis belongs in
+    // the cheapest detour this geometry admits has a floor near 394 ms of
+    // round trip, computed below from four terms -- but the basis belongs in
     // the output rather than in a reader's assumption.
+    //
+    // The floor, not a sample: even the CHEAPEST detour this geometry admits
+    // is the radio leg at the footprint edge, the shortest possible feeder
+    // (straight up: MEO altitude minus access altitude), the plane link
+    // itself, and two relays -- summed one way and doubled for the round
+    // trip. 249 ms of round trip is the plane link ALONE and proves nothing
+    // on its own, since it is less than the 300 ms nominal budget; the floor
+    // below is what makes the impossibility structural.
+    let floor_feeder = MEO_ALT - ACCESS_ALT;
+    let floor_one_way = user_leg
+        + one_way_light_time(floor_feeder)
+        + one_way_light_time(plane_link)
+        + 2.0 * RELAY_DELAY;
+    let floor_round_trip_ms = 2.0 * floor_one_way * 1e3;
     println!(
         "   What the detour costs. Every (ring, anchor) pair walked from ring\n\
          \x20  slot 0 at {} hourly instants -- the geometry's whole range, not\n\
@@ -876,11 +891,16 @@ E. Does the shell need links of its own?
          \x20    over {:.0} ms nominal     {} of {} samples ({:.0}%)\n\
          \x20    over {:.0} ms degraded    {} of {} samples ({:.0}%)\n\
          \x20    samples with no mate   {}\n\n\
-         \x20  The plane link alone costs 249 ms of round trip, so no detour in\n\
-         \x20  this geometry can meet the nominal budget. That is arithmetic\n\
-         \x20  rather than sampling. What it can meet is the degraded budget,\n\
-         \x20  which is the point of having one: the cure is not free, and it\n\
-         \x20  was never going to be invisible.\n",
+         \x20  The floor, not a sample: even the CHEAPEST detour this geometry\n\
+         \x20  admits comes to {:.0} ms of round trip -- the radio leg at the\n\
+         \x20  footprint edge, the shortest possible feeder, the plane link\n\
+         \x20  itself, and two relays, summed one way and doubled. That busts\n\
+         \x20  the 300 ms nominal budget and clears the 600 ms degraded one\n\
+         \x20  with room to spare, so no detour in this geometry can meet the\n\
+         \x20  nominal budget -- arithmetic, not sampling. What every detour\n\
+         \x20  CAN meet is the degraded budget, which is the point of having\n\
+         \x20  one: the cure is not free, and it was never going to be\n\
+         \x20  invisible.\n",
         INSTANTS,
         distinct_pairs,
         detour_total_ms.len(),
@@ -895,26 +915,73 @@ E. Does the shell need links of its own?
         over_degraded,
         detour_total_ms.len(),
         100.0 * over_degraded as f64 / detour_total_ms.len() as f64,
-        stranded
+        stranded,
+        floor_round_trip_ms
     );
 
+    // The spare restores the direct path, so its benefit is not a route -- it
+    // is a deadline. Compare what the detour costs in path against the margin
+    // that decides whether the session waits for the spare or simply leaves.
+    // `median` is an extra ROUND TRIP in ms. Halve it for one way, convert to
+    // seconds, and multiply by c to get the extra path. Uses the crate's own
+    // constant rather than a literal, so the figure traces like every other.
+    let detour_extra_km = (median / 1e3) * 0.5 * SPEED_OF_LIGHT / 1e3;
     println!(
-        "   Two remedies, and they are not the same shape:\n\n\
+        "   The spare telescope, and the race it has to win:\n\n\
+         \x20    detour adds        {:.0} km of one-way path (median)\n\
+         \x20    re-anchor margin   {:.0} km\n\
+         \x20    ratio              {:.1}x the margin\n\
+         \x20    spare acquires in  {:.0} s (stated, routing::ISL_REACQUIRE)\n\n\
+         \x20  A detoured session is beaten by any rival anchor several times\n\
+         \x20  over, so the policy moves it at the next evaluation. The spare\n\
+         \x20  only saves the migration if it locks first -- which makes the\n\
+         \x20  hold-off a requirement on the POLICY, not just a specification\n\
+         \x20  for the hardware: a session whose anchor is known to be\n\
+         \x20  reconfiguring must not be re-anchored during the acquisition\n\
+         \x20  window. Without that rule the seventh telescope buys nothing,\n\
+         \x20  because everyone it was meant to save has already left.\n",
+        detour_extra_km,
+        REANCHOR_MARGIN / 1e3,
+        detour_extra_km / (REANCHOR_MARGIN / 1e3),
+        ISL_REACQUIRE
+    );
+
+    // Fleet cost of taking both remedies, built from the same demand model
+    // the later "Sized to the peak" table uses -- not typed in twice.
+    let wheel_fleet = 72 * (relay.max_access() + 2);
+    let fleet_plane_only = wheel_fleet + shell.total() * (relay.max_anchor() + 2);
+    let fleet_both = wheel_fleet + shell.total() * (relay.max_anchor() + 2 + 1);
+    println!(
+        "   Two remedies, and the measurement makes them complementary rather\n\
+         \x20  than alternatives: the plane link covers the acquisition window,\n\
+         \x20  and the spare ends it.\n\n\
          \x20    a spare feeder telescope    +1 per anchor  (+{} fleet)\n\
          \x20      A seventh, steerable, cold. It repoints at whichever ring went\n\
          \x20      dark. No traffic moves and no neighbour is burdened -- but it\n\
-         \x20      must acquire before it carries, and it protects one failure.\n\n\
+         \x20      must acquire before it carries, and it protects one failure.\n\
+         \x20      Once it locks, the pair is simply alive again: the direct\n\
+         \x20      route is back, and with it the nominal budget.\n\n\
          \x20    intra-plane links           +2 per anchor  (+{} fleet)\n\
          \x20      The frozen kind: {:.0} km, {:.2} km/s, pointed once at launch and\n\
          \x20      held. A crippled anchor reaches its ring through a plane mate\n\
          \x20      that still has one. The sessions stay reachable rather than\n\
-         \x20      stranded -- but the detour busts the nominal budget and clears\n\
-         \x20      only the degraded one, sized for exactly this failure. The plane\n\
-         \x20      is a cycle, so either neighbour will do.\n",
+         \x20      stranded, for as long as it takes the spare to acquire -- but\n\
+         \x20      the detour busts the nominal budget on its own and clears\n\
+         \x20      only the degraded one, sized for exactly this failure. The\n\
+         \x20      plane is a cycle, so either neighbour will do.\n\n\
+         \x20    both together     9 telescopes/anchor  (6 feeder + 2 plane + 1 spare)\n\
+         \x20      {} fleet-wide, against {} for the plane link alone. The plane\n\
+         \x20      link buys the {:.0} s the spare needs to acquire; the spare\n\
+         \x20      buys back the nominal budget once it does. Neither remedy\n\
+         \x20      alone closes the gap between what a lost telescope breaks\n\
+         \x20      and what a session actually needs.\n",
         shell.total(),
         2 * shell.total(),
         intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1) / 1e3,
-        max_shell_range_rate(&planet, MEO_ALT, MEO_ALT) / 1e3
+        max_shell_range_rate(&planet, MEO_ALT, MEO_ALT) / 1e3,
+        fleet_both,
+        fleet_plane_only,
+        ISL_REACQUIRE
     );
     println!(
         "   The second costs twice the telescopes and turns a stranding into a\n\

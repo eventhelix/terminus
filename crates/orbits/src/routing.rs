@@ -52,6 +52,23 @@ pub const NECKLACE_LINKS: usize = 1;
 /// geometry can dig through.
 pub const RELAY_DELAY: f64 = 0.5e-3;
 
+/// How long a steerable feeder telescope takes to repoint at a new ring and
+/// lock (s).
+///
+/// **A stated guess, and the spare telescope's whole value turns on it.** This
+/// is a *pointed* acquisition rather than a search: both ends know their own
+/// and each other's orbits to the metre, so the terminal is told exactly where
+/// to look and at what frequency — the same move that spares the ground
+/// terminals their cold-start hunt. Seconds, not the minutes a blind raster
+/// would cost.
+///
+/// The number matters because of what it races. A session riding the plane-link
+/// detour is about 31,500 km further from its anchor than a rival, against a
+/// 5,000 km re-anchor margin, so the anchor policy will move it at the next
+/// evaluation. If the spare cannot beat that, every session has already
+/// migrated by the time it locks and the telescope bought nothing.
+pub const ISL_REACQUIRE: f64 = 5.0;
+
 /// Fewest necklace hops between two positions of one ring.
 ///
 /// A ring is a circulant graph: each satellite links to the `links` on either
@@ -502,5 +519,16 @@ mod tests {
     fn a_mate_the_ring_cannot_reach_is_not_a_relay() {
         let r = feeder_route(0, &[2, 4], |a| a != 0, stub_ranges, PLANE_LINK, RELAY_DELAY);
         assert_eq!(r, None, "neither 2 nor 4 is reachable in stub_ranges");
+    }
+
+    /// One bad mate must not poison a good one. Mate 2 is unreachable and mate
+    /// 3 is both alive and reachable, so the detour goes through 3: a mate that
+    /// cannot be used is SKIPPED, never a veto over the whole plane.
+    #[test]
+    fn one_unusable_mate_does_not_veto_the_other() {
+        let r = feeder_route(0, &[2, 3], |a| a != 0, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        assert_eq!(r.relay, Some(3));
+        assert!((r.path - (21_000e3 + PLANE_LINK)).abs() < 1.0);
     }
 }
