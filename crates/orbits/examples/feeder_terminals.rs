@@ -29,10 +29,13 @@ use terminus_orbits::backbone::{
     intra_plane_diameter, intra_plane_range, intra_plane_reach, max_intra_shell_range_rate,
     max_shell_range_rate, max_shell_separation, separation,
 };
+use terminus_orbits::circular::orbital_period;
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
+use terminus_orbits::coverage::edge_slant_range;
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
-use terminus_orbits::routing::exit_gateway;
+use terminus_orbits::placement::{one_way_latency, one_way_light_time};
+use terminus_orbits::routing::{exit_gateway, RELAY_DELAY};
 use terminus_orbits::topology::{
     direct_demand, gateway_demand, pair_load, uniform_relay_demand, Session, TerminalDemand,
 };
@@ -61,9 +64,14 @@ const HOP_RANGE: f64 = 4_437e3;
 const MARGINS: [f64; 7] = [
     0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3, 25_000e3, 30_000e3,
 ];
+/// The RFP's first-token budget (ms, TER-REQ-003). Whatever the round trip
+/// does not spend, the model gets to think in -- which is what makes the
+/// margin a latency choice and not only a bandwidth one.
+const FIRST_TOKEN_BUDGET_MS: f64 = 300.0;
+
 /// Index into `MARGINS` of the policy the rest of this example reports on.
 /// It is the same number the library states as `REANCHOR_MARGIN`.
-const CHOSEN_MARGIN: usize = 4;
+const CHOSEN_MARGIN: usize = 2;
 
 struct Town {
     unit: [f64; 3],
@@ -219,7 +227,15 @@ fn main() {
     // TER-REQ-003 is a p95 requirement, so the distribution is what to judge
     // against; the maximum alone would be the wrong test.
     let mut path_samples: Vec<Vec<f64>> = vec![Vec::new(); MARGINS.len()];
+    // What the town actually waits, which is the path plus the radio leg plus
+    // a relay at every satellite that forwards. Sampled rather than derived
+    // from the p95 path, because the hop count varies independently of it.
+    let mut rtt_samples: Vec<Vec<f64>> = vec![Vec::new(); MARGINS.len()];
+    let mut hops_worst = [0usize; MARGINS.len()];
     let mut path_n = [0usize; MARGINS.len()];
+    // The radio leg is the same for every route, so it is measured once, at
+    // the edge of the footprint where it is longest.
+    let user_leg = one_way_light_time(edge_slant_range(&planet, ACCESS_ALT, MASK));
     let mut relay_all: Vec<TerminalDemand> = Vec::new();
     let mut lit_counts: Vec<(usize, usize)> = Vec::new();
 
@@ -278,13 +294,14 @@ fn main() {
                     )
                 })
                 .collect();
-            let path_cost = |a: usize| {
+            let route = |a: usize| {
                 let ap = anchors_at[a](t);
                 exit_gateway(
                     j,
                     wheel.sats_per_plane,
                     terminus_orbits::routing::NECKLACE_LINKS,
                     HOP_RANGE,
+                    RELAY_DELAY,
                     |slot| {
                         let d = separation(ring_pos[slot], ap);
                         if d > limb {
@@ -300,8 +317,12 @@ fn main() {
                         }
                     },
                 )
-                .map(|g| g.path)
             };
+            // The anchor policy still argues in metres of path: the margin is
+            // a stated distance, and relays are a thirtieth of what a hop
+            // costs, so they decide which door to leave by and not which
+            // anchor to hold.
+            let path_cost = |a: usize| route(a).map(|g| g.path);
             for (m, &margin) in MARGINS.iter().enumerate() {
                 if let Some(pick) = terminus_orbits::backbone::select_anchor(
                     anchors_at.len(),
@@ -313,10 +334,16 @@ fn main() {
                         anchor_changes[m] += 1;
                     }
                     town.anchor[m] = Some(pick);
-                    if let Some(c) = path_cost(pick) {
-                        path_sum[m] += c;
-                        path_worst[m] = path_worst[m].max(c);
-                        path_samples[m].push(c);
+                    if let Some(g) = route(pick) {
+                        path_sum[m] += g.path;
+                        path_worst[m] = path_worst[m].max(g.path);
+                        path_samples[m].push(g.path);
+                        hops_worst[m] = hops_worst[m].max(g.hops);
+                        // Relays: the serving satellite, plus one for each hop
+                        // along the necklace. The anchor terminates.
+                        rtt_samples[m].push(
+                            2.0 * (user_leg + one_way_latency(g.path, 1 + g.hops, RELAY_DELAY)),
+                        );
                         path_n[m] += 1;
                     }
                 }
@@ -610,21 +637,25 @@ E. Does the shell need links of its own?
          \x20  curve it gets chosen from.\n"
     );
     println!(
-        "{:>12} {:>17} {:>11} {:>11} {:>11}",
-        "margin (km)", "changes/sess/day", "mean path", "p95 path", "worst path"
+        "{:>11} {:>11} {:>9} {:>9} {:>6} {:>10} {:>11}",
+        "margin (km)", "changes/day", "mean (km)", "p95 (km)", "hops", "p95 RTT", "think left"
     );
     for (m, &margin) in MARGINS.iter().enumerate() {
         let per_day = anchor_changes[m] as f64 / TOWNS as f64 / (SPAN / 86_400.0);
         let mean = path_sum[m] / path_n[m] as f64;
         path_samples[m].sort_by(|a, b| a.partial_cmp(b).expect("finite"));
         let p95 = path_samples[m][(0.95 * (path_samples[m].len() - 1) as f64) as usize];
+        rtt_samples[m].sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        let rtt_ms = rtt_samples[m][(0.95 * (rtt_samples[m].len() - 1) as f64) as usize] * 1e3;
         println!(
-            "{:>12.0} {:>17.2} {:>8.0} km {:>8.0} km {:>8.0} km{}",
+            "{:>11.0} {:>11.2} {:>9.0} {:>9.0} {:>6} {:>7.0} ms {:>8.0} ms{}",
             margin / 1e3,
             per_day,
             mean / 1e3,
             p95 / 1e3,
-            path_worst[m] / 1e3,
+            hops_worst[m],
+            rtt_ms,
+            FIRST_TOKEN_BUDGET_MS - rtt_ms,
             if m == CHOSEN_MARGIN {
                 "  <- chosen"
             } else {
@@ -634,12 +665,18 @@ E. Does the shell need links of its own?
     }
     println!(
         "\n   Holding harder buys fewer migrations and pays for them in path\n\
-         \x20  length. Nothing on this curve threatens the RFP's 300 ms round\n\
-         \x20  trip: even the laziest policy keeps the worst path well inside it.\n\
-         \x20  At the far end the session never moves at all, and the backbone\n\
-         \x20  carries no working memory except after a failure. So this is not a\n\
-         \x20  latency choice, it is a choice about how much memory traffic to\n\
-         \x20  buy -- which `link_throughput` prices."
+         \x20  length -- and past a point it pays in thinking time. The RFP allows\n\
+         \x20  {:.0} ms to the first token, so whatever the light does not spend,\n\
+         \x20  the model gets to think in.\n\n\
+         \x20  Both ends of this curve are unaffordable. Chase the shortest path\n\
+         \x20  and the backbone carries more working memory than a 100 Gbps link\n\
+         \x20  can hold, which `link_throughput` prices. Hold hard enough that a\n\
+         \x20  session never moves at all -- 25,000 km, where the backbone carries\n\
+         \x20  no working memory except after a failure -- and there are 10 ms left\n\
+         \x20  to think in, which is not a budget.\n\n\
+         \x20  So the margin is a latency choice and a bandwidth choice at once,\n\
+         \x20  and the default is the setting where both are still affordable.",
+        FIRST_TOKEN_BUDGET_MS
     );
 
     // ---- G. what one lost telescope costs -------------------------------
@@ -731,13 +768,24 @@ E. Does the shell need links of its own?
         24 * relay.max_anchor(),
         fleet_relay
     );
+    // How long a session holds an anchor is policy, not geometry, so it is read
+    // off the chosen row of section H rather than off a MEO pass.
+    let chosen_per_day = anchor_changes[CHOSEN_MARGIN] as f64 / TOWNS as f64 / (SPAN / 86_400.0);
+    let retention = 86_400.0 / chosen_per_day;
+    let handover_interval = orbital_period(&planet, ACCESS_ALT) / wheel.sats_per_plane as f64;
     println!(
         "\n   The gateway row counts feeder terminals only, so its total is a\n\
          \x20  floor: its anchor-to-anchor links are real and unpriced. Even so,\n\
          \x20  the simplest topology to describe is the most expensive to build.\n\
-         \x20  Retention is why: a session keeps its anchor across ~19 access\n\
-         \x20  handovers, so the sessions riding one access satellite were anchored\n\
-         \x20  at different moments from different places, and a direct topology has\n\
-         \x20  to make every one of those pairings into hardware."
+         \x20  Retention is why: at the chosen margin a session keeps its anchor\n\
+         \x20  for {:.0} min, about {:.0} access handovers, so the sessions riding\n\
+         \x20  one access satellite were anchored at different moments from\n\
+         \x20  different places, and a direct topology has to make every one of\n\
+         \x20  those pairings into hardware. Holding harder makes that worse: this\n\
+         \x20  row is the one number in the table that the re-anchor margin moves,\n\
+         \x20  and a policy that never re-anchored would scatter the pairings\n\
+         \x20  further still.",
+        retention / 60.0,
+        retention / handover_interval
     );
 }

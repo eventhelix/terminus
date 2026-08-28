@@ -20,6 +20,22 @@ pub fn one_way_light_time(distance: f64) -> f64 {
     distance / SPEED_OF_LIGHT
 }
 
+/// One-way latency (s) over `distance` (m) through `relays` satellites.
+///
+/// Light is not the whole delay. Every satellite that forwards a packet
+/// rather than originating or terminating it has to receive the frame, decode
+/// its error correction, look up where it goes, re-encode and re-transmit, and
+/// that work costs `relay_delay` seconds each time. See
+/// [`crate::routing::RELAY_DELAY`] for the figure and for how much of a guess
+/// it is.
+///
+/// Count the satellites that *forward*: the access satellite a town is talking
+/// to, plus one for each necklace hop. The anchor at the far end terminates the
+/// packet and is not a relay.
+pub fn one_way_latency(distance: f64, relays: usize, relay_delay: f64) -> f64 {
+    one_way_light_time(distance) + relays as f64 * relay_delay
+}
+
 /// Per-token key/value-cache footprint of a transformer model: for every
 /// token processed, each layer stores a key and a value vector per KV head.
 #[derive(Debug, Clone, Copy)]

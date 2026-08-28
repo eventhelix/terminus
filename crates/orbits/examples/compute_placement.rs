@@ -73,6 +73,13 @@ fn main() {
     // A link does not last a pass: the town is handed to the next satellite in
     // the same plane after one in-plane spacing (ADR-0015). That interval, not
     // the pass, is what an anchored session has to ride out.
+    //
+    // The MEO pass below is a visibility fact and no longer a session's fate.
+    // A session leaves its ring through whichever ring mate has the geometry,
+    // and a ring of twelve sees every anchor at every instant, so an anchor
+    // setting below the serving satellite's horizon does not end anything. What
+    // decides how long a session holds an anchor is the re-anchor margin --
+    // policy, not sky -- and `feeder_terminals` section H measures it.
     let handover_interval = orbital_period(&planet, ACCESS_ALT) / ACCESS_SATS_PER_PLANE as f64;
     println!(
         "
@@ -80,7 +87,7 @@ Session-anchor arithmetic:
            access pass, best case:  {:>6.1} min
            access handover every:   {:>6.1} min   (period / satellites per plane)
            MEO pass, best case:     {:>6.1} min
-           access handovers survived by one anchored session: ~{:.0}",
+           access handovers inside one MEO pass: ~{:.0}   (visibility, not policy)",
         access_dwell / 60.0,
         handover_interval / 60.0,
         meo_dwell / 60.0,

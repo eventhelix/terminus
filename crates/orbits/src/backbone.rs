@@ -149,24 +149,27 @@ where
 /// be tunable in flight: a fleet that later finds itself short of backbone,
 /// or short of anchor compute, will want to move it. The default is stated
 /// here so that everything downstream has something to quote, not because
-/// 20,000 km is a law.
+/// 5,000 km is a law.
 ///
-/// The default is deliberately large enough that a session, once anchored,
-/// never moves again. Nothing forces it to: a ring reaches every anchor at
-/// every instant, so the only reason to re-anchor is to shorten the path, and
-/// `feeder_terminals` measures what that costs. Across the whole span from
-/// zero margin to this one, mean path length varies by 24 ms one way while
-/// the working-memory traffic on the busiest feeder link varies by four
-/// orders of magnitude — from more than a 100 Gbps link can carry down to
-/// nothing at all. At this setting the worst path any session ever holds is
-/// 34,198 km, a 253 ms round trip, inside the RFP's 300 ms with room to
-/// spare.
+/// The default buys thinking time. Nothing forces a session to move — a ring
+/// reaches every anchor at every instant, so the only reason to re-anchor is
+/// to shorten the path — and `feeder_terminals` measures what holding costs.
+/// Both ends of that curve are unaffordable. Holding an anchor for ever takes
+/// a 25,000 km margin, whose p95 round trip of 290 ms spends all but 10 ms of
+/// the RFP's 300 ms first-token budget before the model has read the question.
+/// Chasing the shortest path costs more backbone than a 100 Gbps link can
+/// carry. At this setting a session changes anchor 12.70 times a day, its p95
+/// path is 22,925 km — a 178 ms round trip once the relays are paid, leaving
+/// 122 ms of thinking time — and the busiest feeder link carries 17.5 Gbps of
+/// working memory at the million-terminal ceiling.
 ///
-/// What it does not buy is load balancing. A session that never moves never
-/// rebalances, and nothing in this crate models anchor compute. That is the
-/// reason to expect this number to come down in service, and the reason it
-/// must be a parameter rather than a constant.
-pub const REANCHOR_MARGIN: f64 = 20_000e3;
+/// What this setting costs is a feature. Sessions migrate in steady state, so
+/// make-before-break transfer of working memory has to exist at first release
+/// rather than being deferred; ADR-0021 was reversed for exactly this reason.
+/// What it still does not buy is load balancing — nothing in this crate models
+/// anchor compute — which is why this number should be expected to keep moving
+/// in service, and why it must be a parameter rather than a constant.
+pub const REANCHOR_MARGIN: f64 = 5_000e3;
 
 /// Which anchor a session should hold, given what each one costs to reach.
 ///
@@ -431,7 +434,9 @@ mod tests {
     fn a_held_anchor_is_not_traded_for_a_marginal_gain() {
         // The margin is a parameter, so the behaviour is tested against a
         // stated one rather than against whatever the default happens to be.
-        let margin = 5_000e3;
+        // Deliberately not the default value, so this test keeps its meaning
+        // when the default moves.
+        let margin = 8_000e3;
         let near = [26_000e3, 24_000e3];
         assert_eq!(
             select_anchor(2, |i| Some(near[i]), Some(0), margin),
@@ -442,18 +447,20 @@ mod tests {
         assert_eq!(select_anchor(2, |i| Some(far[i]), Some(0), margin), Some(1));
     }
 
-    /// At the default margin a session stays put. The whole spread of path
-    /// lengths the geometry produces -- roughly 18,000 to 34,000 km -- is
-    /// narrower than the margin, so no rival ever clears it and the working
-    /// memory never moves. That is the intent, and it is worth a test rather
-    /// than a comment.
+    /// At the default margin a session does move, and that is the intent. The
+    /// spread of path lengths the geometry produces is wider than the margin,
+    /// so a rival does clear it: the worst path held at this setting is
+    /// 25,205 km against a shortest-path mean of 18,569 km, a 6,636 km gap
+    /// worth 44 ms of round trip and so worth a migration. Holding an anchor
+    /// for ever would take a margin wider than that whole spread, and
+    /// `feeder_terminals` prices what that costs in thinking time.
     #[test]
-    fn the_default_margin_holds_an_anchor_for_good() {
-        let held_worst = 34_198e3;
+    fn the_default_margin_lets_a_worthwhile_rival_win() {
+        let held_worst = 25_205e3;
         let rival_best = 18_569e3;
         assert!(
-            held_worst - rival_best < REANCHOR_MARGIN,
-            "the observed spread must sit inside the default margin"
+            held_worst - rival_best > REANCHOR_MARGIN,
+            "the observed spread must exceed the default margin, or nothing migrates"
         );
         assert_eq!(
             select_anchor(
@@ -462,7 +469,7 @@ mod tests {
                 Some(0),
                 REANCHOR_MARGIN
             ),
-            Some(0)
+            Some(1)
         );
     }
 

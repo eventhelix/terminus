@@ -35,15 +35,16 @@ const CONCURRENCY: f64 = 0.10;
 /// section H. These are policy outcomes, not geometry: a ring can reach every
 /// anchor at every instant, so nothing forces a migration and the re-anchor
 /// margin decides how many happen. Keep in step with that example.
-const POLICY: [(f64, f64); 5] = [
+const POLICY: [(f64, f64); 6] = [
     (0.0, 113.37),
-    (2_500e3, 19.10),
-    (5_000e3, 12.06),
-    (10_000e3, 6.40),
-    (20_000e3, 0.0),
+    (2_500e3, 19.13),
+    (5_000e3, 12.70),
+    (10_000e3, 7.08),
+    (20_000e3, 4.05),
+    (25_000e3, 0.0),
 ];
 /// Index into `POLICY` of the margin the library states as `REANCHOR_MARGIN`.
-const CHOSEN: usize = 4;
+const CHOSEN: usize = 2;
 
 /// Seconds between migrations at a given rate per session per day. An infinite
 /// interval is a session that never moves.
@@ -140,7 +141,9 @@ fn main() {
          \x20  that also carries speech, and sizing it from token rates would be\n\
          \x20  wrong by three orders of magnitude. At the bottom it carries speech\n\
          \x20  and nothing else. Section C is about which end the policy chooses,\n\
-         \x20  and the default chooses the bottom."
+         \x20  and the default chooses neither. The bottom of this table is only\n\
+         \x20  reachable by holding an anchor so hard that the path it leaves you\n\
+         \x20  holding has no time left in it to think."
     );
 
     for (fleet_label, terminals) in [
@@ -202,11 +205,12 @@ fn main() {
             );
         }
         println!(
-            "\n   Busiest link total: {}. Steady-state migration is zero at the\n\
-         \x20  default policy, but it is never zero on the day something breaks:\n\
+            "\n   Busiest link total: {}. The default policy moves working memory in\n\
+         \x20  steady state, and even so the mean is not what sizes this link:\n\
          \x20  {:.1} GB moves in {:.2} s on a 100 Gbps link and {:.1} s on 10 Gbps,\n\
          \x20  and one failed telescope strands a whole bucket of sessions at once.\n\
-         \x20  This link is sized by that burst, not by this mean.",
+         \x20  The burst sizes the link; the mean only says what it carries in\n\
+         \x20  between.",
             gbps(feeder.total()),
             profile.kv_bytes(&model) / 1e9,
             transfer_time(profile.kv_bytes(&model), 100e9),
@@ -244,16 +248,20 @@ fn main() {
         );
     }
     println!(
-        "\n   The span is four orders of magnitude, and only the bottom row is\n\
-         \x20  free. Chasing the shortest path costs more backbone than a hundred\n\
-         \x20  gigabit link can carry; never moving at all costs none, and still\n\
-         \x20  meets the 300 ms round trip with a worst path of 34,198 km.\n\n\
+        "\n   The span is four orders of magnitude, and neither end of it can be\n\
+         \x20  bought. Chasing the shortest path costs more backbone than a hundred\n\
+         \x20  gigabit link can carry. The free row at the bottom is free only of\n\
+         \x20  bandwidth: holding an anchor until nothing ever beats it means\n\
+         \x20  holding a p95 round trip of 290 ms, which leaves 10 ms of the RFP's\n\
+         \x20  300 ms to think in.\n\n\
          \x20  So the honest reading is that this network is sized by a policy\n\
          \x20  decision, not by its users. Latency and bandwidth are being traded\n\
-         \x20  directly against each other, and the trade is unusually lopsided:\n\
-         \x20  the whole span of mean path length across these five policies is\n\
-         \x20  18,569 km to 25,843 km -- 24 ms one way -- for a backbone bill that\n\
-         \x20  varies by ten thousand fold."
+         \x20  directly against each other, and the exchange rate is brutal: the\n\
+         \x20  whole span of mean path length across these six policies is\n\
+         \x20  18,569 km to 28,385 km -- 33 ms one way -- for a backbone bill that\n\
+         \x20  varies by ten thousand fold. The default sits where both currencies\n\
+         \x20  are still affordable, and where it sits is the only judgement in\n\
+         \x20  this example rather than a measurement."
     );
     println!(
         "\n\nD. What this does and does not settle\n\n\
@@ -265,23 +273,28 @@ fn main() {
          \x20  cluster, and a clustered band would load a few links far harder than\n\
          \x20  this arithmetic suggests while leaving others idle. The averages here\n\
          \x20  are a floor on the busiest link, never a description of it.\n\n\
-         \x20  The default policy buys its quiet backbone on credit: a session that\n\
-         \x20  never moves never rebalances. Nothing here models anchor compute, so\n\
-         \x20  nothing here notices sessions piling onto whichever anchor happened\n\
-         \x20  to be nearest when they began. That is exactly why the margin has to\n\
-         \x20  be tunable in flight rather than fixed at launch.\n\n\
-         \x20  What it does buy is a feature that need not be built yet. Streaming\n\
-         \x20  working memory from one anchor to another -- make-before-break, the\n\
-         \x20  {:.0} GB in {:.2} s that section A prices -- has no steady-state\n\
-         \x20  customer at this setting. The only sessions that must move are the\n\
-         \x20  ones whose anchor failed, and those are already answered by re-reading\n\
-         \x20  the transcript from the vault, which the proposal committed to long\n\
-         \x20  before this section existed. Context transfer becomes an optimization\n\
-         \x20  for planned maintenance, deferrable to a later block, and its absence\n\
-         \x20  costs a prefill rather than a conversation.",
+         \x20  Load balancing is still not bought. A session moves to shorten its\n\
+         \x20  own path and never to spare an anchor's compute, so nothing here\n\
+         \x20  notices sessions piling onto whichever anchor happens to sit over a\n\
+         \x20  crowded stretch of the band. The margin is the only lever that\n\
+         \x20  exists and it is a blunt one -- it moves every session at once --\n\
+         \x20  which is exactly why it has to be tunable in flight rather than\n\
+         \x20  fixed at launch.\n\n\
+         \x20  What it does buy is a bill for a feature. Streaming working memory\n\
+         \x20  from one anchor to another -- make-before-break, the {:.0} GB in\n\
+         \x20  {:.2} s that section A prices -- has a steady-state customer at this\n\
+         \x20  setting: every session moves {:.2} times a day, which at the ceiling\n\
+         \x20  is better than a million migrations a day, each one inside a live\n\
+         \x20  conversation that must not stall. Re-reading the transcript from the\n\
+         \x20  vault answers a *failed* anchor, where there is nothing left to\n\
+         \x20  stream from, but it cannot answer a planned one: it costs a full\n\
+         \x20  prefill in the middle of a sentence. So context transfer is\n\
+         \x20  first-release work rather than a later block, and that is what the\n\
+         \x20  thinking time in section C was bought with.",
         CONCURRENCY * 100.0,
         model.bytes(131_072) / 1e9,
         profile.kv_bytes(&model) / 1e9,
-        transfer_time(profile.kv_bytes(&model), 100e9)
+        transfer_time(profile.kv_bytes(&model), 100e9),
+        POLICY[CHOSEN].1
     );
 }
