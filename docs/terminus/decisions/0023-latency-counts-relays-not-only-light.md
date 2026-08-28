@@ -11,10 +11,10 @@ A path's cost is the **time** it takes, not the distance it covers. Every
 satellite that forwards a packet — rather than originating or terminating it —
 is charged `RELAY_DELAY`, **stated at 0.5 ms**, on top of the light time.
 
-`routing::exit_gateway` picks the gateway with the shorter *time*. Round trips
-reported anywhere in the crate include the relays: the serving access
-satellite, plus one for each necklace hop. The anchor terminates the packet and
-is not a relay.
+`routing::exit_gateway` picks the gateway with the shorter *time*. The round
+trips reported by the anchor-policy sweep (`feeder_terminals` section H)
+include the relays: the serving access satellite, plus one for each necklace
+hop. The anchor terminates the packet and is not a relay.
 
 ## Why
 
@@ -64,3 +64,13 @@ matters when the thinking-time budget is being argued over a few milliseconds
 - Sensitivity is one multiplication: at 1.0 ms per relay the adopted margin's
   p95 round trip becomes 179 ms and the 25,000 km row 293 ms. The decision in
   ADR-0020 does not turn on it.
+- **Two older examples still quote pure propagation and have not been
+  converted.** `compute_placement` reports a worst-geometry round trip of
+  180 ms leaving 120 ms to think, and `unbroken_thread` prices an ARQ
+  retransmission at a hardcoded 180 ms. Both understate by about 1 ms — one
+  relay each way — and neither conclusion turns on it: 1.8x the stall budget
+  stays 1.8x. They are listed here so the inconsistency is recorded rather than
+  discovered. Converting them is a separate change, because `unbroken_thread`
+  arguably wants the worst round trip the *policy* produces (193 ms at the
+  adopted margin) rather than a 60-degree geometry bound, and that is a
+  modelling choice rather than a correction.

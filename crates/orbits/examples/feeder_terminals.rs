@@ -671,8 +671,29 @@ E. Does the shell need links of its own?
             }
         );
     }
+    // The p95 is what the policy is argued over, but the compliance matrix has
+    // to quote a worst case, so state it rather than leaving it to arithmetic
+    // somewhere downstream.
+    let worst_rtt = rtt_samples[CHOSEN_MARGIN]
+        .last()
+        .copied()
+        .expect("the chosen margin has samples")
+        * 1e3;
     println!(
-        "\n   Holding harder buys fewer migrations and pays for them in path\n\
+        "\n   At the chosen margin the worst round trip any session saw was\n\
+         \x20  {:.0} ms, against {:.0} ms at the p95 -- so the tail costs {:.0} ms more\n\
+         \x20  and still leaves {:.0} ms to think in.\n",
+        worst_rtt,
+        rtt_samples[CHOSEN_MARGIN][(0.95 * (rtt_samples[CHOSEN_MARGIN].len() - 1) as f64) as usize]
+            * 1e3,
+        worst_rtt
+            - rtt_samples[CHOSEN_MARGIN]
+                [(0.95 * (rtt_samples[CHOSEN_MARGIN].len() - 1) as f64) as usize]
+                * 1e3,
+        FIRST_TOKEN_BUDGET_MS - worst_rtt
+    );
+    println!(
+        "   Holding harder buys fewer migrations and pays for them in path\n\
          \x20  length -- and past a point it pays in thinking time. The RFP allows\n\
          \x20  {:.0} ms to the first token, so whatever the light does not spend,\n\
          \x20  the model gets to think in.\n\n\
