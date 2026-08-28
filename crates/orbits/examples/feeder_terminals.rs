@@ -637,8 +637,15 @@ E. Does the shell need links of its own?
          \x20  curve it gets chosen from.\n"
     );
     println!(
-        "{:>11} {:>11} {:>9} {:>9} {:>6} {:>10} {:>11}",
-        "margin (km)", "changes/day", "mean (km)", "p95 (km)", "hops", "p95 RTT", "think left"
+        "{:>10} {:>10} {:>9} {:>9} {:>9} {:>5} {:>10} {:>11}",
+        "margin (km)",
+        "changes/day",
+        "mean (km)",
+        "p95 (km)",
+        "worst (km)",
+        "hops",
+        "p95 RTT",
+        "think left"
     );
     for (m, &margin) in MARGINS.iter().enumerate() {
         let per_day = anchor_changes[m] as f64 / TOWNS as f64 / (SPAN / 86_400.0);
@@ -648,11 +655,12 @@ E. Does the shell need links of its own?
         rtt_samples[m].sort_by(|a, b| a.partial_cmp(b).expect("finite"));
         let rtt_ms = rtt_samples[m][(0.95 * (rtt_samples[m].len() - 1) as f64) as usize] * 1e3;
         println!(
-            "{:>11.0} {:>11.2} {:>9.0} {:>9.0} {:>6} {:>7.0} ms {:>8.0} ms{}",
+            "{:>10.0} {:>10.2} {:>9.0} {:>9.0} {:>9.0} {:>5} {:>7.0} ms {:>8.0} ms{}",
             margin / 1e3,
             per_day,
             mean / 1e3,
             p95 / 1e3,
+            path_worst[m] / 1e3,
             hops_worst[m],
             rtt_ms,
             FIRST_TOKEN_BUDGET_MS - rtt_ms,

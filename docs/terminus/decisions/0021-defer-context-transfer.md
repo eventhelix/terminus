@@ -1,9 +1,18 @@
 # ADR-0021: Context transfer is deferred out of the first release
 
-Status: accepted
+Status: superseded by ADR-0022
 Date: 2026-08-27
 Requirements: TER-REQ-003, TER-REQ-013, TER-REQ-014
 Evidence: `cargo run --release -p terminus-orbits --example link_throughput` (sections C and D)
+
+> **Superseded 2026-08-27 by ADR-0022.** This ADR made its own deferral
+> conditional: "the trigger to revisit it is a change to that parameter." The
+> trigger fired the same day. A routing correction doubled the price of a
+> necklace hop, which moved the re-anchor sweep and forced the margin down from
+> 20,000 km to 5,000 km (ADR-0020). A session now moves 12.70 times a day, so
+> the premise below — that the feature has no steady-state customer — is false.
+> The reasoning is kept as written, because what it got wrong was one measured
+> input and not its logic.
 
 ## Decision
 
