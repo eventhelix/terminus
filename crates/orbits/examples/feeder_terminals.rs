@@ -51,15 +51,16 @@ const SPAN: f64 = 86_400.0;
 /// terminal. The lasers stay powered even where the radios are dark, so the
 /// necklace is a standing relay and hops chain: half a ring reaches all of it.
 const REACH: usize = 6;
-/// Necklace reach in ring positions, and the chord between neighbours: what a
-/// hop costs when a session leaves through a ring mate instead of its own
-/// satellite.
-const REACH_HOPS: usize = 2;
+/// What a hop costs when a session leaves through a ring mate instead of its
+/// own satellite. Terminals point one place each way, so a hop moves one
+/// place -- see `routing::NECKLACE_LINKS`.
 const HOP_RANGE: f64 = 4_437e3;
 
 /// Re-anchor margins to sweep (m of path). The policy has to choose one, and
 /// choosing it from a curve beats choosing it from taste.
-const MARGINS: [f64; 5] = [0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3];
+const MARGINS: [f64; 7] = [
+    0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3, 25_000e3, 30_000e3,
+];
 /// Index into `MARGINS` of the policy the rest of this example reports on.
 /// It is the same number the library states as `REANCHOR_MARGIN`.
 const CHOSEN_MARGIN: usize = 4;
@@ -128,12 +129,15 @@ fn main() {
         );
     }
     println!(
-        "\n   So a single hop on the wheel reaches at most two ring mates -- that\n\
-         \x20  phrase is geometry, not policy -- though hops chain, and a ring of\n\
-         \x20  twelve crosses in three. There are no links between rings at all. In\n\
-         \x20  the shell a four-satellite plane reaches one neighbour each way and\n\
-         \x20  the satellite opposite is permanently occulted; the plane still\n\
-         \x20  closes, as a cycle of four with no chords."
+        "\n   Reach is what a satellite can SEE along its ring, and it is not what\n\
+         \x20  it can talk to. Each access satellite carries two necklace terminals,\n\
+         \x20  aimed one place each way and held there for years, so a hop moves one\n\
+         \x20  place and a ring of twelve crosses in six. The spare sightline is\n\
+         \x20  margin, not a shortcut: a satellite can see past its neighbour and\n\
+         \x20  cannot talk past it. There are no links between rings at all. In the\n\
+         \x20  shell a four-satellite plane reaches one neighbour each way and the\n\
+         \x20  satellite opposite is permanently occulted; the plane still closes,\n\
+         \x20  as a cycle of four with no chords."
     );
     for hops in 1..=2 {
         println!(
@@ -212,6 +216,9 @@ fn main() {
     let mut anchor_changes = [0usize; MARGINS.len()];
     let mut path_sum = [0.0f64; MARGINS.len()];
     let mut path_worst = [0.0f64; MARGINS.len()];
+    // TER-REQ-003 is a p95 requirement, so the distribution is what to judge
+    // against; the maximum alone would be the wrong test.
+    let mut path_samples: Vec<Vec<f64>> = vec![Vec::new(); MARGINS.len()];
     let mut path_n = [0usize; MARGINS.len()];
     let mut relay_all: Vec<TerminalDemand> = Vec::new();
     let mut lit_counts: Vec<(usize, usize)> = Vec::new();
@@ -273,20 +280,26 @@ fn main() {
                 .collect();
             let path_cost = |a: usize| {
                 let ap = anchors_at[a](t);
-                exit_gateway(j, wheel.sats_per_plane, REACH_HOPS, HOP_RANGE, |slot| {
-                    let d = separation(ring_pos[slot], ap);
-                    if d > limb {
-                        None
-                    } else {
-                        let p = ring_pos[slot];
-                        Some(
-                            ((p[0] - ap[0]).powi(2)
-                                + (p[1] - ap[1]).powi(2)
-                                + (p[2] - ap[2]).powi(2))
-                            .sqrt(),
-                        )
-                    }
-                })
+                exit_gateway(
+                    j,
+                    wheel.sats_per_plane,
+                    terminus_orbits::routing::NECKLACE_LINKS,
+                    HOP_RANGE,
+                    |slot| {
+                        let d = separation(ring_pos[slot], ap);
+                        if d > limb {
+                            None
+                        } else {
+                            let p = ring_pos[slot];
+                            Some(
+                                ((p[0] - ap[0]).powi(2)
+                                    + (p[1] - ap[1]).powi(2)
+                                    + (p[2] - ap[2]).powi(2))
+                                .sqrt(),
+                            )
+                        }
+                    },
+                )
                 .map(|g| g.path)
             };
             for (m, &margin) in MARGINS.iter().enumerate() {
@@ -303,6 +316,7 @@ fn main() {
                     if let Some(c) = path_cost(pick) {
                         path_sum[m] += c;
                         path_worst[m] = path_worst[m].max(c);
+                        path_samples[m].push(c);
                         path_n[m] += 1;
                     }
                 }
@@ -596,17 +610,20 @@ E. Does the shell need links of its own?
          \x20  curve it gets chosen from.\n"
     );
     println!(
-        "{:>14} {:>20} {:>13} {:>13}",
-        "margin (km)", "changes/session/day", "mean path", "worst path"
+        "{:>12} {:>17} {:>11} {:>11} {:>11}",
+        "margin (km)", "changes/sess/day", "mean path", "p95 path", "worst path"
     );
     for (m, &margin) in MARGINS.iter().enumerate() {
         let per_day = anchor_changes[m] as f64 / TOWNS as f64 / (SPAN / 86_400.0);
         let mean = path_sum[m] / path_n[m] as f64;
+        path_samples[m].sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        let p95 = path_samples[m][(0.95 * (path_samples[m].len() - 1) as f64) as usize];
         println!(
-            "{:>14.0} {:>20.2} {:>8.0} km {:>8.0} km{}",
+            "{:>12.0} {:>17.2} {:>8.0} km {:>8.0} km {:>8.0} km{}",
             margin / 1e3,
             per_day,
             mean / 1e3,
+            p95 / 1e3,
             path_worst[m] / 1e3,
             if m == CHOSEN_MARGIN {
                 "  <- chosen"

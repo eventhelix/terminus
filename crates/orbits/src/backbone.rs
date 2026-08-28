@@ -214,28 +214,32 @@ pub fn select_anchor(
     Some(best_i)
 }
 
-/// Most hops needed to reach any satellite in one's own ring, or `None` if
-/// the ring does not connect at all.
+/// Most hops needed to reach any satellite in one's own ring, or `None` if the
+/// ring does not connect at all.
 ///
-/// A ring of `n` with a reach of `r` is a circulant graph: every satellite
-/// links to the `r` on each side. It connects whenever `r >= 1`, and the
-/// farthest satellite is half a ring away, so the answer is `ceil((n/2) / r)`.
+/// Counted over the **link** graph, not the visibility graph, and the two are
+/// not the same. [`intra_plane_reach`] says how many ring mates a satellite can
+/// *see*; [`crate::routing::NECKLACE_LINKS`] says how many it has a terminal
+/// aimed at, which is one on each side. A satellite can see past its neighbour
+/// and cannot talk past it, so a hop moves one place and a ring of twelve takes
+/// **six** hops to cross — not the three its sightlines would allow.
 ///
-/// Both of this architecture's rings connect. The wheel's twelve at two hops
-/// of reach has a diameter of three; the shell's four at one hop has a
-/// diameter of two. That matters once relaying is real, because each hop is a
-/// hop's worth of light time — 14.8 ms around the wheel, 124 ms around a MEO
-/// plane — and a session pays it twice.
+/// The gap between the two is margin rather than capability, and it is checked
+/// here: a link the planet hides is not a link.
+///
+/// Hops are not free. Each is 14.8 ms of light time around the wheel and 124 ms
+/// around a MEO plane, and a session pays it twice.
 pub fn intra_plane_diameter(
     body: &CentralBody,
     altitude: f64,
     sats_per_plane: usize,
 ) -> Option<usize> {
-    let reach = intra_plane_reach(body, altitude, sats_per_plane);
-    if reach == 0 {
+    let visible = intra_plane_reach(body, altitude, sats_per_plane);
+    let links = crate::routing::NECKLACE_LINKS.min(visible);
+    if links == 0 {
         return None;
     }
-    Some((sats_per_plane / 2).div_ceil(reach))
+    Some((sats_per_plane / 2).div_ceil(links))
 }
 
 /// Worst-case range rate (m/s) between two satellites in *different planes of
@@ -333,7 +337,9 @@ mod tests {
         assert!(180.0 > limit, "the antipodal plane mate is occulted");
         // Occulted diagonal, intact cycle: reachable in two hops, not one.
         assert_eq!(intra_plane_diameter(&p, 20_000e3, 4), Some(2));
-        assert_eq!(intra_plane_diameter(&p, 2_200e3, 12), Some(3));
+        // The wheel crosses in six, not three: terminals point one place, and
+        // seeing two places along the ring does not let a hop skip one.
+        assert_eq!(intra_plane_diameter(&p, 2_200e3, 12), Some(6));
 
         // And the reachable one is a long way off: eight times the wheel's hop.
         let meo = intra_plane_range(&p, 20_000e3, 4, 1);
