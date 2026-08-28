@@ -150,6 +150,84 @@ pub fn exit_gateway(
     best
 }
 
+/// How a ring reaches an anchor once telescopes start failing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Routed {
+    /// Which ring position climbs, from [`exit_gateway`]. On a detour this is
+    /// the gateway toward the RELAY, not toward `anchor` — the ring climbs to
+    /// the plane mate and the frozen link carries it the rest of the way.
+    pub gateway: Gateway,
+    /// The plane mate relaying, or `None` when the anchor is reached directly.
+    pub relay: Option<usize>,
+    /// Total path (m), including the intra-plane link when one is used.
+    pub path: f64,
+    /// One-way time (s), including a relay at every satellite that forwards.
+    pub latency: f64,
+}
+
+/// Whether a ring can still reach an anchor, and what it costs.
+///
+/// Pooling left each anchor with exactly ONE feeder telescope per ring
+/// (ADR-0018), so that telescope is a single point of failure for the whole
+/// (ring, anchor) pair: losing it does not degrade the link, it severs it.
+/// What buys the pair back is the frozen intra-plane link — a crippled anchor
+/// is reached through a plane mate that still has a telescope into the ring
+/// (ADR-0019).
+///
+/// Called for ONE access ring at a time. `alive(a)` says whether anchor `a`'s
+/// telescope *into that ring* is up; `exit_via(a)` is the best gateway the
+/// ring can offer toward anchor `a`, as [`exit_gateway`] computes it.
+/// `plane_mates` holds the two cycle neighbours — a plane of four closes into
+/// a cycle with the opposite satellite permanently occulted.
+///
+/// Returns `None` when neither the anchor nor a usable plane mate can be
+/// reached. That `None` is what forces a session to re-anchor, and a great
+/// many of them doing it at once is the migration storm.
+pub fn feeder_route(
+    anchor: usize,
+    plane_mates: &[usize],
+    alive: impl Fn(usize) -> bool,
+    exit_via: impl Fn(usize) -> Option<Gateway>,
+    plane_link: f64,
+    relay_delay: f64,
+) -> Option<Routed> {
+    // Direct needs two things: a live telescope AND a ring that can see the
+    // anchor. Failing either, the plane mates are still worth trying -- the
+    // detour climbs to a mate and crosses the frozen link, so it never uses
+    // the anchor's own telescope into this ring at all.
+    if alive(anchor) {
+        if let Some(gateway) = exit_via(anchor) {
+            return Some(Routed {
+                relay: None,
+                path: gateway.path,
+                latency: gateway.latency,
+                gateway,
+            });
+        }
+    }
+    let mut best: Option<Routed> = None;
+    for &mate in plane_mates {
+        if !alive(mate) {
+            continue;
+        }
+        let Some(gateway) = exit_via(mate) else {
+            continue;
+        };
+        // The mate forwards rather than terminates, so it costs a relay on top
+        // of the light over the plane link.
+        let latency = gateway.latency + plane_link / crate::placement::SPEED_OF_LIGHT + relay_delay;
+        if best.map_or(true, |b| latency < b.latency) {
+            best = Some(Routed {
+                relay: Some(mate),
+                path: gateway.path + plane_link,
+                latency,
+                gateway,
+            });
+        }
+    }
+    best
+}
+
 /// How working memory travels when a session changes anchor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MigrationPath {
@@ -326,5 +404,103 @@ mod tests {
     fn plane_mates_hand_over_directly_and_everyone_else_goes_down() {
         assert_eq!(migration_path(3, 3), MigrationPath::PlaneLink);
         assert_eq!(migration_path(3, 4), MigrationPath::ThroughTheWheel);
+    }
+
+    /// 37,294 km — the frozen intra-plane chord at 20,000 km, four to a plane.
+    const PLANE_LINK: f64 = 37_294e3;
+
+    /// A stand-in gateway at a stated feeder range, climbing from where the
+    /// session already is. Latency is pure light so the tests can do the
+    /// relay arithmetic themselves.
+    fn stub_gw(path: f64) -> Gateway {
+        Gateway {
+            slot: 0,
+            hops: 0,
+            path,
+            latency: path / crate::placement::SPEED_OF_LIGHT,
+        }
+    }
+
+    /// Anchor 0 is the held one; 1 and 3 are its cycle neighbours in the
+    /// plane. 3 has the better view of this ring, which is what makes the
+    /// "cheaper mate wins" test unambiguous.
+    fn stub_ranges(a: usize) -> Option<Gateway> {
+        match a {
+            0 => Some(stub_gw(23_000e3)),
+            1 => Some(stub_gw(26_000e3)),
+            3 => Some(stub_gw(21_000e3)),
+            _ => None,
+        }
+    }
+
+    /// While the anchor's own telescope into this ring is up, nothing else
+    /// matters: the plane links are spare capacity, not a route.
+    #[test]
+    fn a_live_telescope_is_reached_directly() {
+        let r = feeder_route(0, &[1, 3], |_| true, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        assert_eq!(r.relay, None);
+        assert!((r.path - 23_000e3).abs() < 1.0);
+    }
+
+    /// Pooling gives an anchor exactly one telescope per ring, so losing it
+    /// removes the whole ring-to-anchor path rather than one of several. The
+    /// plane mate with the better view of the ring carries the detour.
+    #[test]
+    fn a_dead_telescope_is_reached_through_the_cheaper_plane_mate() {
+        let r = feeder_route(0, &[1, 3], |a| a != 0, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        assert_eq!(r.relay, Some(3), "21,000 km beats 26,000 km");
+        assert!((r.path - (21_000e3 + PLANE_LINK)).abs() < 1.0);
+    }
+
+    /// The detour costs the plane link and one more relay -- the mate has to
+    /// turn the frame around (ADR-0023).
+    #[test]
+    fn the_detour_pays_the_plane_link_and_one_more_relay() {
+        let direct = feeder_route(0, &[1, 3], |_| true, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        let detour = feeder_route(0, &[1, 3], |a| a != 0, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        let expected =
+            (PLANE_LINK + 21_000e3 - 23_000e3) / crate::placement::SPEED_OF_LIGHT + RELAY_DELAY;
+        assert!(
+            (detour.latency - direct.latency - expected).abs() < 1e-9,
+            "detour {} direct {}",
+            detour.latency,
+            direct.latency
+        );
+    }
+
+    /// Both neighbours dark into this ring is the case the plane links cannot
+    /// answer. `None` is what forces the session to re-anchor.
+    #[test]
+    fn no_route_when_the_whole_plane_is_dark_into_this_ring() {
+        assert_eq!(
+            feeder_route(0, &[1, 3], |_| false, stub_ranges, PLANE_LINK, RELAY_DELAY),
+            None
+        );
+    }
+
+    /// A live telescope the ring cannot SEE is not a route either, and the
+    /// plane mates are still worth trying. Anchor 5 is alive but absent from
+    /// `stub_ranges`, so the ring is blind to it; mate 3 is both alive and
+    /// reachable, and the detour never touches anchor 5's own telescope.
+    #[test]
+    fn a_live_anchor_the_ring_cannot_see_still_tries_its_mates() {
+        let r = feeder_route(5, &[1, 3], |_| true, stub_ranges, PLANE_LINK, RELAY_DELAY)
+            .expect("a route exists");
+        assert_eq!(r.relay, Some(3));
+        assert!((r.path - (21_000e3 + PLANE_LINK)).abs() < 1.0);
+    }
+
+    /// A mate with a live telescope the ring still cannot see is not a relay.
+    /// Both mates here are alive but neither is in `stub_ranges`, so the ring
+    /// has no way up through either -- which is the case that strands a
+    /// session even with the plane links fitted.
+    #[test]
+    fn a_mate_the_ring_cannot_reach_is_not_a_relay() {
+        let r = feeder_route(0, &[2, 4], |a| a != 0, stub_ranges, PLANE_LINK, RELAY_DELAY);
+        assert_eq!(r, None, "neither 2 nor 4 is reachable in stub_ranges");
     }
 }
