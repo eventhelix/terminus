@@ -75,6 +75,10 @@ const FIRST_TOKEN_BUDGET_MS: f64 = 300.0;
 const DEGRADED_BUDGET_MS: f64 = 600.0;
 /// Instants sampled across the day for section G's detour walk.
 const INSTANTS: usize = 24;
+/// Budgets to show the margin against. The first is TER-REQ-003 as written
+/// and the one the policy is chosen under; the others are there because a
+/// requirement that sizes an entire backbone should be visibly a choice.
+const BUDGETS_MS: [f64; 3] = [300.0, 500.0, 600.0];
 
 /// Index into `MARGINS` of the policy the rest of this example reports on.
 /// It is the same number the library states as `REANCHOR_MARGIN`.
@@ -677,6 +681,26 @@ E. Does the shell need links of its own?
                 ""
             }
         );
+    }
+    println!(
+        "\n   Thinking time left under other first-token budgets. TER-REQ-003\n\
+         \x20  is the {:.0} ms column and the policy is chosen under it; the rest\n\
+         \x20  show what that requirement costs.\n",
+        BUDGETS_MS[0]
+    );
+    print!("{:>11}", "margin (km)");
+    for b in BUDGETS_MS {
+        print!("{:>12}", format!("{b:.0} ms"));
+    }
+    println!();
+    for (m, &margin) in MARGINS.iter().enumerate() {
+        let rtt_ms = rtt_samples[m][(0.95 * (rtt_samples[m].len() - 1) as f64) as usize] * 1e3;
+        print!("{:>11.0}", margin / 1e3);
+        for b in BUDGETS_MS {
+            let left = b - rtt_ms;
+            print!("{:>12}", format!("{left:.0} ms"));
+        }
+        println!();
     }
     // The p95 is what the policy is argued over, but the compliance matrix has
     // to quote a worst case, so state it rather than leaving it to arithmetic
