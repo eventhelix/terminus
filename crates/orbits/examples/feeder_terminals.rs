@@ -64,10 +64,17 @@ const HOP_RANGE: f64 = 4_437e3;
 const MARGINS: [f64; 7] = [
     0.0, 2_500e3, 5_000e3, 10_000e3, 20_000e3, 25_000e3, 30_000e3,
 ];
-/// The RFP's first-token budget (ms, TER-REQ-003). Whatever the round trip
-/// does not spend, the model gets to think in -- which is what makes the
-/// margin a latency choice and not only a bandwidth one.
+/// The RFP's first-token budget (ms, TER-REQ-003), amended to cover
+/// failure-free operation only. Whatever the round trip does not spend, the
+/// model gets to think in -- which is what makes the margin a latency choice
+/// and not only a bandwidth one.
 const FIRST_TOKEN_BUDGET_MS: f64 = 300.0;
+/// TER-REQ-003's degraded budget (ms): applies while a telescope is dark and
+/// traffic rides the plane link in its place. Section G scores the detour
+/// against both.
+const DEGRADED_BUDGET_MS: f64 = 600.0;
+/// Instants sampled across the day for section G's detour walk.
+const INSTANTS: usize = 24;
 
 /// Index into `MARGINS` of the policy the rest of this example reports on.
 /// It is the same number the library states as `REANCHOR_MARGIN`.
@@ -747,7 +754,8 @@ E. Does the shell need links of its own?
     let mut detour_extra_ms: Vec<f64> = Vec::new();
     let mut detour_total_ms: Vec<f64> = Vec::new();
     let mut stranded = 0usize;
-    for step in 0..24 {
+    let distinct_pairs = wheel.planes * anchor_ids.len();
+    for step in 0..INSTANTS {
         let t = step as f64 * 3_600.0;
         let anchor_pos: Vec<[f64; 3]> = anchors_at.iter().map(|f| f(t)).collect();
         for ring in 0..wheel.planes {
@@ -820,24 +828,49 @@ E. Does the shell need links of its own?
     let median = detour_extra_ms[detour_extra_ms.len() / 2];
     let worst_extra = *detour_extra_ms.last().expect("samples");
     let worst_total = *detour_total_ms.last().expect("samples");
-    let over_budget = detour_total_ms
+    let over_nominal = detour_total_ms
         .iter()
         .filter(|ms| **ms > FIRST_TOKEN_BUDGET_MS)
         .count();
+    let over_degraded = detour_total_ms
+        .iter()
+        .filter(|ms| **ms > DEGRADED_BUDGET_MS)
+        .count();
+    // Say what was measured. This walks EVERY anchor from ring slot 0, not the
+    // anchor the policy would have chosen from the town's own serving
+    // satellite, so these totals are the geometry's whole range and not
+    // section H's population. The conclusion does not turn on the difference --
+    // the plane link alone is 249 ms of round trip -- but the basis belongs in
+    // the output rather than in a reader's assumption.
     println!(
-        "   What the detour costs, over {} (ring, anchor) pairs sampled hourly:\n\n\
-         \x20    extra round trip     median {:.0} ms, worst {:.0} ms\n\
-         \x20    worst round trip     {:.0} ms against a {:.0} ms budget\n\
-         \x20    pairs over budget    {} of {} ({:.0}%)\n\
-         \x20    pairs with no mate   {}\n",
+        "   What the detour costs. Every (ring, anchor) pair walked from ring\n\
+         \x20  slot 0 at {} hourly instants -- the geometry's whole range, not\n\
+         \x20  the anchors the policy actually holds:\n\n\
+         \x20    (ring, anchor) pairs   {} distinct, {} samples\n\
+         \x20    extra round trip       median {:.0} ms, worst {:.0} ms\n\
+         \x20    worst round trip       {:.0} ms\n\
+         \x20    over {:.0} ms nominal     {} of {} samples ({:.0}%)\n\
+         \x20    over {:.0} ms degraded    {} of {} samples ({:.0}%)\n\
+         \x20    samples with no mate   {}\n\n\
+         \x20  The plane link alone costs 249 ms of round trip, so no detour in\n\
+         \x20  this geometry can meet the nominal budget. That is arithmetic\n\
+         \x20  rather than sampling. What it can meet is the degraded budget,\n\
+         \x20  which is the point of having one: the cure is not free, and it\n\
+         \x20  was never going to be invisible.\n",
+        INSTANTS,
+        distinct_pairs,
         detour_total_ms.len(),
         median,
         worst_extra,
         worst_total,
         FIRST_TOKEN_BUDGET_MS,
-        over_budget,
+        over_nominal,
         detour_total_ms.len(),
-        100.0 * over_budget as f64 / detour_total_ms.len() as f64,
+        100.0 * over_nominal as f64 / detour_total_ms.len() as f64,
+        DEGRADED_BUDGET_MS,
+        over_degraded,
+        detour_total_ms.len(),
+        100.0 * over_degraded as f64 / detour_total_ms.len() as f64,
         stranded
     );
 
@@ -851,8 +884,9 @@ E. Does the shell need links of its own?
          \x20      The frozen kind: {:.0} km, {:.2} km/s, pointed once at launch and\n\
          \x20      held. A crippled anchor reaches its ring through a plane mate\n\
          \x20      that still has one. The sessions stay reachable rather than\n\
-         \x20      stranded -- but the detour is not free, and the figures above say\n\
-         \x20      what it costs. The plane is a cycle, so either neighbour will do.\n",
+         \x20      stranded -- but the detour busts the nominal budget and clears\n\
+         \x20      only the degraded one, sized for exactly this failure. The plane\n\
+         \x20      is a cycle, so either neighbour will do.\n",
         shell.total(),
         2 * shell.total(),
         intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1) / 1e3,
@@ -860,9 +894,10 @@ E. Does the shell need links of its own?
     );
     println!(
         "   The second costs twice the telescopes and turns a stranding into a\n\
-         \x20  detour -- not free, as the figures above show. It is also the only\n\
-         \x20  path here that does not route a migration through the wheel. Two things it\n\
-         \x20  does NOT do. It cannot save a session from an anchor that dies outright --\n\
+         \x20  detour that meets the degraded budget but not the nominal one. It\n\
+         \x20  is also the only path here that does not route a migration through\n\
+         \x20  the wheel. Two things it does NOT do. It cannot save a session from\n\
+         \x20  an anchor that dies outright --\n\
          \x20  the working memory dies with the machine, and the vault answers that\n\
          \x20  -- and the relaying neighbour now carries two rings' traffic on one\n\
          \x20  telescope, which is a capacity question this model does not price.\n\n\
