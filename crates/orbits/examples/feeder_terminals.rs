@@ -35,7 +35,7 @@ use terminus_orbits::coverage::edge_slant_range;
 use terminus_orbits::duty::duty_ring;
 use terminus_orbits::handover::{best_visible, HandoverPolicy};
 use terminus_orbits::placement::{one_way_latency, one_way_light_time};
-use terminus_orbits::routing::{exit_gateway, RELAY_DELAY};
+use terminus_orbits::routing::{exit_gateway, feeder_route, RELAY_DELAY};
 use terminus_orbits::topology::{
     direct_demand, gateway_demand, pair_load, uniform_relay_demand, Session, TerminalDemand,
 };
@@ -738,6 +738,109 @@ E. Does the shell need links of its own?
          \x20  working memory across the sky. A migration storm out of one failure.\n",
         TOWNS, worst_pair, worst_anchor_total
     );
+    // What the plane-link cure actually costs. For every (ring, anchor) pair
+    // at a spread of instants, compare reaching the anchor directly against
+    // reaching it through a plane mate with that pair's telescope dark. Both
+    // sides climb from ring slot 0 so the delta is the detour and nothing
+    // else.
+    let plane_link = intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1);
+    let mut detour_extra_ms: Vec<f64> = Vec::new();
+    let mut detour_total_ms: Vec<f64> = Vec::new();
+    let mut stranded = 0usize;
+    for step in 0..24 {
+        let t = step as f64 * 3_600.0;
+        let anchor_pos: Vec<[f64; 3]> = anchors_at.iter().map(|f| f(t)).collect();
+        for ring in 0..wheel.planes {
+            let ring_pos: Vec<[f64; 3]> = (0..wheel.sats_per_plane)
+                .map(|slot| {
+                    let raan = ring as f64 * std::f64::consts::PI / wheel.planes as f64;
+                    let theta0 = slot as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64
+                        + phases[ring];
+                    terminus_orbits::constellation::polar_sat_position(
+                        &planet,
+                        wheel.altitude,
+                        raan,
+                        theta0,
+                        t,
+                    )
+                })
+                .collect();
+            let exit_via = |a: usize| {
+                let ap = anchor_pos[a];
+                exit_gateway(
+                    0,
+                    wheel.sats_per_plane,
+                    terminus_orbits::routing::NECKLACE_LINKS,
+                    HOP_RANGE,
+                    RELAY_DELAY,
+                    |slot| {
+                        let p = ring_pos[slot];
+                        if separation(p, ap) > limb {
+                            None
+                        } else {
+                            Some(
+                                ((p[0] - ap[0]).powi(2)
+                                    + (p[1] - ap[1]).powi(2)
+                                    + (p[2] - ap[2]).powi(2))
+                                .sqrt(),
+                            )
+                        }
+                    },
+                )
+            };
+            for (a, &(plane, slot)) in anchor_ids.iter().enumerate() {
+                // A plane of four closes into a cycle; the opposite satellite
+                // is permanently behind the planet, so the mates are the two
+                // neighbours.
+                let n = shell.sats_per_plane;
+                let mates = [plane * n + (slot + 1) % n, plane * n + (slot + n - 1) % n];
+                // `&exit_via` rather than `exit_via`: the parameter is
+                // `impl Fn`, which takes ownership, and the closure is needed
+                // twice. `&F` implements `Fn` when `F` does.
+                let Some(direct) =
+                    feeder_route(a, &mates, |_| true, &exit_via, plane_link, RELAY_DELAY)
+                else {
+                    continue;
+                };
+                match feeder_route(a, &mates, |x| x != a, &exit_via, plane_link, RELAY_DELAY) {
+                    Some(detour) => {
+                        // Round trip: both legs, plus the town's radio hop at
+                        // each end, plus the relay on the access satellite.
+                        let rt = |one_way: f64| 2.0 * (user_leg + one_way + RELAY_DELAY) * 1e3;
+                        detour_extra_ms.push(rt(detour.latency) - rt(direct.latency));
+                        detour_total_ms.push(rt(detour.latency));
+                    }
+                    None => stranded += 1,
+                }
+            }
+        }
+    }
+    detour_extra_ms.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+    detour_total_ms.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+    let median = detour_extra_ms[detour_extra_ms.len() / 2];
+    let worst_extra = *detour_extra_ms.last().expect("samples");
+    let worst_total = *detour_total_ms.last().expect("samples");
+    let over_budget = detour_total_ms
+        .iter()
+        .filter(|ms| **ms > FIRST_TOKEN_BUDGET_MS)
+        .count();
+    println!(
+        "   What the detour costs, over {} (ring, anchor) pairs sampled hourly:\n\n\
+         \x20    extra round trip     median {:.0} ms, worst {:.0} ms\n\
+         \x20    worst round trip     {:.0} ms against a {:.0} ms budget\n\
+         \x20    pairs over budget    {} of {} ({:.0}%)\n\
+         \x20    pairs with no mate   {}\n",
+        detour_total_ms.len(),
+        median,
+        worst_extra,
+        worst_total,
+        FIRST_TOKEN_BUDGET_MS,
+        over_budget,
+        detour_total_ms.len(),
+        100.0 * over_budget as f64 / detour_total_ms.len() as f64,
+        stranded
+    );
+
     println!(
         "   Two remedies, and they are not the same shape:\n\n\
          \x20    a spare feeder telescope    +1 per anchor  (+{} fleet)\n\
@@ -747,8 +850,9 @@ E. Does the shell need links of its own?
          \x20    intra-plane links           +2 per anchor  (+{} fleet)\n\
          \x20      The frozen kind: {:.0} km, {:.2} km/s, pointed once at launch and\n\
          \x20      held. A crippled anchor reaches its ring through a plane mate\n\
-         \x20      that still has one, so the sessions never move at all. The plane\n\
-         \x20      is a cycle, so either neighbour will do.\n",
+         \x20      that still has one. The sessions stay reachable rather than\n\
+         \x20      stranded -- but the detour is not free, and the figures above say\n\
+         \x20      what it costs. The plane is a cycle, so either neighbour will do.\n",
         shell.total(),
         2 * shell.total(),
         intra_plane_range(&planet, MEO_ALT, shell.sats_per_plane, 1) / 1e3,
@@ -756,9 +860,9 @@ E. Does the shell need links of its own?
     );
     println!(
         "   The second costs twice the telescopes and turns a stranding into a\n\
-         \x20  detour: the sessions never move at all. It is also the only path here\n\
-         \x20  that does not route a migration through the wheel. Two things it does\n\
-         \x20  NOT do. It cannot save a session from an anchor that dies outright --\n\
+         \x20  detour -- not free, as the figures above show. It is also the only\n\
+         \x20  path here that does not route a migration through the wheel. Two things it\n\
+         \x20  does NOT do. It cannot save a session from an anchor that dies outright --\n\
          \x20  the working memory dies with the machine, and the vault answers that\n\
          \x20  -- and the relaying neighbour now carries two rings' traffic on one\n\
          \x20  telescope, which is a capacity question this model does not price.\n\n\
