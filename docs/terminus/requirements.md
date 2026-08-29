@@ -12,7 +12,7 @@ ADR and the baseline is updated.
 | TER-REQ-001 | Provide continuous service over the inhabited band: all surface points within ±20° great-circle arc of the terminator. |
 | TER-REQ-002 | The service is interactive access to LLM inference hosted on the provider's space infrastructure. No planetary datacenter or ground relay network may be assumed. |
 | TER-REQ-003 | First-token latency ≤ 300 ms (p95) under nominal operation; ≤ 600 ms (p95) under degraded operation (a feeder telescope dark, session served over the plane link). Steady-state token stall ≤ 100 ms (p99). |
-| TER-REQ-004 | Service availability ≥ 99.9% per settlement per Earth year, measured as the fraction of time TER-REQ-003 is met. |
+| TER-REQ-004 | Service availability ≥ 99.9% per settlement per Earth year, measured as the fraction of time the service is functioning — TER-REQ-003 met in either its nominal or its degraded budget. A session served over the plane link is degraded, not unavailable. |
 | TER-REQ-005 | Support 10,000 terminals across ~100 settlements at initial service; scale to 1,000,000 terminals without constellation redesign. |
 
 ## Ground segment

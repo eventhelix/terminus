@@ -30,9 +30,9 @@ outstanding; **Open**: committed follow-on work, not yet designed.
 Tally: 8 Designed, 5 Partial, 3 Open.
 
 Open and Partial items are the committed follow-on volumes: Series 2
-(transport and reliability: handover machinery, end-to-end FEC, flare
-response, availability), Series 3 (PNT service design on the ADR-0008
-timing fabric), and the constellation-economics post (anchor count,
+(transport and reliability: handover interruption measurement, end-to-end
+FEC, flare response, availability), Series 3 (PNT service design on the
+ADR-0008 timing fabric), and the constellation-economics post (anchor count,
 redundancy sizing, total-mass optimization). Statuses as of tag
 `terminus-post-11` (backbone, ADR-0008, folded in), with ADR-0012
 (MEO-direct declined) and ADR-0013 (terminal aperture) folded in at tags
