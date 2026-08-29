@@ -65,8 +65,12 @@ a failure.
 
 **`ISL_REACQUIRE` is a stated parameter, not a measured one.** It is stated in
 one place, the way `RELAY_DELAY` is (ADR-0023), so that everything quotes the
-same number rather than inventing its own. Nothing here has modelled a cold
-telescope slewing to a new ring, searching, and locking.
+same number rather than inventing its own. Seconds rather than minutes is not
+arbitrary: this is a **pointed** acquisition and not a search. Both ends know
+their own and each other's orbits to the metre, so the spare is told exactly
+where to look and at what frequency — the same move that spares a ground
+terminal its cold-start hunt (ADR-0007). What nothing here has modelled is the
+slew and lock itself.
 
 What moves if the guess is wrong is the hold-off, not the telescope. The
 hardware case does not turn on the value: a spare that restores the direct path
@@ -77,9 +81,8 @@ bound on interruption from a single satellite failure — and with the plane lin
 under it the session is degraded, not interrupted, for all of that time. A
 reacquisition that ran to minutes could not be held off: the sessions would
 have to migrate, the hold-off would have to be broken, and the spare would be
-back to protecting an empty bucket. **The crossover between
-holding and moving is unmeasured, and it is the open item this decision
-creates.**
+back to protecting an empty bucket. **The crossover between holding and moving
+is unmeasured, and it is the open item this decision creates.**
 
 ## Consequences
 

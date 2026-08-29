@@ -3,14 +3,15 @@
 Status: accepted
 Date: 2026-08-27 (amended 2026-08-28)
 Requirements: TER-REQ-003, TER-REQ-004, TER-REQ-014, TER-REQ-016
-Evidence: `cargo run --release -p terminus-orbits --example feeder_terminals` (sections F and G)
+Evidence: `cargo run --release -p terminus-orbits --example feeder_terminals` (sections E, F and G)
 
 > **Amended 2026-08-28.** The decision stands unchanged — the plane links stay,
 > the inter-plane mesh stays out. What was wrong was the reason. This ADR
-> asserted that with plane links "the sessions never move at all"; measuring the
-> detour shows one moves anyway, by 6.3x the re-anchor margin. The plane link
-> does not prevent the migration. It keeps the session *served* while the
-> migration happens, and that is a different purchase at a different price. The
+> asserted that with plane links "the sessions never move at all"; the measured
+> detour overshoots the re-anchor margin by **6.3x**, so the session moves
+> anyway. The plane link does not prevent the migration. It keeps the session
+> *served* while the migration happens, and that is a different purchase at a
+> different price. The
 > "Why" and "Consequences" below are rewritten to the measured numbers, and one
 > stale load figure is corrected: the busiest (ring, anchor) telescope carries
 > **113** of 1,000 sessions, not the 134 this ADR quoted from before the
@@ -81,15 +82,19 @@ when the direct path does (ADR-0024).
 **What the plane link buys is not stillness.** The detour adds **31,501 km** of
 one-way path at the median, against ADR-0020's **5,000 km** re-anchor margin —
 **6.3x the margin**. A detoured session is beaten by any rival anchor several
-times over, so the policy moves it at its next evaluation. The migration
-happens either way.
+times over, so the policy moves it at its next evaluation. With the plane link
+as the only remedy the migration happens either way; ADR-0024's spare and its
+hold-off are what buy the stillness back.
 
-What changes is whether the session is still being served while it moves. On
-the plane link it keeps talking to its own anchor at the degraded budget for as
-long as the move takes, which is exactly the overlap make-before-break needs:
-answering from the old anchor while the working memory streams to the new one
-(ADR-0022). Without the plane link the whole ring loses that anchor at once,
-and all 113 sessions on the busiest pair break before anything is made. The
+What changes is whether the session is still being served while it moves. The
+*transfer's* half of make-before-break (ADR-0022) was never in question and
+never needed this link: it is two feeder hops through one access satellite,
+which is what the access satellite's second feeder terminal is for, and it
+comes free from hardware already counted. What the plane link supplies is the
+**user's** half —
+the session keeps being answered by its own anchor, at the degraded budget, for
+as long as the move takes. Without it the whole ring loses that anchor at once,
+and all 113 sessions on the busiest pair go silent before anything is made. The
 plane link turns a stranding into a migration the session is served through.
 It does not turn it into stillness.
 
