@@ -20,15 +20,6 @@ use terminus_orbits::CentralBody;
 const ACCESS_ALT: f64 = 2_200e3;
 const MEO_ALT: f64 = 20_000e3;
 const MASK: f64 = 25.0 * std::f64::consts::PI / 180.0;
-/// How far a session may travel along the necklace to borrow a feeder
-/// terminal. The lasers stay powered even where the radios are dark, so the
-/// necklace is a standing relay and hops chain: half a ring reaches all of it.
-///
-/// Carried over from the lift list this example draws its constants from
-/// (`feeder_terminals.rs` lines 45-85); the walk below never has to route
-/// around a dark radio, so this bound never gets exercised here.
-#[allow(dead_code)]
-const REACH: usize = 6;
 /// What a hop costs when a session leaves through a ring mate instead of its
 /// own satellite. Terminals point one place each way, so a hop moves one
 /// place -- see `routing::NECKLACE_LINKS`.
