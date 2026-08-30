@@ -153,7 +153,11 @@ pub fn doppler_spread_across_spot(
 }
 
 /// Propagation-delay spread (s) across a spot of `spot_radius` (m) centered
-/// at `center_angle` (rad).
+/// at `center_angle` (rad): the difference between the longest and shortest
+/// delay anywhere in the spot. For a spot containing the sub-satellite
+/// point the shortest path is at nadir itself, in the spot's interior —
+/// the near/far edge difference alone would report a symmetric zero there,
+/// while the rim of a nadir spot really trails its center by ~0.4 µs.
 pub fn delay_spread_across_spot(
     body: &CentralBody,
     altitude: f64,
@@ -161,8 +165,14 @@ pub fn delay_spread_across_spot(
     spot_radius: f64,
 ) -> f64 {
     let d = spot_radius / body.radius;
-    (slant_range(body, altitude, center_angle + d) - slant_range(body, altitude, center_angle - d))
-        / SPEED_OF_LIGHT
+    let near = slant_range(body, altitude, center_angle - d);
+    let far = slant_range(body, altitude, center_angle + d);
+    let shortest = if center_angle.abs() < d {
+        slant_range(body, altitude, 0.0)
+    } else {
+        near.min(far)
+    };
+    (near.max(far) - shortest) / SPEED_OF_LIGHT
 }
 
 #[cfg(test)]
@@ -304,7 +314,9 @@ mod tests {
         for frac in [0.1, 0.25, 0.5, 0.75, 1.0] {
             assert!(doppler_spread_across_spot(&p, 2_200e3, edge * frac, spot, KA) < nadir);
         }
-        assert!(delay_spread_across_spot(&p, 2_200e3, 0.0, spot).abs() < 1e-12);
+        // The nadir spot's near and far edges are symmetric, but its center
+        // is the true minimum: the rim trails it by 113 m of slant, 0.38 µs.
+        assert_close(delay_spread_across_spot(&p, 2_200e3, 0.0, spot), 3.76e-7, 1e-2);
     }
 
     #[test]

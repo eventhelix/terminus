@@ -82,11 +82,13 @@ fn main() {
     for frac in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let center = edge * frac;
         let half = spot_half_extent(&planet, ALT, center, beam);
-        println!(
-            "  {:.2} of edge: {:3.0} µs",
-            frac,
-            delay_spread_across_spot(&planet, ALT, center, half).abs() * 1e6
-        );
+        let us = delay_spread_across_spot(&planet, ALT, center, half).abs() * 1e6;
+        let shown = if us < 1.0 {
+            format!("{us:.1}")
+        } else {
+            format!("{us:.0}")
+        };
+        println!("  {frac:.2} of edge: {shown:>3} µs");
     }
     let dt_edge = delay_spread_across_spot(&planet, ALT, edge, edge_half);
     println!(

@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-08-21
 Requirements: TER-REQ-006, TER-REQ-009, TER-REQ-010
-Evidence: `cargo run -p terminus-orbits --example spot_beams` (tags: terminus-post-8, terminus-post-8b, terminus-post-8c)
+Evidence: `cargo run -p terminus-orbits --example spot_beams` (tags: terminus-post-8, terminus-post-8b, terminus-post-8c, terminus-post-8d)
 
 ## Decision
 
@@ -26,8 +26,9 @@ broadening, 1/cos η = 1.35×) — into a ±102 km × ±32 km ellipse. Two
 consequences follow. Doppler spread across a beam's spot is the same for
 every beam in the footprint, exactly (f/c)·v·β = 11.9 kHz: the shift's
 slope per unit of beam angle, (f/c)·v·cos η, and the beam's broadening,
-1/cos η, cancel. Delay spread grows with the elongation, from ~0 under
-the nadir beam to 617 µs under the rim beam. With the satellite
+1/cos η, cancel. Delay spread grows with the elongation, from 0.4 µs under
+the nadir beam (its rim trails its center by 113 m of slant — the
+spot's shortest path is its own middle) to 617 µs under the rim beam. With the satellite
 precompensating each beam to its spot center, a terminal's residuals are
 at most **±6 kHz (every spot alike) and ±308 µs (under the rim beam)** —
 inside any receiver's ordinary tracking range, ×77 and ×8 smaller than

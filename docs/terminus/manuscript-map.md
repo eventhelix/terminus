@@ -11,7 +11,7 @@ Post → book chapter tracking. One row per post; update when a post lands.
 | 5 | Rings over twilight | 1 | drafted | terminus-orbits example access_constellation (ADR-0003, tag terminus-post-5) | 1.5 |
 | 6 | Where the mind lives | 1 | drafted | terminus-orbits example compute_placement (ADR-0004, tag terminus-post-6) | 1.6 |
 | 7 | Talking past a flaring red star | 1 | drafted | terminus-orbits example frequency_plan (ADR-0005, tag terminus-post-7) | 1.7 |
-| 8 | Beams, not blankets | 1 | drafted | terminus-orbits examples spot_beams + terminal_aperture (ADR-0006/0013, tags terminus-post-8, -8b, -8c, terminus-post-16) | 1.8 |
+| 8 | Beams, not blankets | 1 | drafted | terminus-orbits examples spot_beams + terminal_aperture (ADR-0006/0013, tags terminus-post-8 through -8d, terminus-post-16) | 1.8 |
 | 9 | First contact | 1 | drafted | terminus-orbits example first_contact (ADR-0007, tag terminus-post-9) | 1.9 |
 | 10 | The backbone | 1 | drafted | terminus-orbits examples backbone + clock_rates (ADR-0008/0009, tags terminus-post-11, terminus-post-12) | 1.10 |
 | 11 | The unbroken thread | 1 | drafted | terminus-orbits example unbroken_thread (ADR-0010/0011, tags terminus-post-13, terminus-post-14) | 1.11 |
