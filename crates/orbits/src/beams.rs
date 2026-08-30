@@ -32,6 +32,49 @@ pub fn doppler_shift(range_rate: f64, frequency: f64) -> f64 {
     range_rate / SPEED_OF_LIGHT * frequency
 }
 
+/// Signed Doppler shift (Hz) actually received on the ground: positive when
+/// the satellite approaches (`range_rate` negative) — the received frequency
+/// sits *above* the carrier, a blue shift. Negative when it recedes: red.
+pub fn received_doppler(range_rate: f64, frequency: f64) -> f64 {
+    -range_rate / SPEED_OF_LIGHT * frequency
+}
+
+/// Ground position anywhere in the footprint, as angular offsets (rad) from
+/// the sub-satellite point: `along_track` positive *ahead* of the satellite
+/// in its direction of motion, `cross_track` perpendicular to the track.
+fn ground_position(body: &CentralBody, along_track: f64, cross_track: f64) -> [f64; 3] {
+    // Orbit plane = x–z plane, satellite at (0, 0, R+h) moving toward +x.
+    let (r, a, c) = (body.radius, along_track, cross_track);
+    [r * a.sin() * c.cos(), r * c.sin(), r * a.cos() * c.cos()]
+}
+
+fn dot(u: [f64; 3], v: [f64; 3]) -> f64 {
+    u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
+}
+
+/// Slant range (m) from a ground user at (`along_track`, `cross_track`)
+/// angular offsets (rad) to the satellite overhead at `altitude` (m).
+pub fn slant_range_at(body: &CentralBody, altitude: f64, along_track: f64, cross_track: f64) -> f64 {
+    let user = ground_position(body, along_track, cross_track);
+    let sat = [0.0, 0.0, body.radius + altitude];
+    let los = [sat[0] - user[0], sat[1] - user[1], sat[2] - user[2]];
+    dot(los, los).sqrt()
+}
+
+/// Rate of change of slant range (m/s, positive receding) for a ground user
+/// anywhere in the footprint: the satellite's velocity vector projected onto
+/// the line of sight — one dot product, `v⃗ · r̂`.
+pub fn range_rate_at(body: &CentralBody, altitude: f64, along_track: f64, cross_track: f64) -> f64 {
+    let user = ground_position(body, along_track, cross_track);
+    let sat = [0.0, 0.0, body.radius + altitude];
+    let omega = 2.0 * std::f64::consts::PI / orbital_period(body, altitude);
+    let velocity = [(body.radius + altitude) * omega, 0.0, 0.0];
+    let los = [sat[0] - user[0], sat[1] - user[1], sat[2] - user[2]];
+    let slant = dot(los, los).sqrt();
+    let los_unit = [los[0] / slant, los[1] / slant, los[2] / slant];
+    dot(velocity, los_unit)
+}
+
 /// Ground radius (m) of the spot painted by a satellite beam of full width
 /// `beamwidth` (rad) pointed at nadir from `altitude`.
 pub fn nadir_spot_radius(altitude: f64, beamwidth: f64) -> f64 {
@@ -114,10 +157,11 @@ mod tests {
 
     #[test]
     fn spot_collapses_doppler_and_delay_spread() {
-        // Worst-case spot at the coverage edge, 19.2 km radius: ~2.3 kHz of
-        // Doppler spread and ~116 µs of delay spread across the whole spot —
-        // versus ±460 kHz and a multi-millisecond window across the full
-        // footprint.
+        // Spot at the coverage edge, 19.2 km radius: ~2.3 kHz of Doppler
+        // spread and ~116 µs of delay spread across the whole spot — versus
+        // ±460 kHz and a multi-millisecond window across the full footprint.
+        // The edge is the *delay* worst case; the Doppler worst case is the
+        // nadir spot (see doppler_spread_is_worst_at_nadir).
         let p = reference_planet();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         let spot = 1.92e4;
@@ -131,5 +175,79 @@ mod tests {
             1.16e-4,
             2e-2,
         );
+    }
+
+    #[test]
+    fn dot_product_form_matches_the_in_plane_closed_form() {
+        // range_rate_at computes v⃗·r̂ with explicit vectors; range_rate is
+        // the in-plane closed form R·r·ω·sinγ/slant. On the orbit track they
+        // must agree exactly. The closed form's positive angle is a receding
+        // satellite, i.e. a user *behind* it: along_track = −γ.
+        let p = reference_planet();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        for frac in [0.05, 0.25, 0.5, 0.75, 1.0] {
+            let g = edge * frac;
+            assert_close(range_rate_at(&p, 2_200e3, -g, 0.0), range_rate(&p, 2_200e3, g), 1e-9);
+            assert_close(range_rate_at(&p, 2_200e3, g, 0.0), -range_rate(&p, 2_200e3, g), 1e-9);
+            assert_close(
+                slant_range_at(&p, 2_200e3, g, 0.0),
+                slant_range(&p, 2_200e3, g),
+                1e-9,
+            );
+        }
+    }
+
+    #[test]
+    fn cross_track_axis_sees_zero_doppler() {
+        // A user displaced purely cross-track sees a line of sight with no
+        // component along the velocity: v⃗·r̂ = 0. This is the map's zero
+        // (iso-Doppler) line through the sub-satellite point.
+        let p = reference_planet();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        for frac in [0.25, 0.5, 1.0] {
+            assert!(range_rate_at(&p, 2_200e3, 0.0, edge * frac).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn slant_range_depends_only_on_the_central_angle() {
+        // Iso-delay contours are concentric circles: any (along, cross) pair
+        // with the same central angle has the same slant range.
+        let p = reference_planet();
+        let g = 0.2;
+        let along = slant_range_at(&p, 2_200e3, g, 0.0);
+        let cross = slant_range_at(&p, 2_200e3, 0.0, g);
+        assert_close(along, cross, 1e-9);
+        assert_close(along, slant_range(&p, 2_200e3, g), 1e-9);
+    }
+
+    #[test]
+    fn received_doppler_is_blue_ahead_and_red_behind() {
+        // Ahead of the satellite (positive along-track) the range closes:
+        // negative range rate, positive received shift — a blue shift.
+        let p = reference_planet();
+        let ahead = range_rate_at(&p, 2_200e3, 0.1, 0.0);
+        assert!(ahead < 0.0);
+        assert!(received_doppler(ahead, KA) > 0.0);
+        let behind = range_rate_at(&p, 2_200e3, -0.1, 0.0);
+        assert!(received_doppler(behind, KA) < 0.0);
+    }
+
+    #[test]
+    fn doppler_spread_is_worst_at_nadir() {
+        // Overhead the shift sweeps steeply through zero, so the 19.2 km
+        // nadir spot has the *largest* Doppler spread in the footprint,
+        // ~11.9 kHz — 5.3× the edge spot's 2.25 kHz, which sits near the
+        // stationary maximum of the Doppler curve. (Delay is the opposite:
+        // zero spread at nadir by symmetry, worst at the edge.)
+        let p = reference_planet();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let spot = 1.92e4;
+        let nadir = doppler_spread_across_spot(&p, 2_200e3, 0.0, spot, KA);
+        assert_close(nadir, 1.191e4, 2e-2);
+        for frac in [0.1, 0.25, 0.5, 0.75, 1.0] {
+            assert!(doppler_spread_across_spot(&p, 2_200e3, edge * frac, spot, KA) < nadir);
+        }
+        assert!(delay_spread_across_spot(&p, 2_200e3, 0.0, spot).abs() < 1e-12);
     }
 }
