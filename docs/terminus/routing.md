@@ -120,3 +120,13 @@ never reachability.
   live feeder telescope to a given anchor cannot reach it. Skip terminals
   (the spare sightline at 2,200 km turned into capability) are the candidate
   insurance; countable over 12 slots and not yet counted.
+- **The timetable's maintenance cost is unpriced** (ADR-0009 addendum). The
+  timetable is a controlled equilibrium — satellites are flown to the
+  published ephemeris, burn plans included — not ballistic prediction. The
+  stellar third-body term is ~1,000× Earth's solar perturbation
+  (deterministic, periodic under tidal locking; candidate for absorption
+  into the reference orbits), J2 is ~100× smaller than Earth's, and flare
+  radiation pressure is meters of error against kilometre tolerances. The
+  open numbers: station-keeping Δv per year at both shells, and the
+  timetable refresh cadence — a perturbation-magnitudes example not yet
+  written, priced into the economics post.

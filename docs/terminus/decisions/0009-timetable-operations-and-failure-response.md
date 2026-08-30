@@ -65,3 +65,26 @@ Evidence: `cargo run -p terminus-orbits --example clock_rates` (tag: terminus-po
 - Series 3 must model the stellar tidal clock term and the flare-driven
   ionosphere; it inherits fixed-receiver, known-altitude, network-assisted
   solving and X-band's ~28× ionospheric advantage over L-band.
+
+## Addendum (2026-08-29): the timetable is flown, not merely predicted
+
+"Computable from ephemerides far in advance" is a statement about a
+**controlled equilibrium, not ballistic flight**. Real orbits are held to the
+published ephemeris by station-keeping inside tolerance boxes, and the burn
+plan — including continuous low-thrust arcs — is itself part of the
+timetable. The same ~1,054× stellar factor this ADR names for clocks acts on
+orbits as the third-body term; it is deterministic and, with the planet
+tidally locked, periodic in a fixed geometry, so the cheap response is to
+absorb it into the reference orbits rather than fight it with propellant.
+The stochastic residuals (flare radiation pressure, actuator noise) are
+meters against kilometre-scale timetable tolerances. What the thesis
+actually requires is only that the prediction horizon vastly exceed the
+timetable-update distribution time.
+
+**Declared debt, unpriced:** station-keeping Δv per year at 2,200 km and at
+20,000 km under the stellar tide, and the timetable refresh cadence the
+residuals demand — a perturbation-magnitudes example (the third-body term is
+new physics for the crate) plus a slot in the economics post's propellant
+accounting. Until it is priced, "computed before launch" should be read as
+"computed far beyond any protocol timescale, and refreshed as routinely as
+any ephemeris service."
