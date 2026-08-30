@@ -74,17 +74,40 @@ published ephemeris by station-keeping inside tolerance boxes, and the burn
 plan — including continuous low-thrust arcs — is itself part of the
 timetable. The same ~1,054× stellar factor this ADR names for clocks acts on
 orbits as the third-body term; it is deterministic and, with the planet
-tidally locked, periodic in a fixed geometry, so the cheap response is to
+tidally locked, periodic in a fixed geometry, so the first response is to
 absorb it into the reference orbits rather than fight it with propellant.
 The stochastic residuals (flare radiation pressure, actuator noise) are
 meters against kilometre-scale timetable tolerances. What the thesis
 actually requires is only that the prediction horizon vastly exceed the
 timetable-update distribution time.
 
-**Declared debt, unpriced:** station-keeping Δv per year at 2,200 km and at
-20,000 km under the stellar tide, and the timetable refresh cadence the
-residuals demand — a perturbation-magnitudes example (the third-body term is
-new physics for the crate) plus a slot in the economics post's propellant
-accounting. Until it is priced, "computed before launch" should be read as
-"computed far beyond any protocol timescale, and refreshed as routinely as
-any ephemeris service."
+Three refinements from the propagator RFC
+([issue #4](https://github.com/eventhelix/terminus/issues/4)):
+
+- **The gravity field is differently shaped, not merely quieter.** Slow
+  rotation shrinks J2 by ~125×, but the permanent tidal bulge toward the
+  star makes the figure triaxial: the sectorial C22/S22 terms — negligible
+  beside J2 on Earth — rise to the same order as the shrunken zonal term,
+  locked along the sub-stellar axis in a frame that turns once in 11.2 days.
+  New resonance structure, not Earth's with smaller coefficients.
+- **The shell's long-term stability is a question, not an assumption.** The
+  anchors orbit at roughly a third of the prograde stability limit
+  (`hill::hill_radius` ≈ 146,400 km, limit ≈ 73,200 km), and the 55°-inclined
+  planes sit above the critical angle at which a dominant third body pumps
+  eccentricity (Kozai–Lidov). Earth's GPS is protected by fast figure-driven
+  precession; this planet's figure is ~125× weaker, so whether the pumping
+  is suppressed must be settled by direct numerical integration — the
+  propagator's sharpest validation target, at the real shells (2,200 km;
+  20,000 km at 55°), not generic altitudes.
+- **Flare-inflated drag at 2,200 km needs a bound.** Earth-like scale
+  heights make the wheel's altitude untouchable; a superflared M-dwarf
+  thermosphere is where that intuition is weakest. Note the response is
+  day-side-locked — the same fixed geometry as everything else here — so it
+  is more modelable than Earth's storm response once bounded.
+
+**Declared debt, unpriced:** station-keeping Δv per year at both shells,
+the timetable refresh cadence the residuals demand, and the three items
+above — a perturbation/propagator work package (issue #4) plus a slot in
+the economics post's propellant accounting. Until it is priced, "computed
+before launch" should be read as "computed far beyond any protocol
+timescale, and refreshed as routinely as any ephemeris service."
