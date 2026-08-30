@@ -25,7 +25,12 @@ later outage a warm start against a scheduled beam.
   takes ≈ 170 s. Worst-case cold start — full raster wait, zero frequency
   search (precompensation), one round trip of timing alignment (24 ms),
   and a 30 s registration allowance — totals ≈ 3.3 minutes, 4.5× inside
-  TER-REQ-008's 15-minute bound.
+  TER-REQ-008's 15-minute bound. The count deliberately prices every
+  position at nadir-spot size, ignoring the elongation of leaning spots
+  (ADR-0006's farther/flatter/fatter, up to 5.3×): a raster stepped at
+  uniform nadir pitch over-tiles the rim, so 170 s is a ceiling — the
+  true beam-space count is roughly a third of it — and the overlap lands
+  where the link budget is thinnest.
 - **Warm start is trivial by construction.** A remembered spot identity
   plus the scheduled beam plan bounds reacquisition by one beam revisit —
   seconds against the 30 s requirement.

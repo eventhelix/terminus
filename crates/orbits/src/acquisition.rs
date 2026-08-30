@@ -6,6 +6,13 @@ use crate::CentralBody;
 
 /// Number of spot-beam positions needed to tile one satellite footprint:
 /// the ratio of the footprint's spherical-cap area to a spot's cap area.
+///
+/// Deliberately conservative: every position is priced at the given (nadir)
+/// spot size, while a leaning beam's real spot stretches up to 5.3× radially
+/// (`beams::spot_half_extent` — farther, flatter, fatter). A raster stepped
+/// at nadir pitch therefore over-tiles the rim; the count is an upper bound
+/// and the raster period built from it is a ceiling, bought in exchange for
+/// a uniform pitch and generous overlap where the link is weakest.
 pub fn spots_per_footprint(
     body: &CentralBody,
     altitude: f64,
