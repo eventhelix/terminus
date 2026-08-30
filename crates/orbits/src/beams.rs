@@ -374,6 +374,22 @@ mod tests {
     }
 
     #[test]
+    fn beam_doppler_spread_is_set_by_the_aperture_not_the_band() {
+        // beam_doppler_spread = (f/c)·v·β and a diffraction-limited beam has
+        // β = k·λ/D = k·c/(f·D), so the frequency cancels: spread = v·k/D.
+        // The 0.7 m array that throws a 1° pencil at Ka throws a 3.57° beam
+        // at X — with exactly the same 11.9 kHz Doppler spread, which is why
+        // the X-band lantern needs no more frequency margin than Ka service.
+        let p = reference_planet();
+        let ka = crate::radio::beamwidth_deg(0.7, 30e9).to_radians();
+        let x = crate::radio::beamwidth_deg(0.7, 8.4e9).to_radians();
+        let ka_spread = beam_doppler_spread(&p, 2_200e3, ka, 30e9);
+        let x_spread = beam_doppler_spread(&p, 2_200e3, x, 8.4e9);
+        assert_close(ka_spread, x_spread, 1e-9);
+        assert_close(ka_spread, 1.19e4, 1e-2);
+    }
+
+    #[test]
     fn delay_spread_grows_to_617_us_at_the_rim() {
         // With the elongated spot, the rim beam's timing spread is 617 µs
         // (residual ±308 µs after precompensation), not the 116 µs a
