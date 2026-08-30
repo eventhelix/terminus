@@ -6,7 +6,7 @@
 //! plane. Rates use the orbital angular rate; the planet's own rotation
 //! (11.2 days vs ~2 h orbits for the reference planet) is neglected.
 
-use crate::circular::orbital_period;
+use crate::circular::{orbital_period, orbital_velocity};
 use crate::placement::SPEED_OF_LIGHT;
 use crate::CentralBody;
 
@@ -63,7 +63,7 @@ pub fn slant_range_at(body: &CentralBody, altitude: f64, along_track: f64, cross
 
 /// Rate of change of slant range (m/s, positive receding) for a ground user
 /// anywhere in the footprint: the satellite's velocity vector projected onto
-/// the line of sight — one dot product, `v⃗ · r̂`.
+/// the line of sight — one dot product, `v · r̂`.
 pub fn range_rate_at(body: &CentralBody, altitude: f64, along_track: f64, cross_track: f64) -> f64 {
     let user = ground_position(body, along_track, cross_track);
     let sat = [0.0, 0.0, body.radius + altitude];
@@ -79,6 +79,62 @@ pub fn range_rate_at(body: &CentralBody, altitude: f64, along_track: f64, cross_
 /// `beamwidth` (rad) pointed at nadir from `altitude`.
 pub fn nadir_spot_radius(altitude: f64, beamwidth: f64) -> f64 {
     altitude * (beamwidth / 2.0).tan()
+}
+
+/// Nadir angle (rad) at the satellite — how far off straight-down it must
+/// look — to see a ground user at central angle `ground_angle`.
+pub fn nadir_angle(body: &CentralBody, altitude: f64, ground_angle: f64) -> f64 {
+    let r = body.radius + altitude;
+    (body.radius * ground_angle.sin()).atan2(r - body.radius * ground_angle.cos())
+}
+
+/// Ground central angle (rad) where a ray leaving the satellite `nadir_angle`
+/// off straight-down strikes the surface (the near intersection).
+pub fn ray_ground_angle(body: &CentralBody, altitude: f64, nadir_angle: f64) -> f64 {
+    let r = body.radius + altitude;
+    let sin_user = (r / body.radius) * nadir_angle.sin();
+    // The interior angle at the user is obtuse for the near intersection.
+    let user = std::f64::consts::PI - sin_user.min(1.0).asin();
+    std::f64::consts::PI - nadir_angle - user
+}
+
+/// In-plane (radial) half-extent (m) of the ground spot painted by a beam of
+/// full width `beamwidth` (rad) aimed at a spot center at `center_angle`.
+///
+/// A leaning beam's spot elongates for three stacking reasons: it lands
+/// *farther* (longer slant range), *flatter* (oblique incidence, ~1/sin ε),
+/// and *fatter* (a planar array's beam broadens by 1/cos of the scan angle,
+/// which for a nadir-mounted array is the nadir angle η). At the reference
+/// footprint edge the product is ~5.3×: a 19 km nadir radius becomes ±102 km.
+pub fn spot_half_extent(body: &CentralBody, altitude: f64, center_angle: f64, beamwidth: f64) -> f64 {
+    let eta = nadir_angle(body, altitude, center_angle);
+    let broadened = beamwidth / eta.cos();
+    body.radius
+        * (ray_ground_angle(body, altitude, eta + broadened / 2.0)
+            - ray_ground_angle(body, altitude, eta - broadened / 2.0))
+        / 2.0
+}
+
+/// Cross-track half-extent (m) of the same spot: the slant range times the
+/// half beamwidth (no scan broadening or obliquity in that plane).
+pub fn spot_cross_half_extent(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+) -> f64 {
+    slant_range(body, altitude, center_angle) * (beamwidth / 2.0).tan()
+}
+
+/// Doppler spread (Hz) across the spot of *any* beam of full width
+/// `beamwidth` from the array — independent of where the beam points.
+///
+/// In-plane the received shift is (f/c)·v·sin η, so its slope per unit of
+/// beam angle is (f/c)·v·cos η — and the beam is broadened by exactly
+/// 1/cos η, so the product collapses to (f/c)·v·β for every spot: a beam's
+/// Doppler spread is set by its width alone.
+pub fn beam_doppler_spread(body: &CentralBody, altitude: f64, beamwidth: f64, frequency: f64) -> f64 {
+    orbital_velocity(body, altitude) * beamwidth / SPEED_OF_LIGHT * frequency
 }
 
 /// Doppler spread (Hz) across a spot of `spot_radius` (m) centered at
@@ -157,11 +213,11 @@ mod tests {
 
     #[test]
     fn spot_collapses_doppler_and_delay_spread() {
-        // Spot at the coverage edge, 19.2 km radius: ~2.3 kHz of Doppler
-        // spread and ~116 µs of delay spread across the whole spot — versus
-        // ±460 kHz and a multi-millisecond window across the full footprint.
-        // The edge is the *delay* worst case; the Doppler worst case is the
-        // nadir spot (see doppler_spread_is_worst_at_nadir).
+        // A FIXED 19.2 km ground extent at the coverage edge: ~2.3 kHz of
+        // Doppler spread and ~116 µs of delay spread — versus ±460 kHz and
+        // a multi-millisecond window across the full footprint. The real
+        // beam's spot there is 5.3× longer (spot_half_extent); these are
+        // the per-kilometer field gradients the maps' contours show.
         let p = reference_planet();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         let spot = 1.92e4;
@@ -179,7 +235,7 @@ mod tests {
 
     #[test]
     fn dot_product_form_matches_the_in_plane_closed_form() {
-        // range_rate_at computes v⃗·r̂ with explicit vectors; range_rate is
+        // range_rate_at computes v·r̂ with explicit vectors; range_rate is
         // the in-plane closed form R·r·ω·sinγ/slant. On the orbit track they
         // must agree exactly. The closed form's positive angle is a receding
         // satellite, i.e. a user *behind* it: along_track = −γ.
@@ -200,7 +256,7 @@ mod tests {
     #[test]
     fn cross_track_axis_sees_zero_doppler() {
         // A user displaced purely cross-track sees a line of sight with no
-        // component along the velocity: v⃗·r̂ = 0. This is the map's zero
+        // component along the velocity: v·r̂ = 0. This is the map's zero
         // (iso-Doppler) line through the sub-satellite point.
         let p = reference_planet();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
@@ -234,12 +290,12 @@ mod tests {
     }
 
     #[test]
-    fn doppler_spread_is_worst_at_nadir() {
-        // Overhead the shift sweeps steeply through zero, so the 19.2 km
-        // nadir spot has the *largest* Doppler spread in the footprint,
-        // ~11.9 kHz — 5.3× the edge spot's 2.25 kHz, which sits near the
-        // stationary maximum of the Doppler curve. (Delay is the opposite:
-        // zero spread at nadir by symmetry, worst at the edge.)
+    fn doppler_gradient_is_steepest_at_nadir() {
+        // For a FIXED ground extent (±19.2 km), Doppler spread peaks at
+        // nadir (~11.9 kHz) where the shift sweeps steeply through zero,
+        // and falls to 2.25 kHz at the edge near the curve's stationary
+        // maximum. Real beams elongate toward the edge by exactly the
+        // inverse factor — see beam_doppler_spread_is_the_same_everywhere.
         let p = reference_planet();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         let spot = 1.92e4;
@@ -249,5 +305,71 @@ mod tests {
             assert!(doppler_spread_across_spot(&p, 2_200e3, edge * frac, spot, KA) < nadir);
         }
         assert!(delay_spread_across_spot(&p, 2_200e3, 0.0, spot).abs() < 1e-12);
+    }
+
+    #[test]
+    fn nadir_spot_half_extent_reduces_to_the_nadir_radius() {
+        let p = reference_planet();
+        assert_close(
+            spot_half_extent(&p, 2_200e3, 0.0, 1.0_f64.to_radians()),
+            nadir_spot_radius(2_200e3, 1.0_f64.to_radians()),
+            1e-2,
+        );
+        assert_close(
+            spot_cross_half_extent(&p, 2_200e3, 0.0, 1.0_f64.to_radians()),
+            nadir_spot_radius(2_200e3, 1.0_f64.to_radians()),
+            1e-9,
+        );
+    }
+
+    #[test]
+    fn edge_spot_is_farther_flatter_fatter() {
+        // At the footprint edge a 1° beam lands 1.66× farther (slant),
+        // 2.37× flatter (1/sin 25°), and 1.35× fatter (scan broadening,
+        // 1/cos η): ±102 km radial, ±32 km cross-track — 5.3× elongated.
+        let p = reference_planet();
+        let beam = 1.0_f64.to_radians();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let half = spot_half_extent(&p, 2_200e3, edge, beam);
+        assert_close(half, 1.020e5, 1e-2);
+        assert_close(spot_cross_half_extent(&p, 2_200e3, edge, beam), 3.18e4, 1e-2);
+        let farther = slant_range(&p, 2_200e3, edge) / 2_200e3;
+        let flatter = 1.0 / MIN_ELEVATION.sin();
+        let fatter = 1.0 / nadir_angle(&p, 2_200e3, edge).cos();
+        assert_close(
+            half / nadir_spot_radius(2_200e3, beam),
+            farther * flatter * fatter,
+            1e-2,
+        );
+    }
+
+    #[test]
+    fn beam_doppler_spread_is_the_same_everywhere() {
+        // The invariant: (f/c)·v·β. The shift's slope per beam angle,
+        // (f/c)·v·cos η, and the array's scan broadening, 1/cos η, cancel
+        // exactly, so every beam's spot spans the same ~11.9 kHz.
+        let p = reference_planet();
+        let beam = 1.0_f64.to_radians();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let invariant = beam_doppler_spread(&p, 2_200e3, beam, KA);
+        assert_close(invariant, 1.190e4, 1e-2);
+        for frac in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let center = edge * frac;
+            let half = spot_half_extent(&p, 2_200e3, center, beam);
+            let field = doppler_spread_across_spot(&p, 2_200e3, center, half, KA).abs();
+            assert_close(field, invariant, 1e-2);
+        }
+    }
+
+    #[test]
+    fn delay_spread_grows_to_617_us_at_the_rim() {
+        // With the elongated spot, the rim beam's timing spread is 617 µs
+        // (residual ±308 µs after precompensation), not the 116 µs a
+        // nadir-sized spot would suggest.
+        let p = reference_planet();
+        let beam = 1.0_f64.to_radians();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let half = spot_half_extent(&p, 2_200e3, edge, beam);
+        assert_close(delay_spread_across_spot(&p, 2_200e3, edge, half), 6.17e-4, 1e-2);
     }
 }
