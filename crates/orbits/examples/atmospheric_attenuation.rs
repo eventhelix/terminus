@@ -1,12 +1,12 @@
 //! Atmospheric fine print for the band plan of a tidally locked reference
 //! planet: clear-air gaseous absorption (ITU-R P.676-3 Annex 2) and rain
 //! attenuation (ITU-R P.838-3, circular polarization) across the candidate
-//! bands, plus the two molecular landmarks — the 22.235 GHz water-vapour
+//! bands, plus the two molecular landmarks — the 22.235 GHz water-vapor
 //! rotational line and the 60 GHz oxygen spin-flip wall.
 //!
 //! Atmosphere: the world bible's working assumption — Earth-like pressure
 //! and composition (ITU reference: 1013 hPa, 15 °C, 7.5 g/m³ water
-//! vapour). The star owns 1–3 GHz outright (coherent stellar emission),
+//! vapor). The star owns 1–3 GHz outright (coherent stellar emission),
 //! independent of anything the air does.
 //!
 //! Run: cargo run -p terminus-orbits --example atmospheric_attenuation
@@ -19,7 +19,7 @@ const STORM_CELL_KM: f64 = 5.0;
 
 fn main() {
     let air = SurfaceAir::default();
-    println!("Sea-level air: 1013 hPa, 15 C, 7.5 g/m3 water vapour (world-bible");
+    println!("Sea-level air: 1013 hPa, 15 C, 7.5 g/m3 water vapor (world-bible");
     println!("working assumption: Earth-like pressure and composition).");
     println!("Rain: ITU-R P.838-3, circular polarization.\n");
 
@@ -32,7 +32,7 @@ fn main() {
         ("S", 2.5, "IN STELLAR BAND"),
         ("X", 8.4, "diversity band"),
         ("Ku", 14.0, ""),
-        ("H2O line", 22.235, "vapour rotation"),
+        ("H2O line", 22.235, "vapor rotation"),
         ("Ka", 30.0, "primary band"),
         ("O2 wall", 60.0, "spin-flip complex"),
     ] {

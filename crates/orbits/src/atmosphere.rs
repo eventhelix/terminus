@@ -4,14 +4,14 @@
 //!
 //! Gaseous absorption is the simplified model of ITU-R P.676-3 Annex 2
 //! (valid 1–350 GHz, within ~±15% of the line-by-line calculation away
-//! from line centres): the 22.235 GHz water-vapour rotational line, the
+//! from line centers): the 22.235 GHz water-vapor rotational line, the
 //! 50–70 GHz oxygen complex — magnetic-dipole spin-flip transitions,
 //! merged at sea-level pressure into a single wall — and the 118.75 GHz
 //! oxygen line. Rain is the ITU-R P.838-3 power law `γ = k·R^α`, with
 //! `k` and `α` from that recommendation's analytic coefficient fits,
 //! combined here for circular polarization.
 //!
-//! Both models describe a nitrogen/oxygen atmosphere with water vapour,
+//! Both models describe a nitrogen/oxygen atmosphere with water vapor,
 //! parameterized by surface pressure, temperature, humidity and rain
 //! rate; nothing planet-specific is hard-coded.
 //!
@@ -22,10 +22,10 @@
 //!   <https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.838-3-200503-I!!PDF-E.pdf>
 
 /// Surface air state for the gaseous-absorption model. SI units:
-/// pressure in Pa, temperature in K, water-vapour density in kg/m³.
+/// pressure in Pa, temperature in K, water-vapor density in kg/m³.
 ///
 /// [`SurfaceAir::default`] is the ITU reference atmosphere the P.676
-/// fits were made at: 1 013 hPa, 15 °C, 7.5 g/m³ of water vapour.
+/// fits were made at: 1 013 hPa, 15 °C, 7.5 g/m³ of water vapor.
 #[derive(Clone, Copy, Debug)]
 pub struct SurfaceAir {
     pub pressure: f64,
@@ -72,7 +72,7 @@ impl SurfaceAir {
         }
     }
 
-    /// Water-vapour specific attenuation, dB/km, at `frequency` (Hz).
+    /// Water-vapor specific attenuation, dB/km, at `frequency` (Hz).
     /// ITU-R P.676-3 Annex 2 eq. (23); valid 1–350 GHz.
     pub fn water_vapor_db_per_km(&self, frequency: f64) -> f64 {
         let f = frequency / 1e9;
@@ -88,7 +88,7 @@ impl SurfaceAir {
     }
 
     /// Total clear-air specific attenuation, dB/km, at `frequency` (Hz):
-    /// dry air plus water vapour.
+    /// dry air plus water vapor.
     pub fn gaseous_db_per_km(&self, frequency: f64) -> f64 {
         self.dry_air_db_per_km(frequency) + self.water_vapor_db_per_km(frequency)
     }
