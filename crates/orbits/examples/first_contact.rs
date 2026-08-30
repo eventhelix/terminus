@@ -9,7 +9,7 @@
 //!
 //! Run: cargo run -p terminus-orbits --example first_contact
 
-use terminus_orbits::acquisition::{beacon_raster_period, spots_per_footprint};
+use terminus_orbits::acquisition::{band_raster_fraction, beacon_raster_period, spots_per_footprint};
 use terminus_orbits::beams::{
     beam_doppler_spread, delay_spread_across_spot, nadir_spot_radius, spot_half_extent,
 };
@@ -91,6 +91,29 @@ fn main() {
         x_half / 1e3,
         delay_spread_across_spot(&planet, ALT, edge, x_half) / 2.0 * 1e3
     );
+
+    println!(
+        "\nThe raster region is one generic rule — footprint ∩ habitable band\n\
+         (±20°) — evaluated per satellite; the {raster:.1} s full-footprint round\n\
+         stays the ceiling:"
+    );
+    for (offset, role) in [(0.0, " (duty ring)"), (10.0, ""), (20.0, ""), (30.0, " (hole-filler)")]
+    {
+        let frac = band_raster_fraction(
+            &planet,
+            ALT,
+            min_elevation,
+            20.0_f64.to_radians(),
+            (offset as f64).to_radians(),
+        );
+        println!(
+            "  {:>4.0}° off the band's center: {:>3.0}% of footprint  ->  {:>4.1} s round{}",
+            offset,
+            frac * 100.0,
+            frac * raster,
+            role
+        );
+    }
 
     println!(
         "\nStorms: the same raster is the all-weather lifeline. X loses\n\

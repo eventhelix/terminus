@@ -3,7 +3,7 @@
 Status: accepted (amended 2026-08-30: lantern moved from Ka to X)
 Date: 2026-08-21
 Requirements: TER-REQ-006, TER-REQ-008, TER-REQ-009, TER-REQ-012
-Evidence: `cargo run -p terminus-orbits --example first_contact` (tags: terminus-post-9, terminus-post-9b)
+Evidence: `cargo run -p terminus-orbits --example first_contact` (tags: terminus-post-9, terminus-post-9b, terminus-post-9c)
 
 ## Decision
 
@@ -52,17 +52,17 @@ lantern and requests sustained X-band service for its spot.
   plus the scheduled beam plan bounds reacquisition by one beam revisit —
   seconds against the 30 s requirement, and the lantern's 13.3 s round
   bounds it even when a storm has taken Ka.
-- **Only active satellites raster, and only over the band.** Duty cycling
-  (ADR-0016/0017's duty ring plus hole-fillers) means dark satellites carry no
-  lantern — safe, because TER-REQ-001 guarantees every band point an
-  *active* satellite, so every possible landing site lies inside some
-  active raster. Each active satellite walks footprint ∩ habitable band
-  (plus a drop-wind margin), not its whole footprint: for a duty-ring
-  satellite riding the terminator that trims only ~5% (a 22.65° footprint
-  against the ±20° band), but a hole-filler lit from a ring displaced off
-  the terminator may have a footprint that only clips the band, and the
-  trim spares most of its round. Trimming only ever shortens rounds, so
-  the 13.3 s ceiling stands.
+- **The raster region is one generic rule: footprint ∩ habitable band.**
+  Only active satellites raster (ADR-0016/0017's duty ring plus
+  hole-fillers; dark satellites carry no lantern — safe, because
+  TER-REQ-001 guarantees every band point an *active* satellite), and
+  each evaluates the same intersection (plus a drop-wind margin) rather
+  than special-casing its role. `band_raster_fraction` prices it: a
+  duty-ring satellite riding the terminator keeps 95% of its footprint
+  (a 22.65° cap against the ±20° band), a satellite 10° off keeps 78%,
+  20° off 52%, and a hole-filler 30° off just 24% — a 3.2 s round
+  instead of wasting most of 13.3 s on nightside ice. Trimming only ever
+  shortens rounds, so the 13.3 s full-footprint ceiling stands.
 - The terminal's role remains "listen, lock, answer": no stored almanac,
   no clock, and no position are ever required (TER-REQ-006), keeping all
   acquisition complexity on the spacecraft.

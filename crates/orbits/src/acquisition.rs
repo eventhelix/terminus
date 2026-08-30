@@ -30,6 +30,43 @@ pub fn beacon_raster_period(spots: f64, dwell: f64) -> f64 {
     spots * dwell
 }
 
+/// Fraction of a satellite's footprint that lies within `band_half_angle`
+/// (rad) of the habitable band's central great circle, for a sub-satellite
+/// point `track_offset` (rad) off that circle.
+///
+/// The raster region is this intersection — one generic rule for every
+/// active satellite: a duty-ring satellite riding the terminator keeps ~95%
+/// of its footprint, while a hole-filler lit from a displaced ring keeps
+/// only the sliver that clips the band. Trimming only ever shortens rounds,
+/// so the full-footprint raster period stays the worst case.
+pub fn band_raster_fraction(
+    body: &CentralBody,
+    altitude: f64,
+    min_elevation: f64,
+    band_half_angle: f64,
+    track_offset: f64,
+) -> f64 {
+    let lambda = footprint_radius(body, altitude, min_elevation) / body.radius;
+    let (n_rho, n_psi) = (256, 512);
+    let (mut inside, mut total) = (0.0, 0.0);
+    for i in 0..n_rho {
+        let rho: f64 = lambda * (i as f64 + 0.5) / n_rho as f64;
+        let weight = rho.sin();
+        for j in 0..n_psi {
+            let psi = 2.0 * std::f64::consts::PI * (j as f64 + 0.5) / n_psi as f64;
+            // Spherical law of cosines: the latitude (off the band's central
+            // great circle) of the cap point at polar coords (rho, psi).
+            let sin_lat =
+                track_offset.sin() * rho.cos() + track_offset.cos() * rho.sin() * psi.cos();
+            total += weight;
+            if sin_lat.abs() <= band_half_angle.sin() {
+                inside += weight;
+            }
+        }
+    }
+    inside / total
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -54,5 +91,26 @@ mod tests {
     #[test]
     fn full_raster_takes_under_three_minutes() {
         assert_close(beacon_raster_period(1.6996e4, 0.010), 169.96, 1e-3);
+    }
+
+    #[test]
+    fn raster_region_is_the_footprint_band_intersection() {
+        // One generic rule: footprint ∩ ±20° band. On the terminator the
+        // 22.65°-radius footprint keeps ~95%; the share falls monotonically
+        // as the sub-satellite point moves off the band's central circle,
+        // and vanishes once the footprint no longer reaches the band.
+        let p = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
+        let eps = 25.0_f64.to_radians();
+        let band = 20.0_f64.to_radians();
+        let frac = |t: f64| band_raster_fraction(&p, 2_200e3, eps, band, t.to_radians());
+        assert_close(frac(0.0), 0.95, 2e-2);
+        let mut last = 1.0;
+        for t in [0.0, 10.0, 20.0, 30.0, 40.0] {
+            let f = frac(t);
+            assert!(f < last, "not monotone at {t}");
+            last = f;
+        }
+        assert_close(frac(20.0), 0.51, 5e-2);
+        assert!(frac(45.0) < 1e-9);
     }
 }
