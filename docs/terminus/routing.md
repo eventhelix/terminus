@@ -127,7 +127,7 @@ never reachability.
   published ephemeris, burn plans included — not ballistic prediction. The
   stellar third-body term is ~1,000× Earth's solar perturbation
   (deterministic, periodic under tidal locking; candidate for absorption
-  into the reference orbits), J2 is ~100× smaller than Earth's but the
+  into the reference orbits), J2 is ~50× smaller than Earth's but the
   tidal bulge raises C22/S22 to the same order (a differently shaped field,
   not a quieter one), and flare radiation pressure is meters of error
   against kilometre tolerances. The open numbers: station-keeping Δv per
