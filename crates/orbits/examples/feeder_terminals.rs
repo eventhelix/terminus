@@ -1027,6 +1027,17 @@ E. Does the shell need links of its own?
         24 * relay.max_anchor(),
         fleet_relay
     );
+    // The adopted topology (ADR-0019): the necklace row plus the two frozen
+    // plane links each anchor carries. The cold spare (+24, ADR-0024) is
+    // priced in section G, not here.
+    let shell_adopted = 24 * (relay.max_anchor() + 2);
+    println!(
+        "{:>34} {:>10} {:>10} {:>8}",
+        "necklace + feeder + plane links",
+        ring_wheel,
+        shell_adopted,
+        ring_wheel + shell_adopted
+    );
     // How long a session holds an anchor is policy, not geometry, so it is read
     // off the chosen row of section H rather than off a MEO pass.
     let chosen_per_day = anchor_changes[CHOSEN_MARGIN] as f64 / TOWNS as f64 / (SPAN / 86_400.0);

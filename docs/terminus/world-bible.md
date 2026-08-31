@@ -131,7 +131,9 @@ as the AI's native time standard.
   drift, after which the incumbent and its neighbour are equidistant.
 - Not every satellite is radiating. The fleet runs a precomputed activation
   plan (ADR-0017): duty ring on as a block, other rings patched in only where
-  the band would be unserved. Mean **24 of 72 lit** (34%), peak 32; the proved
+  the band would be unserved, then a prune pass that switches off whatever
+  the later picks made redundant — chiefly the pole overlap where the rings
+  converge. Mean **23 of 72 lit** (32%), peak 30; the proved
   minimum is 21.4. Roughly **70% of the fleet is dark at any moment**, and all
   72 spacecraft are still required.
 - The duty ring is the ring carrying the **most** traffic, never the only ring
