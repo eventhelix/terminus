@@ -37,9 +37,11 @@ of them was a boresight or ratio figure.
   MEO service/compute/PNT 20,000 km; FEC and PNT diagram conventions as
   specified): at least the core architecture figure per post before the
   branch merges.
-  - Placed so far (source: `C:\Users\sande\OneDrive\Projects\Terminus\media`,
-    converted to WebP): planet-and-star hero (post 2), full architecture
-    infographic (post 12).
+  - **Done (2026-08-30):** every post has an OG image and a body figure
+    (posts 1–12; rings-over-twilight carries a mermaid diagram, post 12
+    the architecture infographic via shortcode). Source:
+    `C:\Users\sande\OneDrive\Projects\Terminus\media`, converted to WebP.
   - Architecture figure regenerated with the corrected "LEO access
     (~2,200 km)" label (2026-08-21) — resolved.
-  - Remaining: figures for posts 1, 3–11.
+- Editorial review passes per issue #3 (cold read + continuity/fact-check)
+  before the branch merges.
