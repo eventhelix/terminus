@@ -39,8 +39,8 @@ of them was a boresight or ratio figure.
   branch merges.
   - **Done (2026-08-30):** every post has an OG image and a body figure
     (posts 1–12; rings-over-twilight carries a mermaid diagram, post 12
-    the architecture infographic via shortcode). Source:
-    `C:\Users\sande\OneDrive\Projects\Terminus\media`, converted to WebP.
+    the architecture infographic via shortcode). Sources are held offline;
+    the published WebP renditions live in the site repo.
   - Architecture figure regenerated with the corrected "LEO access
     (~2,200 km)" label (2026-08-21) — resolved.
 - Editorial review passes per issue #3 (cold read + continuity/fact-check)

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Two working directories.** Tasks 1–7 run in `C:\Users\sande\Documents\repos\terminus` (branch `terminus`). Task 8 runs in `C:\Users\sande\Documents\repos\site` (create branch `terminus` from its default branch first).
+- **Two working directories.** Tasks 1–7 run in the `terminus` repo (branch `terminus`). Task 8 runs in the `site` repo (create branch `terminus` from its default branch first).
 - **Independence principle (spec):** no Terminus/Proxima names, constants, or narrative in `crates/orbits` code, docs, or examples. The example uses neutral wording ("a tidally locked, Earth-sized reference planet"). Terminus specifics go only in `docs/terminus/` and the site post.
 - **Crate conventions:** package name `terminus-orbits`, workspace-inherited `version/edition/rust-version/license/repository/homepage/authors` exactly like `crates/core/Cargo.toml`. Edition 2021, rust-version 1.79.
 - **No wall-clock reads, no unseeded randomness** (terminus invariant; this crate is pure math, so simply add none).
@@ -842,7 +842,7 @@ git commit -m "feat(orbits): terminator-tracking trade example; docs: ADR-0001"
 
 ### Task 8: RFP post draft (site repo)
 
-**Files (all in `C:\Users\sande\Documents\repos\site`):**
+**Files (all in the `site` repo):**
 - Create: `content/terminus/_index.md`
 - Create: `content/terminus/rfp.md`
 
