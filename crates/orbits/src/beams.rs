@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Spot-beam geometry: range rate and Doppler seen by ground users, and how
 //! the timing/Doppler spread collapses when a beam covers only a small spot.
 //!

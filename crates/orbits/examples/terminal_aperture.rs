@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! What a fixed, electronically steered ground terminal pays for having no
 //! moving parts: the scan loss and beam broadening of a face-up planar
 //! aperture across the served elevation range, and the aperture growth that

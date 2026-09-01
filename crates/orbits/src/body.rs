@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 /// Standard gravitational parameter of Earth, m³/s².
 pub const EARTH_MU: f64 = 3.986004418e14;
 

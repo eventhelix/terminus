@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Does the day/night boundary stay put? Solar day and terminator drift for
 //! Mercury (3:2 spin-orbit resonance) versus a 1:1 tidally locked,
 //! Earth-sized reference planet.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Deliberately dumb network interface (design §3.1): capture tap
 //! attachment point (like tcpdump on a NIC) and up/down state. Tx-side
 //! tap records every send (including frames the medium later drops);

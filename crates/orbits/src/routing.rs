@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Which way a question actually goes.
 //!
 //! The backbone offers a session two choices and no more. Leaving the ring, it

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Master-seed → per-model deterministic RNG derivation.
 //!
 //! Every stochastic draw in the simulator flows through a `ChaCha12Rng`

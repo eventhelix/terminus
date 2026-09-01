@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Golden-run acceptance (design §3.5): committed digests of the
 //! canonical scenario's captures. On intentional behavior change:
 //!   UPDATE_GOLDEN=1 cargo test -p terminus --test golden

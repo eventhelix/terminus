@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Backbone geometry for the reference architecture: intra-ring laser
 //! links, LEO→MEO feeder-link visibility and Doppler, and the light-time
 //! spread the anchor-selection policy works within.

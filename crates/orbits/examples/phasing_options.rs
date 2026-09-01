@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Does it matter how the rings are phased against each other?
 //!
 //! Three phasings are worth asking about:

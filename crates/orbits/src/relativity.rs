@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! First-order relativistic clock rates for navigation-grade timing:
 //! velocity time dilation, gravitational blueshift, and the stellar tidal
 //! modulation that distinguishes this system from Earth GNSS.
@@ -78,7 +81,7 @@ mod tests {
 
     #[test]
     fn stellar_tide_is_a_thousand_times_earths() {
-        // Proxima-like star at 0.0485 AU vs the Sun at 1 AU (GPS radius):
+        // An M-dwarf-mass star at 0.0485 AU vs the Sun at 1 AU (GPS radius):
         // ~28 ns/day of periodic modulation vs ~0.027 ns/day.
         let p = reference_planet();
         let local = stellar_tidal_rate_per_day(0.122 * SUN_MU, 7.2555e9, p.radius + MEO_ALT);

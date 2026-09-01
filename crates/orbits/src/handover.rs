@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Which satellite serves a ground point, and how often that has to change.
 //!
 //! Selection is parameterized by one number, the hysteresis margin: a ground

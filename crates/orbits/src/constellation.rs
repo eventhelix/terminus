@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Multi-satellite coverage of a fixed ground band by polar-orbit
 //! constellations, evaluated in the planet-fixed frame.
 //!

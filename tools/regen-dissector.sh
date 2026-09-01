@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 EventHelix.com Inc.
+
 # Regenerate the checked-in Wireshark dissector from the PDL source.
 # Prereq: cargo install pdl-dissector   (v0.1.0)
 # Run from anywhere; on Windows use Git Bash.

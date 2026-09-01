@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Sim-time helpers. The simulation always starts at
 //! `MonotonicTime::EPOCH`; scenario wall-clock epoch is applied only in
 //! the Recorder when stamping PCAPNG timestamps.

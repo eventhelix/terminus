@@ -1,0 +1,53 @@
+terminus
+Copyright (C) 2026 EventHelix.com Inc.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+LICENSE OF RECORD
+-----------------
+
+The license of record for this repository is the GNU Affero General Public
+License v3.0 (`LICENSE`), except for the Terminus series canon under
+`docs/terminus/`, which is licensed under Creative Commons
+Attribution-NonCommercial-NoDerivatives 4.0 International
+(`docs/terminus/LICENSE`).
+
+
+A NOTE ON THIS REPOSITORY'S HISTORY
+-----------------------------------
+
+This repository was developed privately before its first public release. During
+that period the working tree carried `LICENSE-MIT` and `LICENSE-APACHE` files
+naming a dual MIT / Apache-2.0 license. Those files remain visible in the git
+history, including at the `terminus-post-*` tags, which are preserved because
+published work cites them as the evidence for the numbers it quotes.
+
+No version of this software was ever published, distributed, or otherwise
+offered to any third party under those terms. The dual MIT / Apache-2.0 license
+was never granted to anyone. The terms above are the only terms under which
+this software has ever been made available, and they govern every commit,
+tag, and file in this repository.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+terminus depends on third-party Rust crates, each under its own license (all
+permissive: MIT, Apache-2.0, BSD, Zlib, or Unlicense). Their terms are
+unaffected by the license above. Run `cargo metadata` or consult `Cargo.lock`
+for the current dependency set and licenses.
+
+`crates/protocols/dissectors/link.lua` is generated output produced by
+`pdl-dissector` from `crates/protocols/pdl/link.pdl`; regenerate it with
+`tools/regen-dissector.sh`.

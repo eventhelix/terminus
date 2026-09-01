@@ -1,3 +1,6 @@
+-- SPDX-License-Identifier: AGPL-3.0-only
+-- Copyright (C) 2026 EventHelix.com Inc.
+
 -- ---------------------------------------------------------------------------
 -- terminus glue (appended by tools/regen-dissector.sh — do not hand-edit
 -- link.lua; edit link_glue.lua and regenerate).

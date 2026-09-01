@@ -68,13 +68,23 @@ Nodes, protocol layers, and transmission media are all nexosim models.
 
 ## License
 
-Licensed under either of
+**Code** — GNU Affero General Public License v3.0 ([LICENSE](LICENSE)).
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
+Use it, study it, modify it, and share it freely. If you distribute a modified
+version, or run one as a network service, the AGPL requires you to offer your
+users the corresponding source under the same terms. For anyone who wants to
+build on terminus without that obligation, EventHelix.com Inc. holds the
+copyright and can grant a separate commercial license — get in touch.
 
-at your option.
+**Terminus series canon** — the world bible, requirements baseline, decision
+log, and other documents under [`docs/terminus/`](docs/terminus/) are licensed
+under [CC BY-NC-ND 4.0](docs/terminus/LICENSE), not the AGPL. They are the
+source material for a written series; the code is what you are invited to build
+on.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+Individual crates in this workspace are written to stay generic and
+independently usable, so any of them may later be split into its own repository
+and released under permissive terms.
+
+See [NOTICE](NOTICE) for the license of record and third-party components, and
+[CONTRIBUTING.md](CONTRIBUTING.md) before sending code.

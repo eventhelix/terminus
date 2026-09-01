@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! End-to-end reliability arithmetic: how often an ARQ-only token stream
 //! stalls, and how far proactive FEC stretches the interval between stalls.
 //!

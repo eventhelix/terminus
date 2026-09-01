@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Band trade for the access link of a tidally locked reference planet
 //! orbiting a radio-loud red dwarf (coherent emission ~1–3 GHz): free-space
 //! path loss at the worst-case access slant, terminal beamwidth, and the

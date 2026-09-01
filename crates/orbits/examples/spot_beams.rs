@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! What a spot beam buys: timing and Doppler uncertainty across the full
 //! footprint of a 2,200 km access satellite versus across one narrow
 //! phased-array spot, at Ka band, for a tidally locked reference planet.

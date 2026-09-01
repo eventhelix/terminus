@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! The canonical failure timeline: what happens, second by second, when one
 //! feeder telescope dies — and how the outcome turns on which remedies exist.
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! First-order radio-link arithmetic: free-space path loss, aperture gain
 //! and beamwidth, and the scan loss a planar (electronically steered)
 //! aperture pays away from boresight, for band and terminal trade studies.

@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Which ring is on duty, and whether one ring could ever do the job alone.
 //!
 //! The access wheel's planes are pinned to the stars while the terminator
-//! sweeps past them, so at any instant one ring lies closest to the twilight
+//! sweeps past them, so at any instant one ring lies closest to the terminator
 //! band. Calling that ring "on duty" is a useful scheduling idea: it names the
 //! ring doing the most work, and it changes on a slow, predictable beat.
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Core simulation abstractions for terminus.
 //!
 //! This crate defines the building blocks that scenarios are assembled from —

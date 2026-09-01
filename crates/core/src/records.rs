@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Observability records: capture taps and metrics. These flow over
 //! ordinary nexosim ports into the Recorder model (Task 7).
 

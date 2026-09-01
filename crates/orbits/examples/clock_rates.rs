@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Relativistic clock rates for the MEO service shell of a tidally locked,
 //! Earth-sized reference planet, and the failover arithmetic of the
 //! keep-alive layer that guards the routing timetable.

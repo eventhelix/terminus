@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Where should LLM inference live for a tidally locked reference planet?
 //! Light-time prices for each candidate anchor location, session-anchor
 //! arithmetic (access dwell vs compute dwell), and KV-cache size and

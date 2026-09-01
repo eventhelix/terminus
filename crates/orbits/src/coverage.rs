@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Single-satellite coverage geometry: how much ground one satellite sees
 //! above a minimum elevation angle, how far the edge of that view is, and
 //! how long an overhead pass lasts.

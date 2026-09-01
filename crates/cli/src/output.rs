@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! The self-describing run artifact (design §3.3): captures +
 //! dissectors + visualether.toml + snapshot land together so the
 //! VisualEther MCP tools work with no manual setup.

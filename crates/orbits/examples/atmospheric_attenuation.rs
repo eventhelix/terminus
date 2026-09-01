@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Atmospheric fine print for the band plan of a tidally locked reference
 //! planet: clear-air gaseous absorption (ITU-R P.676-3 Annex 2) and rain
 //! attenuation (ITU-R P.838-3, circular polarization) across the candidate

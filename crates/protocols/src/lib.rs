@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Protocol encoders/decoders for terminus.
 //!
 //! `link` is generated from `pdl/link.pdl` at build time; the matching

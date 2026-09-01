@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Conformance checks for NodeBehavior implementations (design §3.5).
 //! Any implementation — hand-written model today, wrapped real code
 //! later — must be a pure function of (its state, BehaviorCtx inputs):

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Run recording: per-node PCAPNG (the vantage tcpdump would give on
 //! real hardware) + metrics.ndjson. Determinism notes that MUST hold
 //! (CI-enforced):

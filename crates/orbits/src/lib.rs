@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! First-order orbital screening for constellation trade studies.
 //!
 //! Everything is parameterized by a [`CentralBody`]; no planet is hard-coded.

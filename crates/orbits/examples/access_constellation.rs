@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Coverage of the ±20° terminator band by candidate access
 //! constellations: polar rings, minimum user elevation 25°, evaluated over
 //! one full 11.2-day rotation of a tidally locked, Earth-sized reference

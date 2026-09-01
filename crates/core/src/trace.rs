@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Precomputed channel traces: per directed (tx, rx) pair, a time
 //! series of {delay, SINR}. Step-hold between samples (no
 //! interpolation). A row with BOTH value fields empty is the

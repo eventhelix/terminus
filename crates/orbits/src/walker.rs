@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Inclined circular shells, evaluated in the same planet-fixed frame as
 //! [`crate::constellation`].
 //!
@@ -221,7 +224,7 @@ mod tests {
 
     #[test]
     fn nav_shell_keeps_four_in_view_but_one_per_plane_does_not() {
-        // TER-REQ-015 asks for four navigation satellites in view at all
+        // A navigation service needs four satellites in view at all
         // times. Six planes of four at 55° hold that everywhere in the band;
         // the same six planes with one satellite each — enough to anchor
         // sessions — leave band points with no fix at all.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Which satellites actually have to be switched on.
 //!
 //! Visibility is not necessity. Because every polar ring passes over both

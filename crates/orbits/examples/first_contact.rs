@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Cold-start budget for a terminal that knows nothing — no almanac, no
 //! clock, no position — under the reference access constellation (2,200 km,
 //! 25° min elevation), with the beacon lantern on X band: the same 0.7 m

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! What does the backbone cost in optical terminals?
 //!
 //! Each end of a laser link needs its own terminal, so the topology question

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Bench assembly: scenario config → wired nexosim models → run →
 //! flushed output directory. Wiring per node (see the plan's diagram):
 //! NodeModel.to_ifs[i] → NetIf.tx → Medium.transmit → deliveries →

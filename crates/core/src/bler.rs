@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! SINR→BLER as a pluggable step table (one curve in slice 1; per-MCS
 //! later). Rows sorted by ascending SINR; lookup takes the last row
 //! with sinr <= x; below the first row BLER is 1.0 (no link).

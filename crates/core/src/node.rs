@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Node = assembly (design §3.1): behavior model(s) + one NetIf per
 //! interface + a ComputeModel, composed at bench time. `NodeBehavior`
 //! is the slot where real production components go later; behaviors

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! How few satellites have to be switched on to serve the whole band?
 //!
 //! "Rings in reach" counts what a town can see, not what the fleet must

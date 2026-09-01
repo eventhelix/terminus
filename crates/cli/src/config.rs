@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Scenario configuration. Philosophy (design §3.5): configuration
 //! errors die HERE, at startup — dangling refs, kind/config mismatches,
 //! bad values, malformed traces. Anything that survives `load()` is

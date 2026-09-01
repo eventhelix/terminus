@@ -1,4 +1,4 @@
-# terminus — Open-Source Network Discrete-Event Simulator — Design
+# terminus — Network Discrete-Event Simulator — Design
 
 **Date:** 2026-07-23
 **Status:** Approved in brainstorming; name locked (`terminus`); ready for implementation planning
@@ -6,9 +6,9 @@
 with the EventHelix family (VisualEther, EventStudio); crate + repo names verified available
 2026-07-23.
 **Home:** This is the canonical copy, living in the `terminus` repo
-(`github.com/eventhelix/terminus`, private during early development, Apache-2.0/MIT dual
-license). The design was brainstormed in the VisualEther workspace on 2026-07-23; a copy of
-this spec remains there for provenance.
+(`github.com/eventhelix/terminus`, AGPL-3.0-only; the Terminus series canon under
+`docs/terminus/` is CC BY-NC-ND 4.0). The design was brainstormed in the VisualEther
+workspace on 2026-07-23; a copy of this spec remains there for provenance.
 
 ## 1. Purpose
 

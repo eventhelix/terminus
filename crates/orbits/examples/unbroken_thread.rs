@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Why FEC and ARQ work in tandem on the terminal↔anchor path: the ARQ
 //! round-trip price, the stall arithmetic of a token stream under loss, and
 //! how proactive repair overhead stretches the interval between stalls —

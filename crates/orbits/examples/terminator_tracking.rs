@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Cost of actively rotating an orbital plane to track the terminator of a
 //! tidally locked, Earth-sized reference planet (11.2-day rotation).
 //!

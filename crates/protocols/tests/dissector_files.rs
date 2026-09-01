@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Guard the checked-in dissector: it must exist (the CLI include_str!s
 //! it) and carry both the generated dispatch and the glue registration.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Cold-start acquisition arithmetic: how long a just-landed terminal waits
 //! for a beacon when satellites raster their footprint spot by spot — and
 //! why the terminal's own receive side never rasters back (ADR-0027): each
@@ -137,7 +140,7 @@ mod tests {
     fn an_unsynchronized_two_sided_search_blows_the_budget() {
         // If the terminal searched with a directional receive beam, each of
         // its 607 sky positions must be held for one full lantern round
-        // before moving on — 2.2 hours against TER-REQ-008's 15 minutes.
+        // before moving on — 2.2 hours against a 15-minute acquisition budget.
         let round = beacon_raster_period(1.333e3, 0.010);
         let search = 607.47 * round;
         assert_close(search, 8_098.0, 1e-2);

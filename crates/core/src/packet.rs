@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! The wire unit. HARD RULE (design §3.1): `PacketMeta` is
 //! observability-only — no model may branch on it. Behavior derives
 //! exclusively from `bytes`.

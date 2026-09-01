@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! terminus command-line entry point. Runs a scenario and produces a
 //! self-describing output directory (per-node PCAPNG, matching
 //! dissectors, visualether.toml, metrics, config snapshot).

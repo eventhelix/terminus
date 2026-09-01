@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! One medium per link domain (design §3.1). Wiring is static
 //! (assembly-time `attach`); connectivity is data (the channel trace).
 //! Per transmission at time t: which receivers are reachable, each

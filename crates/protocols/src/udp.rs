@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Real IPv4/UDP bytes via etherparse (design §2: standard protocols
 //! are real encodings carried inside the PDL framing; Wireshark chains
 //! its built-in dissectors after the PDL layers).

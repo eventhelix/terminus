@@ -1,6 +1,6 @@
 [package]
 name = "terminus"
-description = "terminus: an open-source Rust discrete-event simulator for networking and wireless systems, with real-bytes PCAP capture for Wireshark and VisualEther analysis."
+description = "terminus: a Rust discrete-event simulator for networking and wireless systems, with real-bytes PCAP capture for Wireshark and VisualEther analysis."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

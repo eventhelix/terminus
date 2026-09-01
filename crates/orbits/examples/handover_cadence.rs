@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! How often a town's link moves, and what actually decides it.
 //!
 //! Two intuitions get tested here and both turn out wrong. The first is that

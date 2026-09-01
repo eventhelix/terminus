@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! What the backbone actually has to carry.
 //!
 //! Two flows share these links and they are not remotely the same size. The

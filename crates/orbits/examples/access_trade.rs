@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Option C trade: could the MEO shell serve users directly, eliminating
 //! the LEO access rings? Prices the aperture penalty, spot-reuse density,
 //! and the (real) dynamical advantages of MEO-direct access.

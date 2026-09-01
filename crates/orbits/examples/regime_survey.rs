@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Survey of circular-orbit altitude regimes for a tidally locked,
 //! Earth-sized reference planet (11.2-day period, 0.122-solar-mass star at
 //! 0.0485 AU): coverage footprint, edge latency, and pass duration per

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Compute-placement arithmetic: distances and light times between orbital
 //! shells, and the size and transfer cost of LLM inference state.
 

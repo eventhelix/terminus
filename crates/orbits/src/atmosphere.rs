@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Sea-level atmospheric loss for band trade studies: clear-air gaseous
 //! absorption and rain attenuation, as empirical fits from the ITU-R
 //! propagation recommendations.

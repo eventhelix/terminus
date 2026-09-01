@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Can one ring serve the band alone, and does multi-ring coverage depend on
 //! how the rings are phased against each other?
 //!

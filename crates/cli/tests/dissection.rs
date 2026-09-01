@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Success criterion 2 (design §3.4): Wireshark opens any node capture
 //! with a clean dissection chain. Requires tshark on PATH — run with
 //! `cargo test -- --ignored` (CI does).

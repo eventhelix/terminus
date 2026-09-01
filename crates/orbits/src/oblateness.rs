@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Figure of a rotating body: how far from a sphere it is, and what that
 //! does to an orbit's node.
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Sizing the service shell as a navigation constellation: how many
 //! satellites the shell needs before four are visible from every point of
 //! the inhabited band at every instant, and what that costs on top of the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Processing-latency model (design §3.1): N cores + bounded FIFO.
 //! Free core → completion at now + service_ns; else queue; overflow →
 //! drop + counter. This concrete model defines the compute port

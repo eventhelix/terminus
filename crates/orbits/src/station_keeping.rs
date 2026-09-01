@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! What it costs to put a ring where you want it, and to keep it there.
 //!
 //! Two questions decide whether a constellation design may lean on a phase

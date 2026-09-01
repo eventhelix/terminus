@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Determinism invariant (CI, always on): running the same scenario
 //! with the same seed twice produces byte-identical artifacts.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! How round is a tidally locked planet, and what does its bulge do to the
 //! rings?
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! Inter-satellite backbone geometry: intra-ring neighbor links, LEO→MEO
 //! feeder-link visibility, and the worst-case Doppler the feeder links must
 //! precompensate.
@@ -156,7 +159,7 @@ where
 /// to shorten the path — and `feeder_terminals` measures what holding costs.
 /// Both ends of that curve are unaffordable. Holding an anchor for ever takes
 /// a 25,000 km margin, whose p95 round trip of 290 ms spends all but 10 ms of
-/// the RFP's 300 ms first-token budget before the model has read the question.
+/// a 300 ms first-token budget before the model has read the question.
 /// Chasing the shortest path costs more backbone than a 100 Gbps link can
 /// carry. At this setting a session changes anchor 12.70 times a day, its p95
 /// path is 22,925 km — a 178 ms round trip once the relays are paid, leaving

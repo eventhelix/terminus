@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! How many optical terminals the backbone actually costs.
 //!
 //! A laser link is not a shared medium. Each end needs its own terminal —

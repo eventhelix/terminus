@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 EventHelix.com Inc.
+
 //! End-to-end demo assertions: the three scripted features (handover,
 //! BLER window, compute burst) must be visible in the run output.
 

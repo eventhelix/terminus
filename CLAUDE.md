@@ -2,7 +2,7 @@
 
 ## What this is
 
-terminus is an open-source Rust discrete-event simulator for networking and
+terminus is a source-available Rust discrete-event simulator for networking and
 wireless systems (satellite, mobile, terrestrial). Two missions:
 
 1. **Test and integration platform** — exercise system software against
@@ -21,7 +21,7 @@ it before making architectural changes.
 
 The flagship application: a blog series (→ book) designing a constellation
 for a civilization on a tidally locked planet, staged on the eventhelix.com
-site repo's `terminus` branch (`C:\Users\sande\Documents\repos\site`).
+site repo's `terminus` branch (the `site` repo, checked out alongside this one).
 Series design of record: `docs/specs/2026-08-21-terminus-series-design.md`.
 Canon — world bible, requirements baseline (`TER-REQ-*`), ADRs, compliance
 matrix, manuscript map, and style rules — lives in `docs/terminus/`; read it
@@ -73,7 +73,36 @@ cargo build --release
   after the Terminus series, but no Terminus/Proxima concepts, constants, or
   narrative may appear in any crate — planets, stars, and constellations are
   configuration. The series lives only in `docs/terminus/`, scenario data, and
-  the site repo. The crates must remain publishable on their own.
+  the site repo. This is load-bearing for the licensing plan below: a crate can
+  only be carved out and released on its own if it carries no series narrative.
+  `crates/orbits/examples/` is the one exception — those examples are the posts'
+  evidence artifacts and may name Terminus concepts freely. Library code under
+  any `src/` may not.
+
+## Licensing
+
+Two licenses, split by artifact type:
+
+- **Code — AGPL-3.0-only** (`LICENSE`). Every Rust source file carries an
+  `SPDX-License-Identifier: AGPL-3.0-only` header; keep it when adding files.
+  AGPL is an OSI-approved open-source license, so terminus *is* open source —
+  but do not describe it as "permissively licensed" or imply MIT/Apache terms.
+- **Terminus series canon — CC BY-NC-ND 4.0** (`docs/terminus/LICENSE`).
+  Applies to everything under `docs/terminus/`. Do not add SPDX headers there.
+
+`NOTICE` records the license of record and explains why `LICENSE-MIT` and
+`LICENSE-APACHE` appear in the git history; leave it in place.
+
+Dependencies are all permissive (MIT, Apache-2.0, BSD, Zlib, Unlicense) and
+therefore AGPL-compatible. **Before adding a dependency, check its license** —
+anything more restrictive than Apache-2.0 needs a decision, not a `cargo add`.
+
+The plan is to **carve individual crates out into their own repositories** when
+they are ready to publish, relicensing each carve-out permissively at that
+point. EventHelix.com Inc. holds all copyright, so nothing blocks that; keeping
+the crates generic (above) is the whole preparation. Note the crates.io name
+`terminus` is already taken by an unrelated package, so the CLI package needs a
+new name before any publication.
 
 ## Commit conventions
 
