@@ -31,6 +31,16 @@ pub fn beamwidth_deg(diameter: f64, frequency: f64) -> f64 {
     70.0 * (SPEED_OF_LIGHT / frequency) / diameter
 }
 
+/// Thermal noise power (dBW) collected in `bandwidth` (Hz) at system
+/// temperature `temperature` (K): 10·log₁₀(k·T·B), k the Boltzmann
+/// constant. The narrower the channel, the quieter the floor — which is
+/// why a slow, narrow beacon can be heard by an antenna far too humble to
+/// carry traffic.
+pub fn thermal_noise_dbw(temperature: f64, bandwidth: f64) -> f64 {
+    const BOLTZMANN: f64 = 1.380_649e-23;
+    10.0 * (BOLTZMANN * temperature * bandwidth).log10()
+}
+
 /// Scan loss (dB, ≤ 0) of a planar aperture steered `scan_angle` (rad) away
 /// from boresight — the normal to its own face: `10·rolloff·log₁₀(cos θ)`.
 ///
