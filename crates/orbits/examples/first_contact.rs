@@ -165,6 +165,32 @@ fn main() {
         ka_pencil / compass,
         reply_gain - element_worst,
     );
+    let rx_dbw = eirp - fspl_db(slant, X) + element_worst;
+    let noise = thermal_noise_dbw(SYSTEM_NOISE_K, BEACON_BANDWIDTH);
+    println!(
+        "\nThe ledger, in decibels (worst case: edge slant, 65° lean):\n\
+         \x20 lantern transmit power:      +{:.1} dBW   ({:.0} W)\n\
+         \x20 satellite X aperture gain:   +{:.1} dBi   ({APERTURE} m, 60% efficient)\n\
+         \x20 spreading loss:             -{:.1} dB    ({:.0} km at {:.1} GHz)\n\
+         \x20 element gain, leaned 65°:     +{:.1} dBi   ({ELEMENT_GAIN_DBI:.0} dBi patch {:.1} dB lean)\n\
+         \x20 power reaching the element: -{:.1} dBW   ({:.0} femtowatts)\n\
+         \x20 thermal noise in 50 kHz:    -{:.1} dBW   (kTB at {SYSTEM_NOISE_K:.0} K)\n\
+         \x20 signal over noise:           +{:.1} dB    (a {:.0}x power ratio)",
+        10.0 * BEACON_TX_POWER_W.log10(),
+        BEACON_TX_POWER_W,
+        dish_gain_dbi(APERTURE, X, EFFICIENCY),
+        fspl_db(slant, X),
+        slant / 1e3,
+        X / 1e9,
+        element_worst,
+        scan_loss_db(scan, ROLLOFF),
+        -rx_dbw,
+        10.0_f64.powf(rx_dbw / 10.0) * 1e15,
+        -noise,
+        snr_db,
+        10.0_f64.powf(snr_db / 10.0),
+    );
+
     println!(
         "\nWhy not scan? the alternatives, priced:\n\
          \x20 unsynchronized receive raster: {positions:.0} sky positions × the {raster:.1} s\n\

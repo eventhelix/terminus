@@ -117,6 +117,17 @@ mod tests {
     }
 
     #[test]
+    fn the_beacon_ledger_lines_are_pinned() {
+        // The first-contact ledger, entry by entry (tag terminus-post-9e):
+        // satellite and terminal X gains, edge-slant spreading loss, and the
+        // thermal floor of the 50 kHz beacon channel at 290 K.
+        assert_close(dish_gain_dbi(0.7, 8.4e9, 0.6), 33.576, 1e-3);
+        assert_close(dish_gain_dbi(0.5, 8.4e9, 0.6), 30.653, 1e-3);
+        assert_close(fspl_db(3.6418e6, 8.4e9), 182.160, 1e-3);
+        assert_close(thermal_noise_dbw(290.0, 50e3), -156.985, 1e-3);
+    }
+
+    #[test]
     fn scan_loss_is_zero_at_boresight() {
         assert!(scan_loss_db(0.0, 1.0).abs() < 1e-12);
         assert!(scan_loss_db(0.0, 1.4).abs() < 1e-12);
