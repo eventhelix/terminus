@@ -10,8 +10,7 @@ malformed input, or anything that would matter to someone embedding these
 crates — please report it privately rather than opening a public issue.
 
 **Contact:** use GitHub's private vulnerability reporting on this repository
-(Security -> Report a vulnerability). Enable it under Settings -> Code security
-before publishing, or replace this line with a monitored contact address.
+(Security -> Report a vulnerability).
 
 Please include a description, the affected version or commit, and a
 reproduction if you have one. We will acknowledge your report and let you know
