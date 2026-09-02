@@ -38,6 +38,19 @@ pub fn terminator_drift_speed(radius: f64, solar_day: f64) -> f64 {
     2.0 * PI * radius / solar_day
 }
 
+/// Sunrises seen per orbit from a fixed point on the surface of a body that
+/// spins `rotations_per_orbit` times per orbit (prograde, spin axis normal to
+/// the orbit). Seen from the surface, the star circles the local sky
+/// `|k - 1|` times per orbit — the same subtraction as [`solar_day`], recast
+/// as a dimensionless ratio so it also covers the two cases a finite rotation
+/// period cannot express: a 1:1 lock scores exactly zero (the star never
+/// rises or sets), and a body with no spin at all (`k = 0`, infinite rotation
+/// period) still scores one sunrise per orbit. Mercury's 3:2 scores one every
+/// second orbit.
+pub fn sunrises_per_orbit(rotations_per_orbit: f64) -> f64 {
+    (rotations_per_orbit - 1.0).abs()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,6 +109,28 @@ mod tests {
         assert_close(s, p * orb / (orb - p), 1e-12);
         // Sanity: roughly the period divided by the fractional offset.
         assert_close(s, p / 1e-9, 1e-6);
+    }
+
+    #[test]
+    fn lock_plate_spin_rules() {
+        // The three modes of the lock plate on "know your planet". A 1:1 lock
+        // is the exact zero — an assertion about the model, so no tolerance —
+        // while no spin still delivers a sunrise every orbit, and a 3:2
+        // resonance one every second orbit.
+        assert_eq!(sunrises_per_orbit(1.0), 0.0);
+        assert_eq!(sunrises_per_orbit(0.0), 1.0);
+        assert_eq!(sunrises_per_orbit(1.5), 0.5);
+    }
+
+    #[test]
+    fn three_two_resonance_on_reference_planet_has_a_two_orbit_solar_day() {
+        // Impose Mercury's 3:2 on the reference planet's 11.2-day orbit:
+        // rotation period 2/3 of the orbit. Both routes must agree — the
+        // period form and the ratio form are the same subtraction.
+        let orb = 11.2 * DAY;
+        let s = solar_day(orb * 2.0 / 3.0, orb).unwrap();
+        assert_close(s, 22.4 * DAY, 1e-12); // exactly two orbits
+        assert_close(s, orb / sunrises_per_orbit(1.5), 1e-12);
     }
 
     #[test]
