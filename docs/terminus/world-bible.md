@@ -47,6 +47,29 @@ Because the planet is synchronously locked, the terminator is fixed on the
 surface but rotates in inertial space at 360°/11.2 days ≈ 32.14°/day
 (6.4930e-6 rad/s).
 
+### Climate
+
+Radiative screening only; evidence: `climate_screen` (ADR-0029).
+
+| Quantity | Canonical value | Notes |
+|---|---:|---|
+| Instellation | 897 W/m² | 0.66× Earth; the module's calibration |
+| Substellar equilibrium, no transport | 324.4 K (+51.2 °C) | Bracket, upper |
+| Equilibrium shared over the sphere | 229.4 K (−43.8 °C) | Bracket, lower |
+| **Twilight band surface** | **281.15 K (+8 °C)** | Inside the bracket |
+| Greenhouse increment the band implies | 51.8 K | Earth's is 33 K — the band's air works harder |
+| Scale height at band temperature | 8.22 km | Earth 8.43 km; sets the cell's return-branch altitude |
+| Night side with no transport | 35.2 K (−238 °C) | Radiating against 0.087 W/m² of interior heat |
+| CO₂ frost point (400 ppm of a bar) | 131.2 K (−142 °C) | |
+| N₂ condensation point (0.78 bar) | 75.3 K (−197.8 °C) | The temperature at which the sky stops being sky |
+| Surface wind | 5–15 m/s, dayward, never reversing | **Not computed.** GCM literature for tidally locked M-dwarf planets; the return branch runs several times faster |
+
+The cold trap is the reason the band exists. Stalled, the night side sits
+below both condensation points and the atmosphere freezes onto it; running,
+the dark hemisphere sits near 229 K, well clear of either. Wind speed is the
+one climate quantity the toolkit refuses to produce — an overturning velocity
+is a GCM result, and a closed-form number here would be false precision.
+
 Derived orbital reference points (from the mass, rotation period, star mass,
 and orbital distance; evidence: `regime_survey` example):
 
@@ -64,7 +87,10 @@ planet (ADR-0002).
 
 ## The star
 
-A Proxima Centauri-like M dwarf of 0.122 solar masses.
+A Proxima Centauri-like M dwarf of 0.122 solar masses and 0.00155 solar
+bolometric luminosities (ADR-0029). At 0.0485 AU that delivers **897 W/m²**,
+0.66× Earth's — matching the published 0.65 S_Earth for Proxima b, which is
+the calibration test for the climate module.
 
 - Produces coherent radio emission in roughly 1–3 GHz, with strong activity
   near 1.6 GHz. L/S band is therefore hostile spectrum.

@@ -13,6 +13,7 @@ pub mod backbone;
 pub mod beams;
 mod body;
 pub mod circular;
+pub mod climate;
 pub mod constellation;
 pub mod coverage;
 pub mod duty;
