@@ -55,7 +55,14 @@ impl<'a> BehaviorCtx<'a> {
         *self.next_packet_id += 1;
         self.actions.transmits.push((
             if_index,
-            Packet { bytes, meta: PacketMeta { id, birth_ns: self.now_ns, origin: self.node_id } },
+            Packet {
+                bytes,
+                meta: PacketMeta {
+                    id,
+                    birth_ns: self.now_ns,
+                    origin: self.node_id,
+                },
+            },
         ));
         id
     }
@@ -72,7 +79,9 @@ impl<'a> BehaviorCtx<'a> {
 
     /// Emit a metric; mutate the returned record to attach fields.
     pub fn metric(&mut self, event: &str) -> &mut MetricRecord {
-        self.actions.metrics.push(MetricRecord::new(self.now_ns, self.source, event));
+        self.actions
+            .metrics
+            .push(MetricRecord::new(self.now_ns, self.source, event));
         self.actions.metrics.last_mut().unwrap()
     }
 }
@@ -89,7 +98,14 @@ pub fn drive_behavior<B: NodeBehavior>(
     f: impl FnOnce(&mut B, &mut BehaviorCtx),
 ) -> Actions {
     let mut actions = Actions::default();
-    let mut ctx = BehaviorCtx { node_id, source, now_ns, rng, next_packet_id, actions: &mut actions };
+    let mut ctx = BehaviorCtx {
+        node_id,
+        source,
+        now_ns,
+        rng,
+        next_packet_id,
+        actions: &mut actions,
+    };
     f(behavior, &mut ctx);
     actions
 }

@@ -25,26 +25,48 @@ fn tshark_dissects_all_captures_cleanly() {
 
         // Zero malformed / expert-error frames.
         let out = Command::new("tshark")
-            .arg("-r").arg(&pcap)
-            .arg("-X").arg(format!("lua_script:{}", lua.display()))
-            .arg("-Y").arg("_ws.malformed || _ws.expert.severity == \"Error\"")
+            .arg("-r")
+            .arg(&pcap)
+            .arg("-X")
+            .arg(format!("lua_script:{}", lua.display()))
+            .arg("-Y")
+            .arg("_ws.malformed || _ws.expert.severity == \"Error\"")
             .output()
             .expect("tshark not runnable");
-        assert!(out.status.success(), "tshark failed on {node}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "tshark failed on {node}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let bad = String::from_utf8_lossy(&out.stdout);
         assert!(bad.trim().is_empty(), "{node}: malformed frames:\n{bad}");
 
         // Positive check: the chain reaches UDP on data frames.
         let out = Command::new("tshark")
-            .arg("-r").arg(&pcap)
-            .arg("-X").arg(format!("lua_script:{}", lua.display()))
-            .arg("-T").arg("fields").arg("-e").arg("frame.protocols")
+            .arg("-r")
+            .arg(&pcap)
+            .arg("-X")
+            .arg(format!("lua_script:{}", lua.display()))
+            .arg("-T")
+            .arg("fields")
+            .arg("-e")
+            .arg("frame.protocols")
             .output()
             .unwrap();
-        assert!(out.status.success(), "tshark failed on {node}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "tshark failed on {node}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let protos = String::from_utf8_lossy(&out.stdout);
-        assert!(protos.lines().any(|l| l.contains("udp")), "{node}: no frame chained through to UDP");
-        assert!(protos.lines().all(|l| !l.is_empty()), "{node}: frames with no protocol at all");
+        assert!(
+            protos.lines().any(|l| l.contains("udp")),
+            "{node}: no frame chained through to UDP"
+        );
+        assert!(
+            protos.lines().all(|l| !l.is_empty()),
+            "{node}: frames with no protocol at all"
+        );
     }
     let _ = std::fs::remove_dir_all(&run);
 }

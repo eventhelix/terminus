@@ -18,9 +18,15 @@ pub fn assert_behavior_deterministic<B: NodeBehavior + Clone>(behavior: B, node_
         let mut rng = ChaCha12Rng::seed_from_u64(99);
         let mut next_id = 0u64;
         let mut all = Vec::new();
-        all.push(drive_behavior(&mut b, node_id, "node:conf", 0, &mut rng, &mut next_id, |b, c| {
-            b.on_start(c)
-        }));
+        all.push(drive_behavior(
+            &mut b,
+            node_id,
+            "node:conf",
+            0,
+            &mut rng,
+            &mut next_id,
+            |b, c| b.on_start(c),
+        ));
         for timer_id in [crate::node::TIMER_SEND, crate::node::TIMER_TELEMETRY] {
             all.push(drive_behavior(
                 &mut b,
@@ -36,5 +42,8 @@ pub fn assert_behavior_deterministic<B: NodeBehavior + Clone>(behavior: B, node_
     };
     let a = run(behavior.clone());
     let b = run(behavior);
-    assert_eq!(a, b, "NodeBehavior must be deterministic given identical state and ctx inputs");
+    assert_eq!(
+        a, b,
+        "NodeBehavior must be deterministic given identical state and ctx inputs"
+    );
 }

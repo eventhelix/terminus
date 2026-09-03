@@ -39,17 +39,26 @@ mod tests {
 
     #[test]
     fn same_inputs_same_seed() {
-        assert_eq!(derive_seed(42, "medium:access"), derive_seed(42, "medium:access"));
+        assert_eq!(
+            derive_seed(42, "medium:access"),
+            derive_seed(42, "medium:access")
+        );
     }
 
     #[test]
     fn different_paths_different_seeds() {
-        assert_ne!(derive_seed(42, "medium:access"), derive_seed(42, "medium:feeder"));
+        assert_ne!(
+            derive_seed(42, "medium:access"),
+            derive_seed(42, "medium:feeder")
+        );
     }
 
     #[test]
     fn different_masters_different_seeds() {
-        assert_ne!(derive_seed(42, "medium:access"), derive_seed(43, "medium:access"));
+        assert_ne!(
+            derive_seed(42, "medium:access"),
+            derive_seed(43, "medium:access")
+        );
     }
 
     #[test]

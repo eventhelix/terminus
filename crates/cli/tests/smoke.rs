@@ -35,17 +35,30 @@ fn demo_features_visible_in_metrics_and_pcaps() {
     let ms = metrics(&dir);
 
     // Echo flow works at all: term-a completes round trips.
-    let rtts: Vec<&MetricRecord> =
-        ms.iter().filter(|m| m.source == "node:term-a" && m.event == "echo_rtt").collect();
-    assert!(rtts.len() > 300, "expected most of ~590 echoes to complete, got {}", rtts.len());
+    let rtts: Vec<&MetricRecord> = ms
+        .iter()
+        .filter(|m| m.source == "node:term-a" && m.event == "echo_rtt")
+        .collect();
+    assert!(
+        rtts.len() > 300,
+        "expected most of ~590 echoes to complete, got {}",
+        rtts.len()
+    );
     // RTT sanity: ~20 ms nominal (2 hops of ~3-4 ms + 2.5 ms relay + gw).
     let sample = rtts[0].value_ns.unwrap();
-    assert!((10_000_000..60_000_000).contains(&sample), "rtt {sample} ns out of band");
+    assert!(
+        (10_000_000..60_000_000).contains(&sample),
+        "rtt {sample} ns out of band"
+    );
 
     // (a) Handover: round trips still complete after t=30s via sat-2.
-    assert!(rtts.iter().any(|m| m.t_ns > 31 * S), "no echo replies after handover");
     assert!(
-        ms.iter().any(|m| m.source == "node:sat-2" && m.event == "forward" && m.t_ns > 30 * S),
+        rtts.iter().any(|m| m.t_ns > 31 * S),
+        "no echo replies after handover"
+    );
+    assert!(
+        ms.iter()
+            .any(|m| m.source == "node:sat-2" && m.event == "forward" && m.t_ns > 30 * S),
         "sat-2 never forwarded after handover"
     );
     // (No negative assertions on which satellite forwards when: the
@@ -73,7 +86,9 @@ fn demo_features_visible_in_metrics_and_pcaps() {
     );
 
     // Telemetry control plane flows.
-    assert!(ms.iter().any(|m| m.source == "node:gw" && m.event == "telemetry_rcvd"));
+    assert!(ms
+        .iter()
+        .any(|m| m.source == "node:gw" && m.event == "telemetry_rcvd"));
 
     // Pcaps exist and are non-trivial.
     for node in ["term-a", "term-b", "sat-1", "sat-2", "sat-3", "gw"] {

@@ -5,6 +5,25 @@ on:
   pull_request:
 
 jobs:
+  # Formatting and lints gate first: they are seconds, they need no tshark, and
+  # a red tick here is a one-command fix rather than a debugging session. The
+  # workspace drifted out of rustfmt shape once because nothing checked.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy
+        # Warnings are errors here, including in tests and examples — the
+        # examples are the series' evidence artifacts, so they are held to the
+        # same standard as the library.
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
   test:
     runs-on: ubuntu-latest
     steps:

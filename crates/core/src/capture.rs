@@ -72,7 +72,10 @@ impl Recorder {
             .if_ids
             .get(&(rec.node, rec.if_index))
             .expect("capture record for unknown interface — assembly bug");
-        let writer = env.writers.get_mut(&rec.node).expect("unknown node — assembly bug");
+        let writer = env
+            .writers
+            .get_mut(&rec.node)
+            .expect("unknown node — assembly bug");
         writer
             .write_pcapng_block(EnhancedPacketBlock {
                 interface_id,
@@ -134,7 +137,12 @@ impl ProtoModel for ProtoRecorder {
         }
         let metrics =
             BufWriter::new(File::create(&self.metrics_path).expect("create metrics.ndjson"));
-        let env = RecorderEnv { writers, if_ids, metrics, epoch_ns: self.epoch_ns };
+        let env = RecorderEnv {
+            writers,
+            if_ids,
+            metrics,
+            epoch_ns: self.epoch_ns,
+        };
         (Recorder::default(), env)
     }
 }
@@ -160,23 +168,47 @@ mod tests {
             epoch_ns: 1_000_000_000, // epoch offset visible in timestamps
             node_names: BTreeMap::from([(1, "n1".to_string())]),
             ifs: vec![
-                IfSpec { node: 1, if_index: 0, name: "n1:if0".into() },
-                IfSpec { node: 1, if_index: 1, name: "n1:if1".into() },
+                IfSpec {
+                    node: 1,
+                    if_index: 0,
+                    name: "n1:if0".into(),
+                },
+                IfSpec {
+                    node: 1,
+                    if_index: 1,
+                    name: "n1:if1".into(),
+                },
             ],
         };
         let mbox = Mailbox::with_capacity(64);
         let mut bench = SimInit::with_num_threads(1);
-        let cap = EventSource::new().connect(Recorder::capture, &mbox).register(&mut bench);
-        let met = EventSource::new().connect(Recorder::metric, &mbox).register(&mut bench);
-        let flush = EventSource::new().connect(Recorder::flush, &mbox).register(&mut bench);
-        let mut simu = bench.add_model(proto, mbox, "recorder").init(MonotonicTime::EPOCH).unwrap();
+        let cap = EventSource::new()
+            .connect(Recorder::capture, &mbox)
+            .register(&mut bench);
+        let met = EventSource::new()
+            .connect(Recorder::metric, &mbox)
+            .register(&mut bench);
+        let flush = EventSource::new()
+            .connect(Recorder::flush, &mbox)
+            .register(&mut bench);
+        let mut simu = bench
+            .add_model(proto, mbox, "recorder")
+            .init(MonotonicTime::EPOCH)
+            .unwrap();
 
         simu.process_event(
             &cap,
-            CaptureRecord { node: 1, if_index: 1, t_ns: 500, dir: Direction::Rx, bytes: vec![9, 8, 7] },
+            CaptureRecord {
+                node: 1,
+                if_index: 1,
+                t_ns: 500,
+                dir: Direction::Rx,
+                bytes: vec![9, 8, 7],
+            },
         )
         .unwrap();
-        simu.process_event(&met, MetricRecord::new(500, "medium:x", "tx").packet(42)).unwrap();
+        simu.process_event(&met, MetricRecord::new(500, "medium:x", "tx").packet(42))
+            .unwrap();
         simu.process_event(&flush, ()).unwrap();
         drop(simu);
 

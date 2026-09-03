@@ -102,12 +102,12 @@ fn main() {
     for step in 0..INSTANTS {
         let t = step as f64 * 3_600.0;
         let anchor_pos: Vec<[f64; 3]> = anchors_at.iter().map(|f| f(t)).collect();
-        for ring in 0..wheel.planes {
+        for (ring, &phase) in phases.iter().enumerate() {
             let ring_pos: Vec<[f64; 3]> = (0..wheel.sats_per_plane)
                 .map(|slot| {
                     let raan = ring as f64 * std::f64::consts::PI / wheel.planes as f64;
-                    let theta0 = slot as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64
-                        + phases[ring];
+                    let theta0 =
+                        slot as f64 * std::f64::consts::TAU / wheel.sats_per_plane as f64 + phase;
                     terminus_orbits::constellation::polar_sat_position(
                         &planet,
                         wheel.altitude,
@@ -150,7 +150,7 @@ fn main() {
                 // `impl Fn`, which takes ownership, and the closure is needed
                 // twice. `&F` implements `Fn` when `F` does.
                 let Some(direct) =
-                    feeder_route(a, &mates, |_| true, &exit_via, plane_link, RELAY_DELAY)
+                    feeder_route(a, &mates, |_| true, exit_via, plane_link, RELAY_DELAY)
                 else {
                     continue;
                 };
@@ -160,7 +160,7 @@ fn main() {
                 // Section A addition: keep the direct side too, so the
                 // healthy meter has a canonical value.
                 direct_total_ms.push(rt(direct.latency));
-                match feeder_route(a, &mates, |x| x != a, &exit_via, plane_link, RELAY_DELAY) {
+                match feeder_route(a, &mates, |x| x != a, exit_via, plane_link, RELAY_DELAY) {
                     Some(detour) => {
                         detour_extra_ms.push(rt(detour.latency) - rt(direct.latency));
                         detour_total_ms.push(rt(detour.latency));

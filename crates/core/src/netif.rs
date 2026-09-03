@@ -45,7 +45,9 @@ impl NetIf {
     pub async fn tx(&mut self, packet: Packet, cx: &Context<Self>) {
         let t = now_ns(cx);
         if !self.up {
-            self.metrics.send(MetricRecord::new(t, &self.label, "tx_down")).await;
+            self.metrics
+                .send(MetricRecord::new(t, &self.label, "tx_down"))
+                .await;
             return;
         }
         self.capture
@@ -57,13 +59,20 @@ impl NetIf {
                 bytes: packet.bytes.clone(),
             })
             .await;
-        self.to_medium.send(Transmission { tx_node: self.node_id, packet }).await;
+        self.to_medium
+            .send(Transmission {
+                tx_node: self.node_id,
+                packet,
+            })
+            .await;
     }
 
     pub async fn rx(&mut self, packet: Packet, cx: &Context<Self>) {
         let t = now_ns(cx);
         if !self.up {
-            self.metrics.send(MetricRecord::new(t, &self.label, "rx_down")).await;
+            self.metrics
+                .send(MetricRecord::new(t, &self.label, "rx_down"))
+                .await;
             return;
         }
         self.capture
@@ -75,7 +84,12 @@ impl NetIf {
                 bytes: packet.bytes.clone(),
             })
             .await;
-        self.to_compute.send(RxFrame { if_index: self.if_index, packet }).await;
+        self.to_compute
+            .send(RxFrame {
+                if_index: self.if_index,
+                packet,
+            })
+            .await;
     }
 
     pub fn set_up(&mut self, up: bool) {
@@ -93,9 +107,20 @@ mod tests {
     use crate::packet::PacketMeta;
 
     fn pkt(id: u64) -> Packet {
-        Packet { bytes: vec![0xDE, 0xAD], meta: PacketMeta { id, birth_ns: 0, origin: 7 } }
+        Packet {
+            bytes: vec![0xDE, 0xAD],
+            meta: PacketMeta {
+                id,
+                birth_ns: 0,
+                origin: 7,
+            },
+        }
     }
 
+    // Four `impl EventSinkReader<...>` members, which cannot be named in a
+    // type alias on stable Rust — there is no factoring this lint would
+    // accept short of boxing the sinks in test code.
+    #[allow(clippy::type_complexity)]
     fn bench() -> (
         nexosim::simulation::Simulation,
         EventId<Packet>,
@@ -117,10 +142,19 @@ mod tests {
         netif.metrics.connect_sink(m_sink);
         let mbox = Mailbox::with_capacity(64);
         let mut bench = SimInit::with_num_threads(1);
-        let tx = EventSource::new().connect(NetIf::tx, &mbox).register(&mut bench);
-        let rx = EventSource::new().connect(NetIf::rx, &mbox).register(&mut bench);
-        let up = EventSource::new().connect(NetIf::set_up, &mbox).register(&mut bench);
-        let simu = bench.add_model(netif, mbox, "netif").init(MonotonicTime::EPOCH).unwrap();
+        let tx = EventSource::new()
+            .connect(NetIf::tx, &mbox)
+            .register(&mut bench);
+        let rx = EventSource::new()
+            .connect(NetIf::rx, &mbox)
+            .register(&mut bench);
+        let up = EventSource::new()
+            .connect(NetIf::set_up, &mbox)
+            .register(&mut bench);
+        let simu = bench
+            .add_model(netif, mbox, "netif")
+            .init(MonotonicTime::EPOCH)
+            .unwrap();
         (simu, tx, rx, up, to_medium, to_compute, capture, metrics)
     }
 
@@ -156,8 +190,14 @@ mod tests {
         assert!(to_medium.try_read().is_none());
         assert!(to_compute.try_read().is_none());
         assert!(capture.try_read().is_none());
-        assert_eq!(metrics.try_read().map(|m| m.event), Some("tx_down".to_string()));
-        assert_eq!(metrics.try_read().map(|m| m.event), Some("rx_down".to_string()));
+        assert_eq!(
+            metrics.try_read().map(|m| m.event),
+            Some("tx_down".to_string())
+        );
+        assert_eq!(
+            metrics.try_read().map(|m| m.event),
+            Some("rx_down".to_string())
+        );
         assert!(metrics.try_read().is_none());
     }
 }

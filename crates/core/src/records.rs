@@ -28,7 +28,7 @@ pub struct CaptureRecord {
 /// - `compute:<node>` — `submit` (queue_len), `done` (queue_len), `drop_overflow`
 /// - `netif:<node>:<if>` — `tx_down`, `rx_down`
 /// - `node:<name>`    — `echo_sent`, `echo_rtt` (value_ns), `echo_reply`,
-///                      `forward`, `telemetry_sent`, `telemetry_rcvd`, `decode_error`
+///   `forward`, `telemetry_sent`, `telemetry_rcvd`, `decode_error`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MetricRecord {
     pub t_ns: u64,

@@ -34,11 +34,11 @@ fn main() {
 
     println!("Anchor candidates:");
     for (label, sep_deg) in [
-        ("MEO 20,000 km, overhead", 0.0),
+        ("MEO 20,000 km, overhead", 0.0_f64),
         ("MEO 20,000 km, 30° away", 30.0),
         ("MEO 20,000 km, 60° away", 60.0),
     ] {
-        let d = shell_distance(&planet, ACCESS_ALT, MEO_ALT, (sep_deg as f64).to_radians());
+        let d = shell_distance(&planet, ACCESS_ALT, MEO_ALT, sep_deg.to_radians());
         println!(
             "  {label:<28} {:>8.0} km  {:>6.1} ms one way from access",
             d / 1e3,

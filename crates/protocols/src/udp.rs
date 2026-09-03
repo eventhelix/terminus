@@ -28,7 +28,9 @@ pub fn build_udp_ipv4(
 ) -> Vec<u8> {
     let builder = PacketBuilder::ipv4(src_ip, dst_ip, ttl).udp(src_port, dst_port);
     let mut bytes = Vec::with_capacity(builder.size(payload.len()));
-    builder.write(&mut bytes, payload).expect("UDP/IPv4 encode is infallible for Vec");
+    builder
+        .write(&mut bytes, payload)
+        .expect("UDP/IPv4 encode is infallible for Vec");
     bytes
 }
 

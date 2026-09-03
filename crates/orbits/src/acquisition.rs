@@ -174,8 +174,7 @@ mod tests {
         let slant = edge_slant_range(&p, 2_200e3, 25.0_f64.to_radians());
         let eirp = 10.0 * 10.0_f64.log10() + dish_gain_dbi(0.7, 8.4e9, 0.6);
         let element = 5.0 + scan_loss_db(65.0_f64.to_radians(), 1.2);
-        let snr =
-            eirp - fspl_db(slant, 8.4e9) + element - thermal_noise_dbw(290.0, 50e3);
+        let snr = eirp - fspl_db(slant, 8.4e9) + element - thermal_noise_dbw(290.0, 50e3);
         assert_close(snr, 18.91, 1e-2);
     }
 

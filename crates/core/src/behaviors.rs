@@ -104,7 +104,9 @@ impl TerminalApp {
             flow_id: 0,
             payload: ip,
         };
-        let bytes = frame.encode_to_vec().expect("encode failure is a model bug");
+        let bytes = frame
+            .encode_to_vec()
+            .expect("encode failure is a model bug");
         self.sent.insert(seq, ctx.now_ns);
         let id = ctx.transmit_new(0, bytes);
         ctx.metric("echo_sent").packet_id = Some(id);
@@ -183,7 +185,9 @@ impl NodeBehavior for Relay {
             args: vec![],
         };
         self.seq += 1;
-        let bytes = frame.encode_to_vec().expect("encode failure is a model bug");
+        let bytes = frame
+            .encode_to_vec()
+            .expect("encode failure is a model bug");
         let id = ctx.transmit_new(self.telemetry_if, bytes);
         ctx.metric("telemetry_sent").packet_id = Some(id);
         ctx.timer_in(TIMER_TELEMETRY, self.telemetry_period_ns);
@@ -249,7 +253,9 @@ impl NodeBehavior for GatewayEcho {
                     payload: reply_ip,
                 };
                 self.seq += 1;
-                let bytes = reply.encode_to_vec().expect("encode failure is a model bug");
+                let bytes = reply
+                    .encode_to_vec()
+                    .expect("encode failure is a model bug");
                 let id = ctx.transmit_new(0, bytes);
                 ctx.metric("echo_reply").packet_id = Some(id);
             }
@@ -279,7 +285,11 @@ mod tests {
             dst_port: 7,
             payload_len: 64,
             rate_pps: 10.0,
-            burst: Some(Burst { start_ns: 40_000_000_000, end_ns: 45_000_000_000, rate_pps: 500.0 }),
+            burst: Some(Burst {
+                start_ns: 40_000_000_000,
+                end_ns: 45_000_000_000,
+                rate_pps: 500.0,
+            }),
             start_ns: 1_000_000_000,
             end_ns: 60_000_000_000,
             seq: 0,
@@ -327,13 +337,28 @@ mod tests {
         let mut payload = vec![0u8; 64];
         payload[..4].copy_from_slice(&0u32.to_be_bytes());
         let ip = build_udp_ipv4([10, 0, 0, 6], [10, 0, 0, 1], 7, 4001, 64, &payload);
-        let reply = DataFrame { version: 1, src: 6, dst: 1, seq: 0, flow_id: 0, payload: ip };
+        let reply = DataFrame {
+            version: 1,
+            src: 6,
+            dst: 1,
+            seq: 0,
+            flow_id: 0,
+            payload: ip,
+        };
         let pkt = Packet {
             bytes: reply.encode_to_vec().unwrap(),
-            meta: PacketMeta { id: 9, birth_ns: 0, origin: 6 },
+            meta: PacketMeta {
+                id: 9,
+                birth_ns: 0,
+                origin: 6,
+            },
         };
         let a = drive(&mut t, 1, 2_020_000_000, |b, c| b.on_frame(0, &pkt, c));
-        let rtt = a.metrics.iter().find(|m| m.event == "echo_rtt").expect("rtt metric");
+        let rtt = a
+            .metrics
+            .iter()
+            .find(|m| m.event == "echo_rtt")
+            .expect("rtt metric");
         assert_eq!(rtt.value_ns, Some(20_000_000));
         assert!(t.sent.is_empty());
     }
@@ -347,10 +372,21 @@ mod tests {
             telemetry_period_ns: 5_000_000_000,
             seq: 0,
         };
-        let data = DataFrame { version: 1, src: 1, dst: 6, seq: 3, flow_id: 0, payload: vec![0x45] };
+        let data = DataFrame {
+            version: 1,
+            src: 1,
+            dst: 6,
+            seq: 3,
+            flow_id: 0,
+            payload: vec![0x45],
+        };
         let pkt = Packet {
             bytes: data.encode_to_vec().unwrap(),
-            meta: PacketMeta { id: 77, birth_ns: 0, origin: 1 },
+            meta: PacketMeta {
+                id: 77,
+                birth_ns: 0,
+                origin: 1,
+            },
         };
         let a = drive(&mut r, 3, 5_000_000_000, |b, c| b.on_frame(0, &pkt, c));
         assert_eq!(a.transmits.len(), 1);
@@ -368,7 +404,14 @@ mod tests {
             telemetry_period_ns: 5_000_000_000,
             seq: 0,
         };
-        let pkt = Packet { bytes: vec![0xFF, 0xFF], meta: PacketMeta { id: 1, birth_ns: 0, origin: 1 } };
+        let pkt = Packet {
+            bytes: vec![0xFF, 0xFF],
+            meta: PacketMeta {
+                id: 1,
+                birth_ns: 0,
+                origin: 1,
+            },
+        };
         let a = drive(&mut r, 3, 1_000_000_000, |b, c| b.on_frame(0, &pkt, c));
         assert!(a.transmits.is_empty());
         assert_eq!(a.metrics[0].event, "decode_error");
@@ -380,16 +423,29 @@ mod tests {
         let mut payload = vec![0u8; 16];
         payload[..4].copy_from_slice(&5u32.to_be_bytes());
         let ip = build_udp_ipv4([10, 0, 0, 1], [10, 0, 0, 6], 4001, 7, 64, &payload);
-        let req = DataFrame { version: 1, src: 1, dst: 6, seq: 5, flow_id: 0, payload: ip };
+        let req = DataFrame {
+            version: 1,
+            src: 1,
+            dst: 6,
+            seq: 5,
+            flow_id: 0,
+            payload: ip,
+        };
         let pkt = Packet {
             bytes: req.encode_to_vec().unwrap(),
-            meta: PacketMeta { id: 5, birth_ns: 0, origin: 1 },
+            meta: PacketMeta {
+                id: 5,
+                birth_ns: 0,
+                origin: 1,
+            },
         };
         let a = drive(&mut g, 6, 1_000_000_000, |b, c| b.on_frame(0, &pkt, c));
         assert_eq!(a.transmits.len(), 1);
         let frame = LinkFrame::decode_full(&a.transmits[0].1.bytes).unwrap();
         assert_eq!((frame.src, frame.dst), (6, 1));
-        let LinkFrameChild::DataFrame(d) = frame.specialize().unwrap() else { panic!() };
+        let LinkFrameChild::DataFrame(d) = frame.specialize().unwrap() else {
+            panic!()
+        };
         let udp = parse_udp_ipv4(&d.payload).unwrap();
         assert_eq!((udp.src_port, udp.dst_port), (7, 4001));
         assert_eq!(udp.src_ip, [10, 0, 0, 6]);
@@ -400,7 +456,13 @@ mod tests {
     fn behaviors_are_deterministic() {
         assert_behavior_deterministic(terminal(), 1);
         assert_behavior_deterministic(
-            Relay { if_map: vec![1, 0], telemetry_peer: 6, telemetry_if: 1, telemetry_period_ns: 5_000_000_000, seq: 0 },
+            Relay {
+                if_map: vec![1, 0],
+                telemetry_peer: 6,
+                telemetry_if: 1,
+                telemetry_period_ns: 5_000_000_000,
+                seq: 0,
+            },
             3,
         );
         assert_behavior_deterministic(GatewayEcho { port: 7, seq: 0 }, 6);

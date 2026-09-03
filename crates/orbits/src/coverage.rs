@@ -22,10 +22,10 @@ pub fn footprint_radius(body: &CentralBody, altitude: f64, min_elevation: f64) -
 }
 
 /// Ceiling (m) on `footprint_radius`, approached as altitude grows without
-/// bound. The planet-central half-angle is `acos(ratio * cos(min_elevation))
-/// - min_elevation`; as `ratio` falls to zero the arccos saturates at a right
-/// angle, so no altitude can serve more ground than `90 deg - min_elevation`
-/// of arc.
+/// bound. The planet-central half-angle is
+/// `acos(ratio * cos(min_elevation)) - min_elevation`; as `ratio` falls to
+/// zero the arccos saturates at a right angle, so no altitude can serve more
+/// ground than `90 deg - min_elevation` of arc.
 pub fn footprint_radius_limit(body: &CentralBody, min_elevation: f64) -> f64 {
     body.radius * (std::f64::consts::FRAC_PI_2 - min_elevation)
 }

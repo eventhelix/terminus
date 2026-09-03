@@ -84,8 +84,8 @@ fn main() {
         "{:>22} {:>18} {:>20}",
         "inclination error", "locked planet", "Earth's J2, for scale"
     );
-    for err_deg in [0.05, 0.1, 0.5, 1.0] {
-        let err = (err_deg as f64).to_radians();
+    for err_deg in [0.05_f64, 0.1, 0.5, 1.0] {
+        let err = err_deg.to_radians();
         let here = polar_node_drift_rate(&planet, 2_200e3, err, j2);
         let earthlike = polar_node_drift_rate(&planet, 2_200e3, err, EARTH_J2);
         println!(

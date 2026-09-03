@@ -37,7 +37,9 @@ fn main() -> anyhow::Result<()> {
                 .duration_since(std::time::UNIX_EPOCH)
                 .expect("system clock before 1970")
                 .as_secs();
-            let run_dir = out.join(&loaded.file.scenario.name).join(format!("run-{stamp}"));
+            let run_dir = out
+                .join(&loaded.file.scenario.name)
+                .join(format!("run-{stamp}"));
             drop(loaded);
             terminus_cli::assemble::run_scenario(&scenario, &run_dir)?;
             println!("{}", run_dir.display());

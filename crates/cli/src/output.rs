@@ -14,8 +14,10 @@ use crate::config::LoadedScenario;
 
 /// The dissector that exactly matches this build's codecs — both are
 /// generated from crates/protocols/pdl/link.pdl at the same commit.
-const LINK_LUA: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../protocols/dissectors/link.lua"));
+const LINK_LUA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../protocols/dissectors/link.lua"
+));
 
 #[derive(Serialize)]
 struct Snapshot<'a> {
@@ -133,14 +135,26 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
             path_part.contains(":/") || path_part.starts_with('/'),
             "lua_script path must be absolute with forward slashes: {path_part}"
         );
-        assert!(!ve.contains('\\'), "visualether.toml must contain no backslashes");
+        assert!(
+            !ve.contains('\\'),
+            "visualether.toml must contain no backslashes"
+        );
 
         // Snapshot: exists and re-parses with all expected top-level keys.
         let snap = std::fs::read_to_string(run_dir.join("scenario.snapshot.toml")).unwrap();
         let value: toml::Value = toml::from_str(&snap).expect("snapshot must re-parse as TOML");
         let table = value.as_table().expect("snapshot root is a table");
-        for key in ["terminus_version", "trace_sha256", "scenario", "nodes", "media"] {
-            assert!(table.contains_key(key), "snapshot missing key {key}:\n{snap}");
+        for key in [
+            "terminus_version",
+            "trace_sha256",
+            "scenario",
+            "nodes",
+            "media",
+        ] {
+            assert!(
+                table.contains_key(key),
+                "snapshot missing key {key}:\n{snap}"
+            );
         }
 
         let _ = std::fs::remove_dir_all(&base);

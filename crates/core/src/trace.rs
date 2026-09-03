@@ -38,10 +38,14 @@ pub struct Sample {
     pub sinr_db: f64,
 }
 
+/// Time-ascending samples for one (tx, rx) pair; a `None` sample is the
+/// sentinel that ends a link's validity.
+type PairSamples = Vec<(u64, Option<Sample>)>;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChannelTrace {
     /// (tx, rx) -> time-ascending samples; `None` sample = sentinel.
-    pairs: BTreeMap<(u16, u16), Vec<(u64, Option<Sample>)>>,
+    pairs: BTreeMap<(u16, u16), PairSamples>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,13 +58,20 @@ struct Row {
 }
 
 impl ChannelTrace {
-    pub fn from_csv(reader: impl Read, name_to_id: &BTreeMap<String, u16>) -> Result<Self, TraceError> {
+    pub fn from_csv(
+        reader: impl Read,
+        name_to_id: &BTreeMap<String, u16>,
+    ) -> Result<Self, TraceError> {
         let mut rdr = csv::Reader::from_reader(reader);
-        let mut pairs: BTreeMap<(u16, u16), Vec<(u64, Option<Sample>)>> = BTreeMap::new();
+        let mut pairs: BTreeMap<(u16, u16), PairSamples> = BTreeMap::new();
         for row in rdr.deserialize::<Row>() {
             let row = row?;
             if row.t_s < 0.0 {
-                return Err(TraceError::NegativeTime { tx: row.tx, rx: row.rx, t_s: row.t_s });
+                return Err(TraceError::NegativeTime {
+                    tx: row.tx,
+                    rx: row.rx,
+                    t_s: row.t_s,
+                });
             }
             let tx = *name_to_id
                 .get(&row.tx)
@@ -70,17 +81,34 @@ impl ChannelTrace {
                 .ok_or_else(|| TraceError::UnknownNode(row.rx.clone()))?;
             let sample = match (row.delay_us, row.sinr_db) {
                 (Some(0), Some(_)) => {
-                    return Err(TraceError::BadDelay { tx: row.tx, rx: row.rx, t_s: row.t_s })
+                    return Err(TraceError::BadDelay {
+                        tx: row.tx,
+                        rx: row.rx,
+                        t_s: row.t_s,
+                    })
                 }
-                (Some(d), Some(s)) => Some(Sample { delay_ns: d * 1_000, sinr_db: s }),
+                (Some(d), Some(s)) => Some(Sample {
+                    delay_ns: d * 1_000,
+                    sinr_db: s,
+                }),
                 (None, None) => None,
-                _ => return Err(TraceError::HalfEmpty { tx: row.tx, rx: row.rx, t_s: row.t_s }),
+                _ => {
+                    return Err(TraceError::HalfEmpty {
+                        tx: row.tx,
+                        rx: row.rx,
+                        t_s: row.t_s,
+                    })
+                }
             };
             let t_ns = secs_to_ns(row.t_s);
             let series = pairs.entry((tx, rx)).or_default();
             if let Some((last, _)) = series.last() {
                 if t_ns <= *last {
-                    return Err(TraceError::OutOfOrder { tx: row.tx, rx: row.rx, t_s: row.t_s });
+                    return Err(TraceError::OutOfOrder {
+                        tx: row.tx,
+                        rx: row.rx,
+                        t_s: row.t_s,
+                    });
                 }
             }
             series.push((t_ns, sample));

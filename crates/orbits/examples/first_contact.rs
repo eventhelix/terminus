@@ -212,14 +212,18 @@ fn main() {
          (±20°) — evaluated per satellite; the {raster:.1} s full-footprint round\n\
          stays the ceiling:"
     );
-    for (offset, role) in [(0.0, " (duty ring)"), (10.0, ""), (20.0, ""), (30.0, " (hole-filler)")]
-    {
+    for (offset, role) in [
+        (0.0_f64, " (duty ring)"),
+        (10.0, ""),
+        (20.0, ""),
+        (30.0, " (hole-filler)"),
+    ] {
         let frac = band_raster_fraction(
             &planet,
             ALT,
             min_elevation,
             20.0_f64.to_radians(),
-            (offset as f64).to_radians(),
+            offset.to_radians(),
         );
         println!(
             "  {:>4.0}° off the band's center: {:>3.0}% of footprint  ->  {:>4.1} s round{}",

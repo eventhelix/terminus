@@ -57,10 +57,17 @@ pub fn run_scenario(scenario_path: &Path, run_dir: &Path) -> anyhow::Result<()> 
         nodes_dir: run_dir.join("nodes"),
         metrics_path: run_dir.join("metrics.ndjson"),
         epoch_ns,
-        node_names: loaded.file.nodes.iter().map(|n| (n.id, n.name.clone())).collect(),
+        node_names: loaded
+            .file
+            .nodes
+            .iter()
+            .map(|n| (n.id, n.name.clone()))
+            .collect(),
         ifs: ifspecs,
     };
-    let flush = EventSource::new().connect(Recorder::flush, &recorder_mbox).register(&mut bench);
+    let flush = EventSource::new()
+        .connect(Recorder::flush, &recorder_mbox)
+        .register(&mut bench);
 
     // --- Media (constructed now, attached during the node loop) -----
     let mut media: BTreeMap<String, (Medium, Mailbox<Medium>)> = loaded
@@ -113,10 +120,8 @@ pub fn run_scenario(scenario_path: &Path, run_dir: &Path) -> anyhow::Result<()> 
         let mut ifs = Vec::new();
         for (i, ifc) in n.interfaces.iter().enumerate() {
             let if_mbox: Mailbox<NetIf> = Mailbox::with_capacity(MBOX);
-            let mut netif =
-                NetIf::new(n.id, i as u8, format!("netif:{}:{}", n.name, ifc.name));
-            let (medium, medium_mbox) =
-                media.get_mut(&ifc.medium).expect("validated medium ref");
+            let mut netif = NetIf::new(n.id, i as u8, format!("netif:{}:{}", n.name, ifc.name));
+            let (medium, medium_mbox) = media.get_mut(&ifc.medium).expect("validated medium ref");
             netif.to_medium.connect(Medium::transmit, &*medium_mbox);
             netif.to_compute.connect(FifoCompute::submit, &compute_mbox);
             netif.capture.connect(Recorder::capture, &recorder_mbox);
@@ -131,7 +136,14 @@ pub fn run_scenario(scenario_path: &Path, run_dir: &Path) -> anyhow::Result<()> 
             medium.attach(n.id, delivery);
             ifs.push((netif, if_mbox, ifc.name.clone()));
         }
-        parts.push(NodeParts { model, mbox, compute, compute_mbox, ifs, name: n.name.clone() });
+        parts.push(NodeParts {
+            model,
+            mbox,
+            compute,
+            compute_mbox,
+            ifs,
+            name: n.name.clone(),
+        });
     }
 
     // --- Move everything into the bench ------------------------------
@@ -152,9 +164,13 @@ pub fn run_scenario(scenario_path: &Path, run_dir: &Path) -> anyhow::Result<()> 
     // nexosim's error types carry a `Box<dyn Any + Send>` panic payload,
     // so they are not `Sync` and don't satisfy anyhow::Context's bound —
     // format via Display instead.
-    let mut simu = bench.init(t0).map_err(|e| anyhow::anyhow!("simulation init: {e}"))?;
-    simu.step_until(t0 + duration).map_err(|e| anyhow::anyhow!("simulation run: {e}"))?;
-    simu.process_event(&flush, ()).map_err(|e| anyhow::anyhow!("flush recorder: {e}"))?;
+    let mut simu = bench
+        .init(t0)
+        .map_err(|e| anyhow::anyhow!("simulation init: {e}"))?;
+    simu.step_until(t0 + duration)
+        .map_err(|e| anyhow::anyhow!("simulation run: {e}"))?;
+    simu.process_event(&flush, ())
+        .map_err(|e| anyhow::anyhow!("flush recorder: {e}"))?;
     drop(simu); // drops models + RecorderEnv → files closed
     Ok(())
 }
@@ -197,7 +213,10 @@ fn build_behavior(n: &NodeCfg, duration_s: f64) -> BehaviorKind {
         }
         NodeKind::Gateway => {
             let e = n.echo.as_ref().expect("validated: gateway has echo");
-            BehaviorKind::Gateway(GatewayEcho { port: e.port, seq: 0 })
+            BehaviorKind::Gateway(GatewayEcho {
+                port: e.port,
+                seq: 0,
+            })
         }
     }
 }

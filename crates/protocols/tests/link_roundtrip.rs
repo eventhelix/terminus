@@ -27,9 +27,20 @@ fn data_frame_roundtrip_via_parent_specialize() {
 
 #[test]
 fn control_frame_roundtrip() {
-    let ctl = ControlFrame { version: 1, src: 3, dst: 6, seq: 7, opcode: 1, args: vec![2, 2] };
+    let ctl = ControlFrame {
+        version: 1,
+        src: 3,
+        dst: 6,
+        seq: 7,
+        opcode: 1,
+        args: vec![2, 2],
+    };
     let bytes = ctl.encode_to_vec().unwrap();
-    match LinkFrame::decode_full(&bytes).unwrap().specialize().unwrap() {
+    match LinkFrame::decode_full(&bytes)
+        .unwrap()
+        .specialize()
+        .unwrap()
+    {
         LinkFrameChild::ControlFrame(c) => assert_eq!(c, ctl),
         other => panic!("wrong child: {other:?}"),
     }

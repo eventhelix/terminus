@@ -26,9 +26,13 @@ fn outputs_match_committed_digests() {
     nodes.sort();
     for p in &nodes {
         let digest = terminus_cli::config::sha256_hex(&std::fs::read(p).unwrap());
-        lines.push(format!("{digest}  nodes/{}", p.file_name().unwrap().to_string_lossy()));
+        lines.push(format!(
+            "{digest}  nodes/{}",
+            p.file_name().unwrap().to_string_lossy()
+        ));
     }
-    let digest = terminus_cli::config::sha256_hex(&std::fs::read(run.join("metrics.ndjson")).unwrap());
+    let digest =
+        terminus_cli::config::sha256_hex(&std::fs::read(run.join("metrics.ndjson")).unwrap());
     lines.push(format!("{digest}  metrics.ndjson"));
     let actual = lines.join("\n") + "\n";
 

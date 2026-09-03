@@ -57,7 +57,12 @@ fn dot(u: [f64; 3], v: [f64; 3]) -> f64 {
 
 /// Slant range (m) from a ground user at (`along_track`, `cross_track`)
 /// angular offsets (rad) to the satellite overhead at `altitude` (m).
-pub fn slant_range_at(body: &CentralBody, altitude: f64, along_track: f64, cross_track: f64) -> f64 {
+pub fn slant_range_at(
+    body: &CentralBody,
+    altitude: f64,
+    along_track: f64,
+    cross_track: f64,
+) -> f64 {
     let user = ground_position(body, along_track, cross_track);
     let sat = [0.0, 0.0, body.radius + altitude];
     let los = [sat[0] - user[0], sat[1] - user[1], sat[2] - user[2]];
@@ -109,7 +114,12 @@ pub fn ray_ground_angle(body: &CentralBody, altitude: f64, nadir_angle: f64) -> 
 /// and *fatter* (a planar array's beam broadens by 1/cos of the scan angle,
 /// which for a nadir-mounted array is the nadir angle η). At the reference
 /// footprint edge the product is ~5.3×: a 19 km nadir radius becomes ±102 km.
-pub fn spot_half_extent(body: &CentralBody, altitude: f64, center_angle: f64, beamwidth: f64) -> f64 {
+pub fn spot_half_extent(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+) -> f64 {
     let eta = nadir_angle(body, altitude, center_angle);
     let broadened = beamwidth / eta.cos();
     body.radius
@@ -136,7 +146,12 @@ pub fn spot_cross_half_extent(
 /// beam angle is (f/c)·v·cos η — and the beam is broadened by exactly
 /// 1/cos η, so the product collapses to (f/c)·v·β for every spot: a beam's
 /// Doppler spread is set by its width alone.
-pub fn beam_doppler_spread(body: &CentralBody, altitude: f64, beamwidth: f64, frequency: f64) -> f64 {
+pub fn beam_doppler_spread(
+    body: &CentralBody,
+    altitude: f64,
+    beamwidth: f64,
+    frequency: f64,
+) -> f64 {
     orbital_velocity(body, altitude) * beamwidth / SPEED_OF_LIGHT * frequency
 }
 
@@ -256,8 +271,16 @@ mod tests {
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         for frac in [0.05, 0.25, 0.5, 0.75, 1.0] {
             let g = edge * frac;
-            assert_close(range_rate_at(&p, 2_200e3, -g, 0.0), range_rate(&p, 2_200e3, g), 1e-9);
-            assert_close(range_rate_at(&p, 2_200e3, g, 0.0), -range_rate(&p, 2_200e3, g), 1e-9);
+            assert_close(
+                range_rate_at(&p, 2_200e3, -g, 0.0),
+                range_rate(&p, 2_200e3, g),
+                1e-9,
+            );
+            assert_close(
+                range_rate_at(&p, 2_200e3, g, 0.0),
+                -range_rate(&p, 2_200e3, g),
+                1e-9,
+            );
             assert_close(
                 slant_range_at(&p, 2_200e3, g, 0.0),
                 slant_range(&p, 2_200e3, g),
@@ -319,7 +342,11 @@ mod tests {
         }
         // The nadir spot's near and far edges are symmetric, but its center
         // is the true minimum: the rim trails it by 113 m of slant, 0.38 µs.
-        assert_close(delay_spread_across_spot(&p, 2_200e3, 0.0, spot), 3.76e-7, 1e-2);
+        assert_close(
+            delay_spread_across_spot(&p, 2_200e3, 0.0, spot),
+            3.76e-7,
+            1e-2,
+        );
     }
 
     #[test]
@@ -347,7 +374,11 @@ mod tests {
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         let half = spot_half_extent(&p, 2_200e3, edge, beam);
         assert_close(half, 1.020e5, 1e-2);
-        assert_close(spot_cross_half_extent(&p, 2_200e3, edge, beam), 3.18e4, 1e-2);
+        assert_close(
+            spot_cross_half_extent(&p, 2_200e3, edge, beam),
+            3.18e4,
+            1e-2,
+        );
         let farther = slant_range(&p, 2_200e3, edge) / 2_200e3;
         let flatter = 1.0 / MIN_ELEVATION.sin();
         let fatter = 1.0 / nadir_angle(&p, 2_200e3, edge).cos();
@@ -401,6 +432,10 @@ mod tests {
         let beam = 1.0_f64.to_radians();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         let half = spot_half_extent(&p, 2_200e3, edge, beam);
-        assert_close(delay_spread_across_spot(&p, 2_200e3, edge, half), 6.17e-4, 1e-2);
+        assert_close(
+            delay_spread_across_spot(&p, 2_200e3, edge, half),
+            6.17e-4,
+            1e-2,
+        );
     }
 }

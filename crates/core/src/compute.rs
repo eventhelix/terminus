@@ -46,7 +46,10 @@ pub struct FifoCompute {
 #[Model]
 impl FifoCompute {
     pub fn new(label: String, cores: u32, capacity: usize, service_ns: u64) -> Self {
-        assert!(cores >= 1 && capacity >= 1 && service_ns >= 1, "validated at config load");
+        assert!(
+            cores >= 1 && capacity >= 1 && service_ns >= 1,
+            "validated at config load"
+        );
         Self {
             label,
             cores,
@@ -120,12 +123,21 @@ mod tests {
     fn frame(id: u64) -> RxFrame {
         RxFrame {
             if_index: 0,
-            packet: Packet { bytes: vec![0xAA; 4], meta: PacketMeta { id, birth_ns: 0, origin: 1 } },
+            packet: Packet {
+                bytes: vec![0xAA; 4],
+                meta: PacketMeta {
+                    id,
+                    birth_ns: 0,
+                    origin: 1,
+                },
+            },
         }
     }
 
     /// Bench: EventSource → submit; done + metrics into queues.
-    fn bench(mk: impl FnOnce() -> FifoCompute) -> (
+    fn bench(
+        mk: impl FnOnce() -> FifoCompute,
+    ) -> (
         nexosim::simulation::Simulation,
         EventId<RxFrame>,
         impl EventSinkReader<RxFrame>,
@@ -134,12 +146,17 @@ mod tests {
         let mut compute = mk();
         let mbox = Mailbox::with_capacity(64);
         let mut bench = SimInit::with_num_threads(1);
-        let submit = EventSource::new().connect(FifoCompute::submit, &mbox).register(&mut bench);
+        let submit = EventSource::new()
+            .connect(FifoCompute::submit, &mbox)
+            .register(&mut bench);
         let (done_sink, done) = event_queue(SinkState::Enabled);
         compute.done.connect_sink(done_sink);
         let (m_sink, metrics) = event_queue(SinkState::Enabled);
         compute.metrics.connect_sink(m_sink);
-        let simu = bench.add_model(compute, mbox, "compute").init(MonotonicTime::EPOCH).unwrap();
+        let simu = bench
+            .add_model(compute, mbox, "compute")
+            .init(MonotonicTime::EPOCH)
+            .unwrap();
         (simu, submit, done, metrics)
     }
 
@@ -161,8 +178,11 @@ mod tests {
         for id in 1..=3 {
             simu.process_event(&submit, frame(id)).unwrap();
         }
-        simu.step_until(MonotonicTime::EPOCH + Duration::from_millis(10)).unwrap();
-        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read()).map(|f| f.packet.meta.id).collect();
+        simu.step_until(MonotonicTime::EPOCH + Duration::from_millis(10))
+            .unwrap();
+        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read())
+            .map(|f| f.packet.meta.id)
+            .collect();
         assert_eq!(ids, vec![1, 2, 3]);
     }
 
@@ -174,8 +194,11 @@ mod tests {
         for id in 1..=3 {
             simu.process_event(&submit, frame(id)).unwrap();
         }
-        simu.step_until(MonotonicTime::EPOCH + Duration::from_millis(10)).unwrap();
-        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read()).map(|f| f.packet.meta.id).collect();
+        simu.step_until(MonotonicTime::EPOCH + Duration::from_millis(10))
+            .unwrap();
+        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read())
+            .map(|f| f.packet.meta.id)
+            .collect();
         assert_eq!(ids, vec![1, 2]);
         let dropped: Vec<MetricRecord> = std::iter::from_fn(|| metrics.try_read())
             .filter(|m| m.event == "drop_overflow")
@@ -193,7 +216,9 @@ mod tests {
         simu.process_event(&submit, frame(2)).unwrap();
         simu.step().unwrap();
         assert_eq!(simu.time(), MonotonicTime::EPOCH + Duration::from_millis(1));
-        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read()).map(|f| f.packet.meta.id).collect();
+        let ids: Vec<u64> = std::iter::from_fn(|| done.try_read())
+            .map(|f| f.packet.meta.id)
+            .collect();
         assert_eq!(ids, vec![1, 2]);
     }
 }

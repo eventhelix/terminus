@@ -134,13 +134,22 @@ t_s,tx,rx,delay_us,sinr_db
     fn pkt(id: u64) -> Transmission {
         Transmission {
             tx_node: 1,
-            packet: Packet { bytes: vec![1, 2, 3], meta: PacketMeta { id, birth_ns: 0, origin: 1 } },
+            packet: Packet {
+                bytes: vec![1, 2, 3],
+                meta: PacketMeta {
+                    id,
+                    birth_ns: 0,
+                    origin: 1,
+                },
+            },
         }
     }
 
     /// Medium with nodes b (idx 0) and c (idx 1) attached via sinks.
     /// good=1.0 curve rows keep BLER at 0 for sinr >= 0.
-    fn bench(seed_path: &str) -> (
+    fn bench(
+        seed_path: &str,
+    ) -> (
         nexosim::simulation::Simulation,
         EventId<Transmission>,
         impl EventSinkReader<Packet>,
@@ -162,8 +171,13 @@ t_s,tx,rx,delay_us,sinr_db
         medium.metrics.connect_sink(m_sink);
         let mbox = Mailbox::with_capacity(64);
         let mut bench = SimInit::with_num_threads(1);
-        let tx = EventSource::new().connect(Medium::transmit, &mbox).register(&mut bench);
-        let simu = bench.add_model(medium, mbox, "medium").init(MonotonicTime::EPOCH).unwrap();
+        let tx = EventSource::new()
+            .connect(Medium::transmit, &mbox)
+            .register(&mut bench);
+        let simu = bench
+            .add_model(medium, mbox, "medium")
+            .init(MonotonicTime::EPOCH)
+            .unwrap();
         (simu, tx, b_rx, c_rx, metrics)
     }
 
@@ -172,7 +186,10 @@ t_s,tx,rx,delay_us,sinr_db
         let (mut simu, tx, mut b_rx, mut c_rx, _m) = bench("medium:t");
         simu.process_event(&tx, pkt(1)).unwrap();
         simu.step().unwrap();
-        assert_eq!(simu.time(), MonotonicTime::EPOCH + Duration::from_micros(3000));
+        assert_eq!(
+            simu.time(),
+            MonotonicTime::EPOCH + Duration::from_micros(3000)
+        );
         assert_eq!(b_rx.try_read().map(|p| p.meta.id), Some(1));
         assert_eq!(c_rx.try_read().map(|p| p.meta.id), None); // a->c unreachable before 30s
     }
@@ -181,7 +198,8 @@ t_s,tx,rx,delay_us,sinr_db
     fn reachability_switches_with_time_handover() {
         let (mut simu, tx, mut b_rx, mut c_rx, _m) = bench("medium:t");
         // Advance past 30s, then transmit: now a->b is sentinel-closed, a->c open.
-        simu.step_until(MonotonicTime::EPOCH + Duration::from_secs(31)).unwrap();
+        simu.step_until(MonotonicTime::EPOCH + Duration::from_secs(31))
+            .unwrap();
         simu.process_event(&tx, pkt(2)).unwrap();
         simu.step().unwrap();
         assert_eq!(b_rx.try_read().map(|p| p.meta.id), None);
@@ -192,10 +210,14 @@ t_s,tx,rx,delay_us,sinr_db
     fn unreachable_is_counted_not_errored() {
         let (mut simu, tx, _b, _c, mut metrics) = bench("medium:t");
         // tx from node 2: no (2, *) pairs in trace at all.
-        let t = Transmission { tx_node: 2, packet: pkt(3).packet };
+        let t = Transmission {
+            tx_node: 2,
+            packet: pkt(3).packet,
+        };
         simu.process_event(&tx, t).unwrap();
-        let events: Vec<String> =
-            std::iter::from_fn(|| metrics.try_read()).map(|m| m.event).collect();
+        let events: Vec<String> = std::iter::from_fn(|| metrics.try_read())
+            .map(|m| m.event)
+            .collect();
         assert!(events.contains(&"unreachable".to_string()));
     }
 
@@ -213,13 +235,19 @@ t_s,tx,rx,delay_us,sinr_db
         medium.metrics.connect_sink(m_sink);
         let mbox = Mailbox::with_capacity(64);
         let mut bench = SimInit::with_num_threads(1);
-        let tx = EventSource::new().connect(Medium::transmit, &mbox).register(&mut bench);
-        let mut simu = bench.add_model(medium, mbox, "medium").init(MonotonicTime::EPOCH).unwrap();
+        let tx = EventSource::new()
+            .connect(Medium::transmit, &mbox)
+            .register(&mut bench);
+        let mut simu = bench
+            .add_model(medium, mbox, "medium")
+            .init(MonotonicTime::EPOCH)
+            .unwrap();
         simu.process_event(&tx, pkt(9)).unwrap();
         simu.run().unwrap();
         assert_eq!(b_rx.try_read(), None);
-        let events: Vec<String> =
-            std::iter::from_fn(|| metrics.try_read()).map(|m| m.event).collect();
+        let events: Vec<String> = std::iter::from_fn(|| metrics.try_read())
+            .map(|m| m.event)
+            .collect();
         assert!(events.contains(&"drop_bler".to_string()));
     }
 }

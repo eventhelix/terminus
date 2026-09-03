@@ -15,7 +15,11 @@ fn scenario() -> PathBuf {
 /// by design (see output.rs) and differs between output directories.
 fn artifacts(dir: &Path) -> Vec<(String, Vec<u8>)> {
     let mut out = Vec::new();
-    for name in ["metrics.ndjson", "scenario.snapshot.toml", "dissectors/link.lua"] {
+    for name in [
+        "metrics.ndjson",
+        "scenario.snapshot.toml",
+        "dissectors/link.lua",
+    ] {
         out.push((name.to_string(), std::fs::read(dir.join(name)).unwrap()));
     }
     let mut nodes: Vec<_> = std::fs::read_dir(dir.join("nodes"))

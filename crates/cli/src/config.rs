@@ -18,7 +18,10 @@ use terminus_core::trace::{ChannelTrace, TraceError};
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("cannot read {path}: {source}")]
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("scenario TOML parse error: {0}")]
     Toml(#[from] toml::de::Error),
     #[error("{0}")]
@@ -30,11 +33,19 @@ pub enum ConfigError {
     #[error("duplicate medium name: {name}")]
     DuplicateMedium { name: String },
     #[error("node {node}: interface {interface} references unknown medium {medium}")]
-    UnknownMedium { node: String, interface: String, medium: String },
+    UnknownMedium {
+        node: String,
+        interface: String,
+        medium: String,
+    },
     #[error("node {node} references unknown peer node id {peer}")]
     UnknownPeer { node: String, peer: u16 },
     #[error("node {node}: kind {kind} requires exactly the matching section (app/relay/echo) and {ifs} interface(s)")]
-    KindConfig { node: String, kind: String, ifs: String },
+    KindConfig {
+        node: String,
+        kind: String,
+        ifs: String,
+    },
     #[error("node {node} attaches to medium {medium} more than once")]
     DoubleAttach { node: String, medium: String },
     #[error("trace for medium {medium} contains pair {tx}->{rx} not attached to it")]
@@ -152,10 +163,15 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 pub fn load(scenario_path: &Path) -> Result<LoadedScenario, ConfigError> {
-    let raw = std::fs::read_to_string(scenario_path)
-        .map_err(|source| ConfigError::Io { path: scenario_path.to_path_buf(), source })?;
+    let raw = std::fs::read_to_string(scenario_path).map_err(|source| ConfigError::Io {
+        path: scenario_path.to_path_buf(),
+        source,
+    })?;
     let file: ScenarioFile = toml::from_str(&raw)?;
-    let dir = scenario_path.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let dir = scenario_path
+        .parent()
+        .unwrap_or(Path::new("."))
+        .to_path_buf();
     validate_shape(&file)?;
 
     let name_to_id: BTreeMap<String, u16> =
@@ -165,7 +181,10 @@ pub fn load(scenario_path: &Path) -> Result<LoadedScenario, ConfigError> {
     let mut attached: BTreeMap<&str, BTreeSet<u16>> = BTreeMap::new();
     for n in &file.nodes {
         for ifc in &n.interfaces {
-            attached.entry(ifc.medium.as_str()).or_default().insert(n.id);
+            attached
+                .entry(ifc.medium.as_str())
+                .or_default()
+                .insert(n.id);
         }
     }
 
@@ -174,36 +193,57 @@ pub fn load(scenario_path: &Path) -> Result<LoadedScenario, ConfigError> {
     let mut trace_sha256 = BTreeMap::new();
     for m in &file.media {
         let path = dir.join(&m.trace);
-        let bytes = std::fs::read(&path)
-            .map_err(|source| ConfigError::Io { path: path.clone(), source })?;
+        let bytes = std::fs::read(&path).map_err(|source| ConfigError::Io {
+            path: path.clone(),
+            source,
+        })?;
         trace_sha256.insert(m.name.clone(), sha256_hex(&bytes));
         let trace = ChannelTrace::from_csv(bytes.as_slice(), &name_to_id)?;
         for (tx, rx) in trace.pairs() {
             let members = &attached[m.name.as_str()];
             if !members.contains(&tx) || !members.contains(&rx) {
-                return Err(ConfigError::UnattachedPair { medium: m.name.clone(), tx, rx });
+                return Err(ConfigError::UnattachedPair {
+                    medium: m.name.clone(),
+                    tx,
+                    rx,
+                });
             }
         }
         traces.insert(m.name.clone(), trace);
         blers.insert(
             m.name.clone(),
-            BlerCurve::new(m.bler.iter().map(|r| (r[0], r[1])).collect())
-                .map_err(|source| ConfigError::Bler { medium: m.name.clone(), source })?,
+            BlerCurve::new(m.bler.iter().map(|r| (r[0], r[1])).collect()).map_err(|source| {
+                ConfigError::Bler {
+                    medium: m.name.clone(),
+                    source,
+                }
+            })?,
         );
     }
-    Ok(LoadedScenario { file, dir, name_to_id, traces, blers, trace_sha256 })
+    Ok(LoadedScenario {
+        file,
+        dir,
+        name_to_id,
+        traces,
+        blers,
+        trace_sha256,
+    })
 }
 
 fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
     if file.scenario.duration_s <= 0.0 {
-        return Err(ConfigError::BadValue { what: "scenario.duration_s must be > 0".into() });
+        return Err(ConfigError::BadValue {
+            what: "scenario.duration_s must be > 0".into(),
+        });
     }
     // Duplicate medium names must die before the `media` set collapses them
     // (a BTreeMap keyed by name would otherwise silently last-wins).
     let mut medium_names = BTreeSet::new();
     for m in &file.media {
         if !medium_names.insert(m.name.as_str()) {
-            return Err(ConfigError::DuplicateMedium { name: m.name.clone() });
+            return Err(ConfigError::DuplicateMedium {
+                name: m.name.clone(),
+            });
         }
     }
 
@@ -217,22 +257,32 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
     let mut names = BTreeSet::new();
     for n in &file.nodes {
         if !ids.insert(n.id) {
-            return Err(ConfigError::DuplicateNode { what: format!("id {}", n.id) });
+            return Err(ConfigError::DuplicateNode {
+                what: format!("id {}", n.id),
+            });
         }
         if !names.insert(n.name.as_str()) {
-            return Err(ConfigError::DuplicateNode { what: format!("name {}", n.name) });
+            return Err(ConfigError::DuplicateNode {
+                what: format!("name {}", n.name),
+            });
         }
     }
 
     for n in &file.nodes {
         if n.id == 0 || n.id > 250 {
             return Err(ConfigError::BadValue {
-                what: format!("node {}: id must be 1..=250 (IP scheme 10.0.0.<id>)", n.name),
+                what: format!(
+                    "node {}: id must be 1..=250 (IP scheme 10.0.0.<id>)",
+                    n.name
+                ),
             });
         }
         if n.compute.cores < 1 || n.compute.queue < 1 || n.compute.rx_service_us < 1 {
             return Err(ConfigError::BadValue {
-                what: format!("node {}: compute cores/queue/rx_service_us must all be >= 1", n.name),
+                what: format!(
+                    "node {}: compute cores/queue/rx_service_us must all be >= 1",
+                    n.name
+                ),
             });
         }
         let mut seen_media = BTreeSet::new();
@@ -277,7 +327,10 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
         }
         if let Some(app) = &n.app {
             if !node_ids.contains(&app.peer) {
-                return Err(ConfigError::UnknownPeer { node: n.name.clone(), peer: app.peer });
+                return Err(ConfigError::UnknownPeer {
+                    node: n.name.clone(),
+                    peer: app.peer,
+                });
             }
             if !(4..=60_000).contains(&app.payload_len) || app.rate_pps <= 0.0 {
                 return Err(ConfigError::BadValue {
@@ -319,7 +372,10 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
             }
             if !n.interfaces.iter().any(|i| i.name == relay.telemetry_if) {
                 return Err(ConfigError::BadValue {
-                    what: format!("node {}: telemetry_if {} is not an interface", n.name, relay.telemetry_if),
+                    what: format!(
+                        "node {}: telemetry_if {} is not an interface",
+                        n.name, relay.telemetry_if
+                    ),
                 });
             }
         }
@@ -328,11 +384,16 @@ fn validate_shape(file: &ScenarioFile) -> Result<(), ConfigError> {
     // Every declared medium must have at least one attaching interface.
     // This also makes the attachment-map indexing in `load()`'s trace
     // cross-validation infallible.
-    let referenced: BTreeSet<&str> =
-        file.nodes.iter().flat_map(|n| n.interfaces.iter().map(|i| i.medium.as_str())).collect();
+    let referenced: BTreeSet<&str> = file
+        .nodes
+        .iter()
+        .flat_map(|n| n.interfaces.iter().map(|i| i.medium.as_str()))
+        .collect();
     for m in &file.media {
         if !referenced.contains(m.name.as_str()) {
-            return Err(ConfigError::OrphanMedium { medium: m.name.clone() });
+            return Err(ConfigError::OrphanMedium {
+                medium: m.name.clone(),
+            });
         }
     }
     Ok(())
@@ -344,8 +405,11 @@ mod tests {
 
     /// Minimal valid scenario written to a temp dir with its trace file.
     fn write_fixture(mutate: impl FnOnce(&mut String)) -> Result<LoadedScenario, ConfigError> {
-        let dir = std::env::temp_dir()
-            .join(format!("terminus-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let dir = std::env::temp_dir().join(format!(
+            "terminus-cfg-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("traces")).unwrap();
         std::fs::write(
@@ -398,7 +462,9 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
 
     #[test]
     fn dangling_medium_ref_dies() {
-        let e = write_fixture(|t| *t = t.replace("medium = \"m\" }]\napp", "medium = \"nope\" }]\napp"));
+        let e = write_fixture(|t| {
+            *t = t.replace("medium = \"m\" }]\napp", "medium = \"nope\" }]\napp")
+        });
         assert!(matches!(e, Err(ConfigError::UnknownMedium { .. })));
     }
 
@@ -427,8 +493,11 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
             let _ = t; // toml untouched; break the trace instead
         });
         // Overwrite the trace with an unknown name and reload.
-        let dir = std::env::temp_dir()
-            .join(format!("terminus-cfg-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let dir = std::env::temp_dir().join(format!(
+            "terminus-cfg-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
         std::fs::write(
             dir.join("traces/m.csv"),
             "t_s,tx,rx,delay_us,sinr_db\n0.0,a,c,3000,12.0\n",
@@ -521,7 +590,12 @@ bler = [[-5.0, 1.0], [0.0, 0.001]]
 
     #[test]
     fn zero_service_time_dies() {
-        let e = write_fixture(|t| *t = t.replace("rx_service_us = 100 }\ninterfaces = [{ name = \"if0\", medium = \"m\" }]\napp", "rx_service_us = 0 }\ninterfaces = [{ name = \"if0\", medium = \"m\" }]\napp"));
+        let e = write_fixture(|t| {
+            *t = t.replace(
+                "rx_service_us = 100 }\ninterfaces = [{ name = \"if0\", medium = \"m\" }]\napp",
+                "rx_service_us = 0 }\ninterfaces = [{ name = \"if0\", medium = \"m\" }]\napp",
+            )
+        });
         assert!(matches!(e, Err(ConfigError::BadValue { .. })));
     }
 }
