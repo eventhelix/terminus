@@ -19,7 +19,7 @@ transit, so its radius is inferred), the reference model uses Earth values.
 | Atmosphere | Earth-like pressure and composition | Working assumption; drives link and drag models |
 | J2 (oblateness) | 2.15e-5 | ~50x rounder than Earth; see below (`planet_figure`) |
 | C22 (tidal bulge) | 6.44e-6 | J2/C22 = 10/3, the hydrostatic synchronous figure |
-| Flattening | 1/21,800 | Earth is 1/298 |
+| Polar flattening | 1/15,066 | Earth is 1/298; the synchronous figure is triaxial, longest toward the star (equator 1/12,556 out of round) |
 
 ### Figure of the planet
 
@@ -35,6 +35,13 @@ directly. Two effects pull opposite ways:
   `C22 = k2 q / 4` — **2.5x** the spin-only figure.
 
 Net: `J2 = 2.15e-5`, about **50x smaller than Earth's**, not 126x.
+
+The shape rides the same potential through `h2 = 1 + k2`: semi-axes
+`a = R(1 + 3h2q/2)` toward the star, `b = R` across, `c = R(1 - h2q/2)` at the
+pole, so the polar flattening is `5h2q/4 = 1/15,066` and the equator is
+`3h2q/2 = 1/12,556` out of round — 66 µm on a one-meter globe. (The
+free-rotator relation `f = 3J2/2 + q/2` does not apply to a locked body; it
+gave 1/21,800 until 2026-09-04.)
 
 This is load-bearing for the whole access architecture. Nodal regression goes
 as `cos(inclination)`, so a perfectly polar ring does not drift at all; what
