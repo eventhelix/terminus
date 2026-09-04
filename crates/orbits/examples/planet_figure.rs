@@ -13,8 +13,9 @@
 //! Run: cargo run --release -p terminus-orbits --example planet_figure
 
 use terminus_orbits::oblateness::{
-    flattening, free_rotation_j2, polar_node_drift_rate, rotational_parameter, synchronous_c22,
-    synchronous_j2, EARTH_FLUID_LOVE_NUMBER,
+    free_rotation_flattening, free_rotation_j2, polar_node_drift_rate, rotational_parameter,
+    synchronous_c22, synchronous_figure, synchronous_flattening, synchronous_j2,
+    EARTH_FLUID_LOVE_NUMBER,
 };
 use terminus_orbits::CentralBody;
 
@@ -42,7 +43,7 @@ fn main() {
     );
     println!(
         "   check: flattening       = 1/{:.0}  (vs measured 1/298.3)",
-        1.0 / flattening(&earth, EARTH_J2)
+        1.0 / free_rotation_flattening(&earth, EARTH_J2)
     );
 
     println!("\n\nB. The reference planet: same mass and radius, locked to 11.2 days\n");
@@ -70,8 +71,27 @@ fn main() {
     );
     println!("   => {:.0}x rounder than Earth", EARTH_J2 / j2);
     println!(
-        "   flattening               = 1/{:.0}   (Earth 1/298)",
-        1.0 / flattening(&planet, j2)
+        "\n   The shape rides the same potential through h2 = 1 + k2, and a locked\n\
+         \x20  body is triaxial: longest toward the star, shortest at the poles.\n"
+    );
+    let fig = synchronous_figure(&planet, EARTH_FLUID_LOVE_NUMBER);
+    println!(
+        "   semi-axes (m above R)    = star {:+.1}   cross {:+.1}   pole {:+.1}",
+        fig.star_axis - planet.radius,
+        fig.cross_axis - planet.radius,
+        fig.polar_axis - planet.radius
+    );
+    println!(
+        "   polar flattening         = 1/{:.0}   (Earth 1/298)",
+        1.0 / synchronous_flattening(&planet, EARTH_FLUID_LOVE_NUMBER)
+    );
+    println!(
+        "   equatorial ellipticity   = 1/{:.0}   (the shape C22 draws)",
+        1.0 / fig.equatorial_ellipticity()
+    );
+    println!(
+        "   on a 1 m globe           = {:.0} um of bulge, a human hair",
+        1e6 * fig.polar_flattening()
     );
 
     println!("\n\nC. What that does to a polar ring at 2,200 km\n");

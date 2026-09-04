@@ -28,6 +28,24 @@
 //! would make it — but its spin is so slow that the total is still far below
 //! a free-spinning planet's. That combination is the whole reason the
 //! Terminus rings can be treated as inertially fixed.
+//!
+//! The *shape* follows from the same potential, but through the fluid
+//! displacement number `h2 = 1 + k2` rather than `k2`, because the surface
+//! rides both the deforming potential and the body's own response to it.
+//! On the unit sphere, with the star along `x` and the spin axis along `z`,
+//! the degree-2 surface potential in units of `g R` is
+//!
+//! ```text
+//! (3 q / 2) x^2 - (q / 2) z^2
+//! ```
+//!
+//! so the equilibrium radii are `a = R (1 + 3 h2 q / 2)` toward the star,
+//! `b = R` across, and `c = R (1 - h2 q / 2)` at the pole, giving the
+//! classic `(b - c) / (a - c) = 1 / 4` and a mean polar flattening of
+//! `5 h2 q / 4`. A free rotator keeps only the `z^2` term, whose flattening
+//! `h2 q / 2` is the familiar `3 J2 / 2 + q / 2`. Applying that free-rotator
+//! relation to a synchronous `J2` undercounts the flattening by the star's
+//! direct pull on the surface — an error this module once made.
 
 use crate::CentralBody;
 
@@ -67,10 +85,65 @@ pub fn synchronous_c22(body: &CentralBody, fluid_love_number: f64) -> f64 {
     fluid_love_number * rotational_parameter(body) / 4.0
 }
 
-/// Geometric flattening `f = (R_eq - R_pol) / R_eq` implied by a given `J2`,
-/// from `f = 3 J2 / 2 + q / 2`.
-pub fn flattening(body: &CentralBody, j2: f64) -> f64 {
+/// Geometric flattening `f = (R_eq - R_pol) / R_eq` of a **freely rotating**
+/// body in hydrostatic equilibrium, implied by its `J2`: `f = 3 J2 / 2 + q / 2`
+/// (equivalently `h2 q / 2` with `h2 = 1 + k2`).
+///
+/// This relation holds only when the spin is the sole deforming potential.
+/// For a synchronous body use [`synchronous_flattening`]; feeding a
+/// synchronous `J2` in here drops the star's direct pull on the surface.
+pub fn free_rotation_flattening(body: &CentralBody, j2: f64) -> f64 {
     1.5 * j2 + rotational_parameter(body) / 2.0
+}
+
+/// Equilibrium radii of a **synchronously rotating** body — a triaxial
+/// ellipsoid, in meters, relative to the undeformed radius.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SynchronousFigure {
+    /// Semi-axis toward (and away from) the star: `R (1 + 3 h2 q / 2)`.
+    pub star_axis: f64,
+    /// Semi-axis across the equator, at right angles to the star: `R`.
+    pub cross_axis: f64,
+    /// Polar semi-axis, along the spin: `R (1 - h2 q / 2)`.
+    pub polar_axis: f64,
+}
+
+impl SynchronousFigure {
+    /// Polar flattening against the mean equatorial radius,
+    /// `((a + b) / 2 - c) / ((a + b) / 2)`.
+    pub fn polar_flattening(&self) -> f64 {
+        let eq = 0.5 * (self.star_axis + self.cross_axis);
+        (eq - self.polar_axis) / eq
+    }
+
+    /// How far the equator is from a circle, `(a - b) / a` — the shape
+    /// counterpart of `C22`.
+    pub fn equatorial_ellipticity(&self) -> f64 {
+        (self.star_axis - self.cross_axis) / self.star_axis
+    }
+}
+
+/// Fluid displacement Love number `h2 = 1 + k2`: how far the surface rides
+/// on a deforming potential, counting the body's own gravitational response.
+fn fluid_displacement_number(fluid_love_number: f64) -> f64 {
+    1.0 + fluid_love_number
+}
+
+/// The equilibrium figure of a **synchronously rotating** body: the three
+/// semi-axes raised by spin and the permanent tide together.
+pub fn synchronous_figure(body: &CentralBody, fluid_love_number: f64) -> SynchronousFigure {
+    let h2q = fluid_displacement_number(fluid_love_number) * rotational_parameter(body);
+    SynchronousFigure {
+        star_axis: body.radius * (1.0 + 1.5 * h2q),
+        cross_axis: body.radius,
+        polar_axis: body.radius * (1.0 - 0.5 * h2q),
+    }
+}
+
+/// Polar flattening of a **synchronously rotating** body against its mean
+/// equatorial radius: `5 h2 q / 4` to first order, with `h2 = 1 + k2`.
+pub fn synchronous_flattening(body: &CentralBody, fluid_love_number: f64) -> f64 {
+    synchronous_figure(body, fluid_love_number).polar_flattening()
 }
 
 /// Rate (rad/s, signed) at which `J2` drags an orbit's ascending node around
@@ -142,7 +215,7 @@ mod tests {
             1e-3,
         );
         // ...and Earth's measured flattening, 1/298.257.
-        assert_close(flattening(&e, 1.0826e-3), 1.0 / 298.257, 2e-3);
+        assert_close(free_rotation_flattening(&e, 1.0826e-3), 1.0 / 298.257, 2e-3);
     }
 
     #[test]
@@ -174,6 +247,51 @@ mod tests {
         let j2 = synchronous_j2(&p, EARTH_FLUID_LOVE_NUMBER);
         let c22 = synchronous_c22(&p, EARTH_FLUID_LOVE_NUMBER);
         assert_close(j2 / c22, 10.0 / 3.0, 1e-9);
+    }
+
+    #[test]
+    fn synchronous_figure_has_the_hydrostatic_axis_ratios() {
+        let p = locked_planet();
+        let fig = synchronous_figure(&p, EARTH_FLUID_LOVE_NUMBER);
+        let (a, b, c) = (fig.star_axis, fig.cross_axis, fig.polar_axis);
+        assert!(a > b && b > c, "axes must be ordered star > cross > pole");
+        // The classic hydrostatic relation for a synchronous body.
+        assert_close((b - c) / (a - c), 0.25, 1e-9);
+        // Equatorial ellipticity 3 h2 q / 2, polar flattening 5 h2 q / 4.
+        let h2q = (1.0 + EARTH_FLUID_LOVE_NUMBER) * rotational_parameter(&p);
+        assert_close(fig.equatorial_ellipticity(), 1.5 * h2q, 1e-4);
+        assert_close(fig.polar_flattening(), 1.25 * h2q, 1e-4);
+    }
+
+    #[test]
+    fn locked_planet_flattening_is_pinned() {
+        let p = locked_planet();
+        // About one part in fifteen thousand, and an equator about one part
+        // in twelve and a half thousand from round. Quoted in the planet post.
+        assert_close(
+            synchronous_flattening(&p, EARTH_FLUID_LOVE_NUMBER),
+            6.638e-5,
+            1e-3,
+        );
+        let fig = synchronous_figure(&p, EARTH_FLUID_LOVE_NUMBER);
+        assert_close(fig.equatorial_ellipticity(), 7.965e-5, 1e-3);
+        // On a one-meter globe the equator stands proud of the poles by
+        // about 66 microns — still a human hair.
+        let microns = fig.polar_flattening() * 1e6;
+        assert!((60.0..75.0).contains(&microns), "{microns} um");
+    }
+
+    #[test]
+    fn flattening_and_j2_agree_on_how_much_rounder_the_locked_planet_is() {
+        let (e, p) = (earth(), locked_planet());
+        // Both the gravity coefficient and the shape carry the same 5/2
+        // synchronous factor over the free rotator, so the two ratios match:
+        // "fifty times rounder" is one claim, not two.
+        let j2_ratio = 1.0826e-3 / synchronous_j2(&p, EARTH_FLUID_LOVE_NUMBER);
+        let f_ratio = free_rotation_flattening(&e, 1.0826e-3)
+            / synchronous_flattening(&p, EARTH_FLUID_LOVE_NUMBER);
+        assert_close(f_ratio, j2_ratio, 2e-3);
+        assert!((j2_ratio - 50.0).abs() < 1.0, "{j2_ratio}");
     }
 
     #[test]
