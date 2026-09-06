@@ -10,3 +10,9 @@ homepage.workspace = true
 authors.workspace = true
 
 [dependencies]
+
+# The interstellar-link review example carries its own unit tests (it is
+# deliberately self-contained; see its module docs), so run them.
+[[example]]
+name = "interstellar_link"
+test = true
