@@ -9,7 +9,7 @@
 //! library or in the posts' evidence examples. It exists so every number in
 //! the issue-7 review comment can be regenerated from one command.
 //!
-//! Six questions, one section each:
+//! Part I asks six questions, one section each:
 //!
 //!   A. Does the stated hardware deliver enough photons for 1 Tbps?
 //!   B. Does the stated modulation fit 1 Tbps into any optical band?
@@ -18,6 +18,17 @@
 //!   D. How much stellar light lands in a data lane?
 //!   E. What does the receive-side event stream look like?
 //!   F. Framing and transport arithmetic.
+//!
+//! Part II answers what Part I found:
+//!
+//!   G. A commissioning profile chosen by searching the CCSDS HPE menu for
+//!      rate and photon margin, plus the coherent upgrade path.
+//!   H. A pointing budget, an 8.5-year conical-scan calibration loop, and
+//!      the orbit contract each gateway must fly.
+//!   I. The Sun-side stand-off distance, or equivalently the scattered-
+//!      light specification, derived from the diffraction floor.
+//!   J. The combiner reduced to slot-synchronous count sums.
+//!   K. Framing that fits RFC 6330's field widths.
 //!
 //! Inputs are the issue's own design point plus published astrometry and
 //! photometry; each constant names its source. Nothing here is a
@@ -232,6 +243,123 @@ fn ecliptic_latitude(ra: f64, dec: f64, eps: f64) -> f64 {
 
 fn db(x: f64) -> f64 {
     10.0 * x.log10()
+}
+
+fn from_db(x: f64) -> f64 {
+    10f64.powf(x / 10.0)
+}
+
+// ---------------------------------------------------------------------------
+// Part II: what to do about it (sections G–K)
+// ---------------------------------------------------------------------------
+
+/// Practical gap (dB) between a real photon-counting PPM decoder and the
+/// Poisson capacity line. SCPPM sits ~0.5 dB from capacity (Moision &
+/// Hamkins 2003); the rest covers slot sync, dead time, and residual
+/// background. A stated allowance.
+const PPM_DECODER_GAP_DB: f64 = 1.5;
+/// Gap for pilot-aided coherent detection with a strong code: the 2008
+/// Lincoln Laboratory homodyne-PSK demonstration reached 1.5 photons/bit,
+/// 4.5 dB from the Shannon limit (Stevens et al. 2008).
+const COHERENT_GAP_DB: f64 = 4.5;
+/// Slot clock for every lane: the CCSDS HPE maximum.
+const SLOT_RATE_HZ: f64 = 1.0 / HPE_MIN_SLOT_S;
+/// Grid spacings to search (Hz). 25 GHz is the tightest that respects the
+/// 141.0-B-2 spectral mask (95% of energy within ±10 GHz of centre);
+/// 12.5 GHz needs a cleaner laser than the standard asks for.
+const GRIDS_HZ: [(f64, &str); 2] = [
+    (25e9, "25 GHz, CCSDS mask"),
+    (12.5e9, "12.5 GHz, tighter laser"),
+];
+const PPM_ORDERS: [u32; 7] = [4, 8, 16, 32, 64, 128, 256];
+const CODE_RATES: [(f64, &str); 3] = [(1.0 / 3.0, "1/3"), (0.5, "1/2"), (2.0 / 3.0, "2/3")];
+/// Lane reserve above the required rate: the issue wants ≥16 independently
+/// failing lanes plus control/pilot lanes, so do not size to the last lane.
+const LANE_RESERVE: f64 = 1.10;
+/// Implementation loss assumed in section A, reused here.
+const IMPLEMENTATION_LOSS_DB: f64 = 10.0;
+
+/// One candidate commissioning profile.
+struct Profile {
+    m: u32,
+    rate: &'static str,
+    grid: &'static str,
+    lanes: f64,
+    /// bit/s after the outer code with every lane at the maximum slot clock.
+    delivered: f64,
+    /// Detected photons per net bit the decoder needs: capacity × gap.
+    photons_needed: f64,
+    /// Photon margin (dB) against what the link delivers.
+    margin_db: f64,
+}
+
+/// Every (grid, M, r) from the CCSDS HPE menu that delivers `required`
+/// bit/s with the lane reserve, sorted by photon margin.
+fn search_profiles(photons_available: f64, required: f64) -> Vec<Profile> {
+    let mut out = Vec::new();
+    for (grid_hz, grid) in GRIDS_HZ {
+        let lanes = wdm_channels(SCL_BAND_LOW_HZ, SCL_BAND_HIGH_HZ, grid_hz);
+        for m in PPM_ORDERS {
+            for (r, rate) in CODE_RATES {
+                let delivered = lanes * SLOT_RATE_HZ * ppm_bits_per_slot(m, r);
+                if delivered < required * LANE_RESERVE {
+                    continue;
+                }
+                let photons_needed =
+                    ppm_noiseless_photons_per_bit(m, r) * from_db(PPM_DECODER_GAP_DB);
+                out.push(Profile {
+                    m,
+                    rate,
+                    grid,
+                    lanes,
+                    delivered,
+                    photons_needed,
+                    margin_db: db(photons_available / photons_needed),
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| b.margin_db.total_cmp(&a.margin_db));
+    out
+}
+
+/// Fraction of on-axis power at `offset` (rad) from boresight, Gaussian
+/// fit to the Airy main lobe with half-power half-width `hphw`.
+fn pointing_loss(offset: f64, hphw: f64) -> f64 {
+    (-std::f64::consts::LN_2 * (offset / hphw).powi(2)).exp()
+}
+
+/// Peak-to-mean received-power modulation seen by the far end when the
+/// transmitter, mispointed by `offset`, dithers its aim by ±`dither`
+/// (conical scan): the first-order derivative of [`pointing_loss`].
+fn conscan_modulation(offset: f64, dither: f64, hphw: f64) -> f64 {
+    2.0 * std::f64::consts::LN_2 * offset * dither / (hphw * hphw)
+}
+
+/// Photon-limited centroid precision (rad) of an aperture `diameter` (m)
+/// on a point source after `photons` detected: (λ/D)/√N.
+fn centroid_precision(diameter: f64, wavelength: f64, photons: f64) -> f64 {
+    wavelength / diameter / photons.sqrt()
+}
+
+/// Along-track velocity change (m/s) that moves a circular-orbit body by
+/// `displacement` (m) along its track after `time` (s): Δx ≈ 3·Δv·t.
+fn along_track_dv(displacement: f64, time: f64) -> f64 {
+    displacement / (3.0 * time)
+}
+
+/// Asymptotic Airy-pattern intensity relative to the core at `theta`
+/// (rad) off-axis for an unobstructed aperture: 8/(π x³) with
+/// x = πDθ/λ. The diffraction floor beneath any real scatter.
+fn airy_wing_envelope(theta: f64, diameter: f64, wavelength: f64) -> f64 {
+    let x = PI * diameter * theta / wavelength;
+    8.0 / (PI * x.powi(3))
+}
+
+/// Off-axis angle (rad) at which [`airy_wing_envelope`] falls to `target`.
+fn airy_wing_angle(target: f64, diameter: f64, wavelength: f64) -> f64 {
+    let x = (8.0 / (PI * target)).cbrt();
+    x * wavelength / (PI * diameter)
 }
 
 fn si(x: f64, unit: &str) -> String {
@@ -568,6 +696,196 @@ fn main() {
         2f64.powi(-128),
         (1u64 << 30) as f64 * 8.0 / NET_RATE * 1e3,
     );
+
+    // =======================================================================
+    println!("\n\n================ Part II: what to do about it ================\n");
+
+    // -----------------------------------------------------------------------
+    println!("G. A capacity-derived commissioning profile\n");
+    let photons_available = photons_per_bit_ideal / from_db(IMPLEMENTATION_LOSS_DB);
+    let profiles = search_profiles(photons_available, outer_rate);
+    println!(
+        "   Search: every CCSDS HPE (M, r) on a 25 or 12.5 GHz grid across S+C+L,\n\
+         \x20  all lanes at the 8 GHz slot clock, delivering ≥ {:.0}% of {} after the\n\
+         \x20  outer code, ranked by photon margin against {:.2} photons/bit\n\
+         \x20  (decoder {:.1} dB off the Poisson capacity line).\n",
+        LANE_RESERVE * 100.0,
+        si(outer_rate, "bit/s"),
+        photons_available,
+        PPM_DECODER_GAP_DB,
+    );
+    println!(
+        "   {:<8} {:<5} {:<24} {:>6} {:>12} {:>10} {:>8}",
+        "PPM", "rate", "grid", "lanes", "delivered", "need γ/b", "margin"
+    );
+    for p in profiles.iter().take(8) {
+        println!(
+            "   {:<8} {:<5} {:<24} {:>6.0} {:>12} {:>10.2} {:>+7.1} dB",
+            format!("{}-PPM", p.m),
+            p.rate,
+            p.grid,
+            p.lanes,
+            si(p.delivered, "bit/s"),
+            p.photons_needed,
+            p.margin_db,
+        );
+    }
+    let best_ccsds = profiles
+        .iter()
+        .find(|p| p.grid.starts_with("25"))
+        .expect("some profile fits on the CCSDS grid");
+    println!(
+        "\n   Recommendation: {}-PPM, r = {} on the {} grid — {:.0} lanes,\n\
+         \x20  {} delivered, {:+.1} dB photon margin. Replace the 64-PPM / r = 1/3\n\
+         \x20  ROBUST DATA row with it; keep 256-PPM r = 1/3 for SAFE CONTROL, where\n\
+         \x20  rate is irrelevant and photon efficiency is everything.",
+        best_ccsds.m,
+        best_ccsds.rate,
+        best_ccsds.grid,
+        best_ccsds.lanes,
+        si(best_ccsds.delivered, "bit/s"),
+        best_ccsds.margin_db,
+    );
+    println!("\n   Coherent upgrade path (pilot-aided, {COHERENT_GAP_DB:.1} dB off Shannon):");
+    for eta in [1.0, 2.0] {
+        let need = coherent_photons_per_bit(eta) * from_db(COHERENT_GAP_DB);
+        let margin = db(photons_available / need);
+        println!(
+            "     {eta:.0} bit/s/Hz: {} of spectrum, needs {need:.2} photons/bit → {margin:+.1} dB; closes at {} TX or a {:.2}× wider array",
+            si(outer_rate / eta, "Hz"),
+            si(TX_POWER * need / photons_available, "W"),
+            (need / photons_available).sqrt(),
+        );
+    }
+    println!(
+        "   So: commission on photon-counting PPM, and treat coherent as the\n\
+         \x20  lane-count-halving upgrade that a 4–6 dB link improvement buys."
+    );
+
+    // -----------------------------------------------------------------------
+    println!("\n\nH. Pointing: budget, calibration loop, and orbit contract\n");
+    let offset = 1e-9;
+    let dither = 0.5e-9;
+    let pilot_photons_per_s = 1e6;
+    println!(
+        "   loss at {:.0} nrad mispointing           {:+.2} dB\n\
+         \x20  conscan: ±{:.1} nrad dither at {:.0} nrad offset → {:.1}% power modulation, costs {:+.2} dB\n\
+         \x20  TX array as astrometric receiver      λ/D = {:.2} nrad; {:.0e} pilot photons → {:.1} prad centroid\n\
+         \x20  Δv to fix ±{:.0} km along-track over {:.2} yr   {:.2} m/s",
+        offset * 1e9,
+        db(pointing_loss(offset, theta_hp)),
+        dither * 1e9,
+        offset * 1e9,
+        conscan_modulation(offset, dither, theta_hp) * 100.0,
+        db(pointing_loss(dither, theta_hp)),
+        WAVELENGTH / TX_DIAMETER * 1e9,
+        pilot_photons_per_s,
+        centroid_precision(TX_DIAMETER, WAVELENGTH, pilot_photons_per_s) * 1e12,
+        pointing_budget * range / 1e3,
+        range / SPEED_OF_LIGHT / YEAR,
+        along_track_dv(pointing_budget * range, range / SPEED_OF_LIGHT),
+    );
+    println!(
+        "\n   Plan: (1) fast jitter from local inertial sensors and metrology, as the\n\
+         \x20  issue says; (2) receive boresight from the far pilot through the TX\n\
+         \x20  array's own optics, so transmit and receive share one calibrated axis;\n\
+         \x20  (3) a slow conical scan of the data beam whose modulation the far end\n\
+         \x20  measures and reports on the return link — an 8.5-year loop, which is\n\
+         \x20  fine because the terms it calibrates (proper-motion model, point-ahead\n\
+         \x20  offset, array boresight) are constant or secular; (4) gateway orbits\n\
+         \x20  published in the control plane as reference ephemerides, flown to\n\
+         \x20  ±{:.0} km with {:.1} m/s-class corrections, and verified by the far\n\
+         \x20  end from pilot Doppler and astrometry.",
+        pointing_budget * range / 1e3,
+        along_track_dv(pointing_budget * range, range / SPEED_OF_LIGHT),
+    );
+
+    // -----------------------------------------------------------------------
+    println!("\n\nI. Stand-off distance from the diffraction floor\n");
+    let lane_fraction_target = 1e-3;
+    let sun_lane_ratio = sun_power / signal_per_lane;
+    for a in GATEWAY_ORBITS_AU {
+        let sep = a * AU / range;
+        let env = airy_wing_envelope(sep, RX_COLLECTOR_DIAMETER, WAVELENGTH);
+        println!(
+            "   {a:.0} AU: Airy envelope {env:.1e} → Sun {:.1e} of a lane, Proxima {:.1e} of a lane (diffraction only)",
+            sun_lane_ratio * env,
+            proxima_power / signal_per_lane * env,
+        );
+    }
+    let floor_target = lane_fraction_target / sun_lane_ratio;
+    let standoff = airy_wing_angle(floor_target, RX_COLLECTOR_DIAMETER, WAVELENGTH) * range;
+    println!(
+        "\n   To keep the Sun ≤ {:.0e} of a lane the collectors must suppress it to\n\
+         \x20  {:.1e}. Diffraction alone reaches that at {:.1} AU stand-off; closer in,\n\
+         \x20  the same number becomes the scattered-light specification on every\n\
+         \x20  30 m collector (a lunar site at 1 AU needs ≤ {:.0e}). Write one or the\n\
+         \x20  other into section 1; the Proxima side is {:.0}× easier and can stay\n\
+         \x20  at 1–5 AU.",
+        lane_fraction_target,
+        floor_target,
+        standoff / AU,
+        floor_target,
+        sun_power / proxima_power,
+    );
+
+    // -----------------------------------------------------------------------
+    println!("\n\nJ. Combiner: count sums are the sufficient statistic\n");
+    let lanes = best_ccsds.lanes;
+    let slots_per_s = lanes * SLOT_RATE_HZ;
+    let count_bits = 4.0;
+    let per_collector_lane = photons_per_s / RX_COLLECTORS / lanes;
+    let mean_gap_slots = SLOT_RATE_HZ / per_collector_lane;
+    let event_bits = mean_gap_slots.log2().ceil() + f64::from(best_ccsds.m).log2();
+    println!(
+        "   With no background and equal detector efficiency, the sum of photon\n\
+         \x20  counts per slot across collectors is a sufficient statistic for the\n\
+         \x20  Poisson channel: LLR combining reduces to slot-synchronous addition.\n\n\
+         \x20  slots per second, {lanes:.0} lanes × 8 GHz     {:.2e}\n\
+         \x20  photons per slot, array total          {:.2}   (pulsed slot: ×{})\n\
+         \x20  per collector per lane                 {:.1e} /s → one photon per {:.0} slots\n\
+         \x20  event = Δslot + slot-in-symbol         {event_bits:.0} bits → {} per collector, {} aggregate\n\
+         \x20  count sums to the decoders at {count_bits:.0} bits  {}   (vs {} of raw timestamps)",
+        slots_per_s,
+        photons_per_s / from_db(IMPLEMENTATION_LOSS_DB) / slots_per_s,
+        best_ccsds.m,
+        per_collector_lane,
+        mean_gap_slots,
+        si(photons_per_s / RX_COLLECTORS * event_bits / 8.0, "B/s"),
+        si(photons_per_s * event_bits / 8.0, "B/s"),
+        si(slots_per_s * count_bits / 8.0, "B/s"),
+        si(photons_per_s * event_bytes, "B/s"),
+    );
+    println!(
+        "\n   Architecture: geometric-delay correction and slot alignment at each\n\
+         \x20  collector; a tree of adders (clusters of ~32 collectors, then the\n\
+         \x20  array) producing per-lane per-slot counts; decoders consume counts.\n\
+         \x20  Unequal efficiencies or background bring back per-collector weights,\n\
+         \x20  but as a scalar per collector per lane, not a per-photon LLR."
+    );
+
+    // -----------------------------------------------------------------------
+    println!("\n\nK. Framing that fits RFC 6330\n");
+    let symbol = 32_768.0;
+    let symbols_per_frame = FRAME_PAYLOAD / symbol;
+    let k = (1u64 << 30) as f64 / symbol;
+    let header = 64.0;
+    let tag = 16.0;
+    println!(
+        "   fountain symbol T = {symbol:.0} B (fits 16-bit T); {symbols_per_frame:.0} per 64 KiB frame\n\
+         \x20  K per 1 GiB block = {k:.0} ≤ K′max 56 403\n\
+         \x20  frame header {header:.0} B + 128-bit tag {tag:.0} B = {:.2}% overhead\n\
+         \x20  false accept per decoder-passed bad frame  {:.1e}\n\
+         \x20  expected undetected frames per century     {:.1e}",
+        (header + tag) / FRAME_PAYLOAD * 100.0,
+        2f64.powi(-128),
+        frames_per_century * 2f64.powi(-128),
+    );
+    println!(
+        "\n   Also: a wrong-but-accepted symbol poisons its whole 1 GiB block and the\n\
+         \x20  block hash cannot name it, so the per-frame tag is what keeps the\n\
+         \x20  fountain layer honest — say so in §8.3."
+    );
 }
 
 #[cfg(test)]
@@ -579,6 +897,52 @@ mod tests {
         assert!(
             rel < rel_tol,
             "actual {actual}, expected {expected}, rel err {rel}"
+        );
+    }
+
+    #[test]
+    fn ccsds_grid_search_picks_8_ppm_rate_half() {
+        // 1.14 photons/bit is section A's figure after −10 dB.
+        let profiles = search_profiles(1.14, NET_RATE * (1.0 + FOUNTAIN_OVERHEAD));
+        let best = profiles.iter().find(|p| p.grid.starts_with("25")).unwrap();
+        assert_eq!((best.m, best.rate), (8, "1/2"));
+        assert!(
+            best.margin_db > 2.0 && best.margin_db < 3.0,
+            "{}",
+            best.margin_db
+        );
+        // The issue's own profile never appears: it cannot deliver the rate.
+        assert!(profiles.iter().all(|p| !(p.m == 64 && p.rate == "1/3")));
+    }
+
+    #[test]
+    fn pointing_loss_is_half_at_half_power_half_width() {
+        assert_close(pointing_loss(2.66e-9, 2.66e-9), 0.5, 1e-12);
+        assert_close(pointing_loss(0.0, 2.66e-9), 1.0, 1e-12);
+    }
+
+    #[test]
+    fn conscan_matches_numerical_derivative() {
+        let (hphw, offset, dither) = (2.66e-9, 1e-9, 0.05e-9);
+        let numeric = (pointing_loss(offset - dither, hphw) - pointing_loss(offset + dither, hphw))
+            / pointing_loss(offset, hphw)
+            / 2.0;
+        assert_close(conscan_modulation(offset, dither, hphw), numeric, 1e-2);
+    }
+
+    #[test]
+    fn airy_wing_angle_inverts_envelope() {
+        let theta = airy_wing_angle(1e-8, 30.0, 1.55e-6);
+        assert_close(airy_wing_envelope(theta, 30.0, 1.55e-6), 1e-8, 1e-9);
+    }
+
+    #[test]
+    fn along_track_correction_is_a_tenth_of_a_metre_per_second() {
+        let range = DISTANCE_PC * PARSEC;
+        assert_close(
+            along_track_dv(1e-9 * range, range / SPEED_OF_LIGHT),
+            0.1,
+            5e-3,
         );
     }
 
