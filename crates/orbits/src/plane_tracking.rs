@@ -46,6 +46,41 @@ pub fn remaining_mass_fraction(body: &CentralBody, altitude: f64, isp: f64, days
     (-dv / (G0 * isp)).exp()
 }
 
+/// Peak cross-track acceleration for a continuous sinusoidal steering law,
+/// m/s².
+///
+/// Gauss's planetary equations give dΩ/dt = (a_N / v)·sin L for a nearly
+/// circular polar orbit, where L is the argument of latitude. A smooth law
+/// a_N = A·sin L therefore turns the plane at A/(2v) on average, since
+/// ⟨sin² L⟩ = ½ over a lap. Holding the terminator rate needs A = 2·v·ω,
+/// twice [`cross_track_acceleration`], which spreads the same turn evenly.
+pub fn smooth_steering_peak_acceleration(body: &CentralBody, altitude: f64) -> f64 {
+    2.0 * cross_track_acceleration(body, altitude)
+}
+
+/// Δv per Earth day for the continuous sinusoidal steering law, m/s per day.
+///
+/// The lap average of |A·sin L| is (2/π)·A, so the cost is (4/π)·v·ω per
+/// second — about 27% above [`ideal_plane_change_dv_per_day`]. That floor is
+/// reachable only by saving the turn for the nodes over the poles; steering
+/// smoothly also thrusts near the equator, where a cross-track push buys
+/// inclination rather than rotation about the spin axis.
+pub fn smooth_steering_dv_per_day(body: &CentralBody, altitude: f64) -> f64 {
+    (4.0 / PI) * cross_track_acceleration(body, altitude) * SECONDS_PER_DAY
+}
+
+/// Fraction of spacecraft mass consumed as propellant per Earth day under the
+/// smooth steering law, for a thruster with the given specific impulse in
+/// seconds.
+pub fn smooth_steering_propellant_fraction_per_day(
+    body: &CentralBody,
+    altitude: f64,
+    isp: f64,
+) -> f64 {
+    let dv = smooth_steering_dv_per_day(body, altitude);
+    1.0 - (-dv / (G0 * isp)).exp()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +149,36 @@ mod tests {
             0.0184,
             5e-3,
         );
+    }
+
+    #[test]
+    fn smooth_steering_doubles_the_peak_thrust() {
+        let p = reference_planet();
+        let peak = smooth_steering_peak_acceleration(&p, 1_800e3);
+        // A = 2·v·ω ⇒ 0.0907 m/s²; a 500 kg spacecraft needs ≈ 45.4 N, twice
+        // the 22.7 N of the evenly spread ideal.
+        assert_close(peak, 0.09070, 2e-3);
+        assert_close(peak * 500.0, 45.35, 5e-3);
+        assert_close(peak, 2.0 * cross_track_acceleration(&p, 1_800e3), 1e-12);
+    }
+
+    #[test]
+    fn smooth_steering_dv_sits_four_over_pi_above_the_floor() {
+        let p = reference_planet();
+        let smooth = smooth_steering_dv_per_day(&p, 1_800e3);
+        let floor = ideal_plane_change_dv_per_day(&p, 1_800e3);
+        // (4/π)·v·ω·Δt ≈ 4.99 km/s/day against the floor's 3.92.
+        assert_close(smooth, 4_989.0, 2e-3);
+        assert_close(smooth / floor, 4.0 / PI, 1e-12);
+        assert!(smooth > floor);
+    }
+
+    #[test]
+    fn smooth_steering_propellant_is_worse_and_still_ruinous() {
+        let p = reference_planet();
+        let smooth = smooth_steering_propellant_fraction_per_day(&p, 1_800e3, 3_000.0);
+        // ~15.6%/day against the floor's ~12.5%: the design dies either way.
+        assert_close(smooth, 0.1560, 2e-3);
+        assert!(smooth > propellant_fraction_per_day(&p, 1_800e3, 3_000.0));
     }
 }
