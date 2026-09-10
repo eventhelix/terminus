@@ -53,9 +53,12 @@ pub fn edge_slant_range(body: &CentralBody, altitude: f64, min_elevation: f64) -
 /// reference survey it grows 287x, against 24.6x for the period.
 ///
 /// Idealised: it assumes the pass crosses the user's zenith and ignores the
-/// body's rotation during the pass. Fair for a slow rotator, but not free —
-/// on the reference planet a 37 h pass at 50,000 km spans ~14% of an
-/// 11.2-day day.
+/// body's rotation during the pass. Fair for a slow rotator, but not free: the
+/// user is carried through a fraction of the `2λ` window equal to
+/// `orbital_period / rotation_period`, whatever λ is. On the reference planet
+/// that is 0.6% at 300 km (1.51 h against an 11.2-day day) and ~14% at
+/// 50,000 km (37 h), where the 12.2 h pass is correspondingly longer or
+/// shorter depending on the sense of the crossing.
 pub fn max_pass_duration(body: &CentralBody, altitude: f64, min_elevation: f64) -> f64 {
     let lambda = coverage_half_angle(body, altitude, min_elevation);
     lambda / std::f64::consts::PI * orbital_period(body, altitude)
