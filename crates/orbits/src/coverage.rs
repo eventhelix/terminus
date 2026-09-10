@@ -173,6 +173,32 @@ mod tests {
     }
 
     #[test]
+    fn spin_moves_the_top_shelf_and_nothing_under_it() {
+        // `max_pass_duration` holds the user still. In truth the body carries
+        // them through `orbital_period / rotation_period` of the 2-lambda
+        // window during one pass -- a fraction independent of lambda -- so an
+        // equatorial pass runs `t / (1 - f)` with the spin and `t / (1 + f)`
+        // against it. A polar pass is carried across the track instead and
+        // moves less than either bound.
+        let p = reference_planet();
+        let fraction = |alt: f64| orbital_period(&p, alt) / p.rotation_period;
+
+        // Under a percent at every shelf low enough to serve the latency
+        // budget, including the 2,200 km access ring.
+        for altitude_km in [300.0, 1_200.0, 1_800.0, 2_200.0] {
+            assert!(fraction(altitude_km * 1e3) < 0.01);
+        }
+
+        // A seventh at the top of the survey.
+        let f = fraction(50_000e3);
+        assert_close(f, 0.13765, 1e-4);
+        let t = max_pass_duration(&p, 50_000e3, MIN_ELEVATION) / 3_600.0;
+        assert_close(t, 12.152, 1e-4);
+        assert_close(t / (1.0 + f), 10.682, 1e-4);
+        assert_close(t / (1.0 - f), 14.092, 1e-4);
+    }
+
+    #[test]
     fn max_pass_duration_at_reference_altitudes() {
         let p = reference_planet();
         // ≈13.6 min at 1,800 km; ≈3.4 h at 20,000 km.
