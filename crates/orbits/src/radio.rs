@@ -20,6 +20,15 @@ pub fn fspl_db(distance: f64, frequency: f64) -> f64 {
     20.0 * (4.0 * std::f64::consts::PI * distance * frequency / SPEED_OF_LIGHT).log10()
 }
 
+/// Inverse-square spreading loss in dB of a link over `distance` (m)
+/// relative to one over `reference` (m): 20·log₁₀(d/d_ref). This is the
+/// balloon step of [`fspl_db`] on its own — geometry with no antennas and
+/// no frequency in it — so it prices the altitude survey's edge user
+/// before any band has been chosen.
+pub fn spreading_db(distance: f64, reference: f64) -> f64 {
+    20.0 * (distance / reference).log10()
+}
+
 /// Gain (dBi) of a parabolic dish of `diameter` (m) at `frequency` (Hz)
 /// with aperture `efficiency` (0..1): 10·log₁₀(η·(πD/λ)²).
 pub fn dish_gain_dbi(diameter: f64, frequency: f64, efficiency: f64) -> f64 {
@@ -99,6 +108,19 @@ mod tests {
             rel < rel_tol,
             "actual {actual}, expected {expected}, rel err {rel}"
         );
+    }
+
+    #[test]
+    fn spreading_across_the_survey_shelves() {
+        // The balloon alone, no antennas, no frequency: the edge user's
+        // signal referenced to the best case the survey offers, 300 km
+        // straight overhead. 2.16x the distance at the bottom shelf's own
+        // edge; 178x at the top shelf's.
+        assert_close(spreading_db(648.4e3, 300e3), 6.69, 2e-3);
+        assert_close(spreading_db(53_390e3, 300e3), 45.01, 2e-3);
+        assert!(spreading_db(300e3, 300e3).abs() < 1e-12);
+        // Twice the distance is a quarter the flux: 6.02 dB.
+        assert_close(spreading_db(2.0, 1.0), 6.0206, 1e-4);
     }
 
     #[test]

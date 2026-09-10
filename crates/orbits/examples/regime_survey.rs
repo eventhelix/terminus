@@ -14,6 +14,7 @@ use terminus_orbits::coverage::{
 };
 use terminus_orbits::hill::{hill_radius, prograde_stability_limit, SUN_MU};
 use terminus_orbits::placement::SPEED_OF_LIGHT;
+use terminus_orbits::radio::spreading_db;
 use terminus_orbits::{CentralBody, EARTH_MU};
 
 fn main() {
@@ -73,6 +74,31 @@ Path length and dwell:"
         period_ratio,
         angle_ratio
     );
+
+    // How thin the edge user's signal arrives, by geometry alone: the
+    // inverse-square spread of the slant range, referenced to the best case
+    // any shelf offers — the bottom shelf seen straight overhead.
+    let reference = 300e3;
+    println!(
+        "
+Signal spread at the footprint edge (inverse square, vs 300 km overhead):"
+    );
+    println!(
+        "{:>10} {:>13} {:>13} {:>16}",
+        "alt (km)", "slant (km)", "spread (dB)", "overhead (dB)"
+    );
+    for altitude_km in [300.0, 1_200.0, 1_800.0, 10_000.0, 20_000.0, 50_000.0] {
+        let altitude = altitude_km * 1e3;
+        let slant = edge_slant_range(&planet, altitude, min_elevation);
+        println!(
+            "{:>10.0} {:>13.0} {:>13.1} {:>16.1}",
+            altitude_km,
+            slant / 1e3,
+            spreading_db(slant, reference),
+            spreading_db(altitude, reference)
+        );
+    }
+    println!("  every 6 dB is a factor of four in flux; frequency has not entered yet.");
 
     println!(
         "
