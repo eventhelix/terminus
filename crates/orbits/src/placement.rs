@@ -66,6 +66,31 @@ pub fn transfer_time(bytes: f64, bits_per_second: f64) -> f64 {
     bytes * 8.0 / bits_per_second
 }
 
+/// Tokens per second a fresh anchor can re-read a transcript at when it has
+/// to rebuild a conversation's working memory from text -- a *prefill*.
+///
+/// **A stated guess.** It is the order of magnitude at which a large
+/// accelerator cluster prefills an 80-layer model at long context, not a
+/// measurement of any hardware this proposal has priced. What turns on it is
+/// the stall a *dead* anchor costs: recovery from the vault has nothing to
+/// stream, so the successor re-reads the whole context at this rate before it
+/// can say another word. Nothing about a *planned* move depends on it -- a
+/// planned move streams the working memory make-before-break and never
+/// prefills (ADR-0022). Halve or double it and the recovery stall moves with
+/// it; the planned lane does not move at all.
+pub const PREFILL_TOKENS_PER_SECOND: f64 = 10_000.0;
+
+/// Bytes of transcript text per token, for sizing what the vault sends back.
+/// Stated, and it barely matters: a 32k-token transcript is a tenth of a
+/// megabyte, and its transfer vanishes next to the half-light-second each way.
+pub const TRANSCRIPT_BYTES_PER_TOKEN: f64 = 4.0;
+
+/// Time (s) to rebuild `tokens` of working memory from a transcript at
+/// `tokens_per_second`.
+pub fn prefill_time(tokens: u64, tokens_per_second: f64) -> f64 {
+    tokens as f64 / tokens_per_second
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +150,22 @@ mod tests {
         };
         assert_close(transfer_time(m.bytes(32_768), 100e9), 0.859, 1e-3);
         assert_close(transfer_time(m.bytes(32_768), 10e9), 8.59, 1e-3);
+    }
+
+    #[test]
+    fn prefill_of_the_reference_session_takes_seconds_not_milliseconds() {
+        // 32,768 tokens at the stated 10,000 tok/s: 3.28 s. This is the
+        // stall a dead anchor costs and a planned move never pays.
+        assert_close(prefill_time(32_768, PREFILL_TOKENS_PER_SECOND), 3.2768, 1e-6);
+        assert_eq!(prefill_time(0, PREFILL_TOKENS_PER_SECOND), 0.0);
+    }
+
+    #[test]
+    fn transcript_is_a_tenth_of_a_megabyte() {
+        // The vault sends text back, not working memory: 32k tokens of it
+        // is 131 kB, and its transfer vanishes next to the light time.
+        let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
+        assert_eq!(bytes, 131_072.0);
+        assert!(transfer_time(bytes, 100e9) < 1e-4);
     }
 }
