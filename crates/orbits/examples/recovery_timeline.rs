@@ -73,7 +73,10 @@ fn main() {
         catch_up_bytes / 1e6,
         catch_up_s * 1e3
     );
-    println!("   stall                 {:>8.0} s   the old anchor answers until the flip", 0.0);
+    println!(
+        "   stall                 {:>8.0} s   the old anchor answers until the flip",
+        0.0
+    );
     println!("   lost                  nothing\n");
     println!(
         "   The successor already holds the frozen mind -- the weights are the\n\
@@ -114,7 +117,9 @@ fn main() {
         stall, profile.context_tokens, PREFILL_TOKENS_PER_SECOND, prefill
     );
     println!("   stall             {:>8.2} s", stall);
-    println!("   lost              the last exchange: whatever was said after the vault's last copy\n");
+    println!(
+        "   lost              the last exchange: whatever was said after the vault's last copy\n"
+    );
     println!(
         "   Nothing can be streamed from a machine that is gone. The vault at\n\
          \x20  L1/L2 holds the transcript, half a light-second away, and the new\n\

@@ -156,7 +156,11 @@ mod tests {
     fn prefill_of_the_reference_session_takes_seconds_not_milliseconds() {
         // 32,768 tokens at the stated 10,000 tok/s: 3.28 s. This is the
         // stall a dead anchor costs and a planned move never pays.
-        assert_close(prefill_time(32_768, PREFILL_TOKENS_PER_SECOND), 3.2768, 1e-6);
+        assert_close(
+            prefill_time(32_768, PREFILL_TOKENS_PER_SECOND),
+            3.2768,
+            1e-6,
+        );
         assert_eq!(prefill_time(0, PREFILL_TOKENS_PER_SECOND), 0.0);
     }
 
