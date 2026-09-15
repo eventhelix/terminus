@@ -41,9 +41,18 @@ pub fn one_way_latency(distance: f64, relays: usize, relay_delay: f64) -> f64 {
 
 /// Per-token key/value-cache footprint of a transformer model: for every
 /// token processed, each layer stores a key and a value vector per KV head.
+///
+/// The reference model is the 70-billion-parameter class (the shape of
+/// Llama 3 70B): 80 layers and grouped-query attention, 64 query heads sharing
+/// 8 key/value heads of 128 numbers each. Only the key/value heads are cached,
+/// so `query_heads` never enters [`Self::bytes_per_token`]; it records what
+/// the sharing saves, [`Self::unshared_bytes_per_token`].
 #[derive(Debug, Clone, Copy)]
 pub struct KvCacheModel {
     pub layers: usize,
+    /// Heads that ask: each forms a query from the new token. Not cached.
+    pub query_heads: usize,
+    /// Heads that are cached. `query_heads` must be a whole multiple of this.
     pub kv_heads: usize,
     pub head_dim: usize,
     pub bytes_per_value: usize,
@@ -53,6 +62,17 @@ impl KvCacheModel {
     /// Bytes of KV cache appended per token of context.
     pub fn bytes_per_token(&self) -> f64 {
         (2 * self.layers * self.kv_heads * self.head_dim * self.bytes_per_value) as f64
+    }
+
+    /// Query heads sharing each cached key/value head (grouped-query attention).
+    pub fn queries_per_kv_head(&self) -> usize {
+        self.query_heads / self.kv_heads
+    }
+
+    /// Bytes per token the cache would take if every query head kept keys and
+    /// values of its own -- the footprint grouped-query attention avoids.
+    pub fn unshared_bytes_per_token(&self) -> f64 {
+        (2 * self.layers * self.query_heads * self.head_dim * self.bytes_per_value) as f64
     }
 
     /// Total KV cache (bytes) for a conversation of `tokens` tokens.
@@ -132,18 +152,28 @@ mod tests {
         // 327,680 B/token (320 KiB); 32k-token context ≈ 10.7 GB.
         let m = KvCacheModel {
             layers: 80,
+            query_heads: 64,
             kv_heads: 8,
             head_dim: 128,
             bytes_per_value: 2,
         };
         assert_eq!(m.bytes_per_token(), 327_680.0);
         assert_close(m.bytes(32_768), 1.0737e10, 1e-3);
+
+        // Grouped-query attention: 64 query heads share the 8 cached heads,
+        // 8 apiece. Without the sharing the cache would be 8× larger,
+        // 2,621,440 B/token (2.5 MiB) and a 32k context ≈ 85.9 GB.
+        assert_eq!(m.queries_per_kv_head(), 8);
+        assert_eq!(m.unshared_bytes_per_token(), 2_621_440.0);
+        assert_eq!(m.unshared_bytes_per_token(), 8.0 * m.bytes_per_token());
+        assert_close(m.unshared_bytes_per_token() * 32_768.0, 8.5899e10, 1e-3);
     }
 
     #[test]
     fn kv_migration_takes_about_a_second_at_100_gbps() {
         let m = KvCacheModel {
             layers: 80,
+            query_heads: 64,
             kv_heads: 8,
             head_dim: 128,
             bytes_per_value: 2,

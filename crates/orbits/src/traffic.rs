@@ -135,6 +135,7 @@ mod tests {
     fn model() -> KvCacheModel {
         KvCacheModel {
             layers: 80,
+            query_heads: 64,
             kv_heads: 8,
             head_dim: 128,
             bytes_per_value: 2,

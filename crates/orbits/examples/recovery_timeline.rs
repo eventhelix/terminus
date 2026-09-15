@@ -33,6 +33,7 @@ fn main() {
     let planet = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
     let model = KvCacheModel {
         layers: 80,
+        query_heads: 64,
         kv_heads: 8,
         head_dim: 128,
         bytes_per_value: 2,
