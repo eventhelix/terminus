@@ -45,4 +45,30 @@ mod tests {
         assert_close(hill_radius(&p, star_mu, a), 1.4645e8, 1e-3);
         assert_close(prograde_stability_limit(&p, star_mu, a), 7.322e7, 1e-3);
     }
+
+    /// ADR-0002 as an assertion, because the ordering of these three radii is
+    /// the whole argument: the orbit that would hang motionless over this
+    /// planet lies *outside* the planet's custody. The synchronous radius is
+    /// beyond the Hill radius -- and so beyond L1 and L2, which sit on its rim
+    /// -- and nearly three times the distance at which a prograde orbit can be
+    /// trusted to survive. `regime_survey` prints this as the stationary orbit
+    /// check; the survey post argues from it.
+    #[test]
+    fn the_stationary_orbit_lies_outside_the_hill_sphere() {
+        let p = CentralBody::from_earth_masses(1.0, 6.371e6, 11.2 * 86_400.0);
+        let star_mu = 0.122 * SUN_MU;
+        let a = 7.2555e9;
+        let r_sync = crate::circular::synchronous_radius(&p);
+        let r_hill = hill_radius(&p, star_mu, a);
+        let limit = prograde_stability_limit(&p, star_mu, a);
+
+        assert!(
+            r_sync > r_hill,
+            "the stationary orbit must fall outside the Hill sphere: \
+             synchronous {r_sync} m vs Hill {r_hill} m"
+        );
+        // Half as far again as the balance points, 2.9x the stability limit.
+        assert_close(r_sync / r_hill, 1.443, 2e-3);
+        assert_close(r_sync / limit, 2.886, 2e-3);
+    }
 }

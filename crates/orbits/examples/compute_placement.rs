@@ -6,11 +6,16 @@
 //! arithmetic (access dwell vs compute dwell), and KV-cache size and
 //! migration costs for the reference model.
 //!
+//! The candidates stop at the MEO shell. Earlier revisions also priced the
+//! balance points and the Trojan points as places to keep a durable copy;
+//! ADR-0030 keeps that copy on the terminal instead, so nothing this
+//! architecture flies goes above the anchors, and pricing shelves it will
+//! never use only invites the reader to wonder what is up there.
+//!
 //! Run: cargo run -p terminus-orbits --example compute_placement
 
 use terminus_orbits::circular::orbital_period;
 use terminus_orbits::coverage::{edge_slant_range, max_pass_duration};
-use terminus_orbits::hill::{hill_radius, SUN_MU};
 use terminus_orbits::placement::{one_way_light_time, shell_distance, transfer_time, KvCacheModel};
 use terminus_orbits::CentralBody;
 
@@ -45,19 +50,6 @@ fn main() {
             ms(one_way_light_time(d))
         );
     }
-    let l12 = hill_radius(&planet, 0.122 * SUN_MU, 7.2555e9);
-    println!(
-        "  {:<28} {:>8.0} km  {:>6.2} s one way from planet",
-        "L1/L2 balance points",
-        l12 / 1e3,
-        one_way_light_time(l12)
-    );
-    println!(
-        "  {:<28} {:>8.2e} km {:>6.1} s one way from planet",
-        "L4/L5 (orbital radius)",
-        7.2555e6,
-        one_way_light_time(7.2555e9)
-    );
 
     let worst = shell_distance(&planet, ACCESS_ALT, MEO_ALT, 60.0_f64.to_radians());
     let rtt = 2.0 * (user_leg + one_way_light_time(worst));

@@ -140,9 +140,8 @@ fn main() {
         declare, MISSED_BEATS, HEARTBEAT_MS
     );
     println!(
-        "   t = {:.3} s       transcript replayed from the terminal: {:.1} ms of radio\n\
-         \x20                    + {:.1} ms of feeder each way, {:.0} kB up at {:.0} Mbps\n\
-         \x20                    = {:.0} ms",
+        "   t = {:.3} s       transcript replayed from the terminal: {:.1} ms of radio +\n\
+         \x20                    {:.1} ms of feeder each way, {:.0} kB up at {:.0} Mbps = {:.0} ms",
         replayed_at,
         radio_leg * 1e3,
         feeder_leg * 1e3,
