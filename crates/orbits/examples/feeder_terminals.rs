@@ -992,7 +992,7 @@ E. Does the shell need links of its own?
          \x20  is also the only path here that does not route a migration through\n\
          \x20  the wheel. Two things it does NOT do. It cannot save a session from\n\
          \x20  an anchor that dies outright --\n\
-         \x20  the working memory dies with the machine, and the vault answers that\n\
+         \x20  the working memory dies with the machine, and the terminal answers that\n\
          \x20  -- and the relaying neighbour now carries two rings' traffic on one\n\
          \x20  telescope, which is a capacity question this model does not price.\n\n\
          \x20  Section F showed the shell needs no links to be REACHABLE. What it\n\

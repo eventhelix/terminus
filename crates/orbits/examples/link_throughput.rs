@@ -289,8 +289,8 @@ fn main() {
          \x20  {:.2} s that section A prices -- has a steady-state customer at this\n\
          \x20  setting: every session moves {:.2} times a day, which at the ceiling\n\
          \x20  is better than a million migrations a day, each one inside a live\n\
-         \x20  conversation that must not stall. Re-reading the transcript from the\n\
-         \x20  vault answers a *failed* anchor, where there is nothing left to\n\
+         \x20  conversation that must not stall. Replaying the transcript from the\n\
+         \x20  terminal answers a *failed* anchor, where there is nothing left to\n\
          \x20  stream from, but it cannot answer a planned one: it costs a full\n\
          \x20  prefill in the middle of a sentence. So context transfer is\n\
          \x20  first-release work rather than a later block, and that is what the\n\

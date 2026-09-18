@@ -72,8 +72,8 @@ reversing ADR-0021), because every one of the 12.70 daily migrations happens
 inside a live conversation: 10.7 GB of working memory in 0.86 s on a
 100 Gbps link, across the frozen plane link when the anchors share a plane
 and down through the wheel otherwise (`routing::migration_path`). An anchor
-that *dies* is the one case transfer cannot serve; the vault's transcript
-replica answers that instead (ADR-0004, ADR-0009).
+that *dies* is the one case transfer cannot serve; the transcript the terminal
+has been holding all along answers that instead (ADR-0030, ADR-0009).
 
 ## What this policy does not do
 

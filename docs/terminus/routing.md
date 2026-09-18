@@ -98,7 +98,8 @@ exactly that window. Either alone buys nothing; the four outcomes are the
 2×2 that `failure_timeline` section C prints.
 
 Other failure classes (ADR-0009): a dead MEO anchor re-anchors its sessions
-to the pre-assigned backup and replays from the vault's transcript; a dead
+to the pre-assigned backup, which replays the transcript from the terminal
+(ADR-0030); a dead
 LEO satellite is detected by necklace silence and covered by the alternate
 column; a dead necklace link is an optimization lost, not a lifeline — a
 ring is a cycle, so traffic reverses direction around it, costing hops and

@@ -92,18 +92,59 @@ pub fn transfer_time(bytes: f64, bits_per_second: f64) -> f64 {
 /// **A stated guess.** It is the order of magnitude at which a large
 /// accelerator cluster prefills an 80-layer model at long context, not a
 /// measurement of any hardware this proposal has priced. What turns on it is
-/// the stall a *dead* anchor costs: recovery from the vault has nothing to
-/// stream, so the successor re-reads the whole context at this rate before it
-/// can say another word. Nothing about a *planned* move depends on it -- a
+/// the stall a *dead* anchor costs: there is nothing left to stream, so the
+/// successor re-reads the whole context at this rate before it can say another
+/// word. Nothing about a *planned* move depends on it -- a
 /// planned move streams the working memory make-before-break and never
 /// prefills (ADR-0022). Halve or double it and the recovery stall moves with
 /// it; the planned lane does not move at all.
 pub const PREFILL_TOKENS_PER_SECOND: f64 = 10_000.0;
 
-/// Bytes of transcript text per token, for sizing what the vault sends back.
-/// Stated, and it barely matters: a 32k-token transcript is a tenth of a
-/// megabyte, and its transfer vanishes next to the half-light-second each way.
+/// Bytes of transcript text per token, for sizing what a fresh anchor has to
+/// be given before it can rebuild a conversation. Stated, and small: a
+/// 32k-token transcript is a tenth of a megabyte, three orders of magnitude
+/// under the working memory it regenerates.
 pub const TRANSCRIPT_BYTES_PER_TOKEN: f64 = 4.0;
+
+/// Bits per second a parachute terminal can push back up to its access
+/// satellite.
+///
+/// **A stated guess**, and deliberately a modest one: a half-meter panel
+/// closing a 3,642 km link has considerably more than this, but nothing in
+/// this simulator prices a terminal's modem, so nothing here may assume one.
+/// What turns on it is how fast a conversation comes back after its anchor
+/// dies. [`replay_crossover_bps`] is what makes the guess safe -- it says what
+/// uplink the edge copy needs in order to beat a durable store half a light
+/// second away, and the answer lands far below any rate that could carry the
+/// conversation itself.
+pub const TERMINAL_UPLINK_BPS: f64 = 10e6;
+
+/// Seconds to put a conversation's transcript in front of a fresh anchor when
+/// the durable copy is the terminal's own: the successor asks, the terminal
+/// answers, each leg `one_way_s`, the upload at `uplink_bps`.
+pub fn edge_replay_time(transcript_bytes: f64, uplink_bps: f64, one_way_s: f64) -> f64 {
+    2.0 * one_way_s + transfer_time(transcript_bytes, uplink_bps)
+}
+
+/// The terminal uplink rate at which edge replay costs exactly what a fetch
+/// from a durable store `remote_one_way_s` away would cost, given a store on a
+/// link fat enough that its own transfer time vanishes.
+///
+/// Above this rate the copy at the edge arrives first; below it the remote
+/// store does, and that difference is the whole of what a spacecraft at the
+/// balance points would have bought. Infinite when the store is no further
+/// away than the terminal, where no uplink can win.
+pub fn replay_crossover_bps(
+    transcript_bytes: f64,
+    remote_one_way_s: f64,
+    edge_one_way_s: f64,
+) -> f64 {
+    let saved = 2.0 * (remote_one_way_s - edge_one_way_s);
+    if saved <= 0.0 {
+        return f64::INFINITY;
+    }
+    transcript_bytes * 8.0 / saved
+}
 
 /// Time (s) to rebuild `tokens` of working memory from a transcript at
 /// `tokens_per_second`.
@@ -196,10 +237,57 @@ mod tests {
 
     #[test]
     fn transcript_is_a_tenth_of_a_megabyte() {
-        // The vault sends text back, not working memory: 32k tokens of it
-        // is 131 kB, and its transfer vanishes next to the light time.
+        // What a fresh anchor is given is text, not working memory: 32k
+        // tokens of it is 131 kB against 10.7 GB of KV cache.
         let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
         assert_eq!(bytes, 131_072.0);
-        assert!(transfer_time(bytes, 100e9) < 1e-4);
+        assert!(bytes < 1e-3 * 1.0737e10);
+    }
+
+    /// Worst geometry, the same one the first-token budget is argued at: the
+    /// town at the edge of its satellite's footprint, the anchor 60 degrees
+    /// around the sky. 12.1 ms of radio plus 77.7 ms of feeder link.
+    const EDGE_ONE_WAY_S: f64 = 0.0898;
+    /// L1/L2, half a light second out.
+    const BALANCE_POINT_ONE_WAY_S: f64 = 0.487;
+
+    #[test]
+    fn a_megabit_and_a_third_of_uplink_buys_what_the_balance_points_sell() {
+        // The durable store's whole advantage is a fat link at the far end;
+        // its whole disadvantage is being half a light second away. The
+        // crossover is the uplink that trades one for the other -- and it
+        // lands at 1.3 Mbps, roughly four hundred times the 3 kbps a
+        // conversation itself costs. Any terminal that can hold a
+        // conversation can beat the balance points at recovering one.
+        let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
+        let crossover = replay_crossover_bps(bytes, BALANCE_POINT_ONE_WAY_S, EDGE_ONE_WAY_S);
+        assert_close(crossover, 1.320e6, 1e-3);
+    }
+
+    #[test]
+    fn edge_replay_of_the_reference_session_is_under_three_tenths_of_a_second() {
+        // 180 ms of round trip over the access path, plus 105 ms of upload at
+        // the stated 10 Mbps -- against 974 ms of light alone to L1/L2.
+        let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
+        let edge = edge_replay_time(bytes, TERMINAL_UPLINK_BPS, EDGE_ONE_WAY_S);
+        assert_close(edge, 0.2845, 1e-3);
+        assert!(edge < 2.0 * BALANCE_POINT_ONE_WAY_S);
+    }
+
+    #[test]
+    fn a_slow_enough_uplink_loses_to_the_balance_points() {
+        // Pin the losing side too. At 1 Mbps the upload alone outruns the
+        // light time it saves, and the rejected architecture would have been
+        // the quicker one -- at the price of a spacecraft.
+        let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
+        let edge = edge_replay_time(bytes, 1e6, EDGE_ONE_WAY_S);
+        let remote = 2.0 * BALANCE_POINT_ONE_WAY_S + transfer_time(bytes, 100e9);
+        assert!(edge > remote, "edge {edge} s, remote {remote} s");
+    }
+
+    #[test]
+    fn no_uplink_wins_against_a_store_that_is_no_further_away() {
+        let bytes = 32_768.0 * TRANSCRIPT_BYTES_PER_TOKEN;
+        assert!(replay_crossover_bps(bytes, EDGE_ONE_WAY_S, EDGE_ONE_WAY_S).is_infinite());
     }
 }
