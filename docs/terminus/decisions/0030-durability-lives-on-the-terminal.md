@@ -98,6 +98,17 @@ rather than hope the evaluator misses it:
 - **A dead terminal loses its transcripts**, and that failure is
   self-cancelling: the user it serves has no service either. The bound in
   TER-REQ-014 is about a satellite failure and is unaffected.
+- **The model has no independent copy, and conversations no longer imply one.**
+  Twenty-four anchors holding identical weights is replication against *losing*
+  a copy, not against *corrupting* one: a bad model pushed to the whole shell
+  leaves nothing outside the blast radius to roll back to, because the
+  checkpoints now ride the shell that took the update. The vault at least sat
+  outside it. We do not think that argues for keeping a spacecraft — the archive
+  of record is the patron's supply line, the weights came from off-world and can
+  come again — but the proposal must say so rather than leave the gap for a
+  reader to find. A staged rollout (update a subset of anchors, verify, then the
+  rest) buys the same protection in process rather than hardware, and is the
+  cheaper answer if leaning on the patron is unacceptable.
 - **The replay burst at the terminal end is unpriced.** An access satellite's
   radio capacity is modelled nowhere in this simulator, so the time to drain
   7.6 MB of transcript off one satellite's beams is an open item.
