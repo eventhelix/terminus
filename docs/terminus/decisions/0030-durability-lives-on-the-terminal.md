@@ -3,7 +3,7 @@
 Status: accepted
 Date: 2026-09-18
 Requirements: TER-REQ-002, TER-REQ-006, TER-REQ-007, TER-REQ-010, TER-REQ-014, TER-REQ-016
-Evidence: `cargo run -p terminus-orbits --example recovery_timeline` (sections B, B2, B3); `crates/orbits/src/placement.rs` unit tests
+Evidence: `cargo run -p terminus-orbits --example recovery_timeline` (sections B, B2, B3); `crates/orbits/src/placement.rs` unit tests (tag: terminus-post-20a)
 
 Supersedes the **durable layer** of ADR-0004 — the L1/L2 archive and the L4/L5
 reservation. The rest of ADR-0004 stands: access relays own no state, MEO
