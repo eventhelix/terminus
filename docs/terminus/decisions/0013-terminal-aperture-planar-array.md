@@ -72,8 +72,10 @@ Two things this does **not** disturb:
   aperture-area physics, identical for a reflector and for an array of the
   same effective area. Every figure in posts 7–15 was a boresight or
   ratio figure and remains exact; `radio::dish_gain_dbi` keeps its name and
-  its evidence tags, and stays the right model for the mechanically aimed
-  MEO community dish of ADR-0012 and for satellite feeder links.
+  its evidence tags, and stays the right model for any mechanically aimed
+  reflector, satellite feeder links included. (It was also cited here for
+  ADR-0012's MEO community dish, which that record has since withdrawn: the
+  anchors carry no radio for a dish to reach.)
 
 ## Consequences
 

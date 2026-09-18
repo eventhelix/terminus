@@ -41,10 +41,16 @@ They are not, and that decides it:
 - The two-layer architecture (LEO access + MEO service) is now justified
   against its strongest challenger, not merely asserted; the economics
   post re-runs Option C with the capacity model as due diligence.
-- MEO-direct remains a designed-degraded contingency: a settlement
-  willing to host one larger community dish could reach the MEO shell
-  directly if its duty-ring service were lost — an input to the
-  redundancy sizing work.
+- MEO-direct is declined outright, not held in reserve. An earlier
+  revision of this record kept it as a designed-degraded contingency — a
+  settlement hosting one larger community dish, reaching the shell
+  directly if its duty-ring service were lost. The backbone forecloses
+  that: an anchor carries six feeder telescopes, two plane links and a
+  cold spare (ADR-0018, ADR-0019, ADR-0024), every one of them optical,
+  and no radio payload of any kind. No dish a settlement could raise
+  reaches a spacecraft with nothing aboard to hear it. Access redundancy
+  must therefore be bought in the access layer, where it is already a
+  declared debt.
 - The retained LEO layer also serves Series 3: hybrid MEO+LEO ranging —
   LEO's fast orbital motion sweeps out strong Doppler and geometry
   variation that the slow MEO shell cannot provide — shall be evaluated
