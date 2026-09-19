@@ -210,4 +210,39 @@ mod tests {
         assert_eq!(load.migration, 0.0);
         assert!(load.total() > 0.0);
     }
+
+    /// How busy the planet may get before the backbone binds.
+    ///
+    /// Sessions per terminal is a mean, not a fraction of terminals -- a
+    /// terminal is a settlement's base station and several of its tablets can
+    /// be talking at once -- so the figure can rise, and every load number
+    /// rises linearly with it. What that makes worth pinning is the ceiling:
+    /// at the adopted policy the busiest feeder link carries 17.5 Gbps when
+    /// terminals average a tenth of a session each, so a 100 Gbps telescope
+    /// absorbs about 5.7x that before it is full. `link_throughput` section E
+    /// prints the same figure per margin.
+    #[test]
+    fn the_adopted_policy_absorbs_five_times_the_assumed_demand() {
+        // 100,000 sessions over 144 feeder link ends, the migration crossing
+        // the boundary twice, at the adopted margin's 12.70 changes a day.
+        let per_feeder = 100_000.0 / 144.0;
+        let dwell = 86_400.0 / 12.70;
+        let load = link_load(per_feeder, &profile(), &model(), dwell, 2.0);
+
+        let total = load.total();
+        assert!(
+            (total / 1e9 - 17.5).abs() < 0.3,
+            "busiest feeder link should carry about 17.5 Gbps, got {:.2}",
+            total / 1e9
+        );
+
+        let headroom = 100e9 / total;
+        assert!(
+            (headroom - 5.7).abs() < 0.2,
+            "a 100 Gbps link should absorb about 5.7x the assumed demand, got {headroom:.2}"
+        );
+        // Which is to say: 0.10 sessions per terminal may become 0.57 before
+        // the link, rather than the sky or the policy, is what binds.
+        assert!((0.10 * headroom - 0.57).abs() < 0.02);
+    }
 }

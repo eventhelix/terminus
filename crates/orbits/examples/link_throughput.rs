@@ -29,10 +29,23 @@ use terminus_orbits::traffic::{link_load, SessionProfile};
 const TERMINALS_FIRST_LIGHT: f64 = 10_000.0;
 const TERMINALS_CEILING: f64 = 1_000_000.0;
 
-/// Fraction of terminals with a conversation in progress at any instant. A
-/// guess, and the load scales linearly in it, so it is stated rather than
-/// buried.
-const CONCURRENCY: f64 = 0.10;
+/// What one feeder telescope is assumed to carry, and what section E measures
+/// the load against. Asserted since section 5 of the proposal, not derived.
+const FEEDER_LINK_BPS: f64 = 100e9;
+
+/// Mean conversations in flight per terminal.
+///
+/// Not a fraction of terminals: a terminal is a WiFi base station serving
+/// whatever tablets a settlement has (TER-REQ-010), so several of its users
+/// can be mid-conversation at once and this number is not capped at 1. At the
+/// value below, a fleet of ten terminals carries one conversation between
+/// them at any instant -- the tablets are mostly idle, and the busy ones are
+/// spread thin.
+///
+/// A guess, and every load figure scales linearly in it, so it is stated here
+/// rather than buried. Raising it does not change how the fleet is wired; it
+/// multiplies what the links carry.
+const SESSIONS_PER_TERMINAL: f64 = 0.10;
 
 /// How often a session changes anchor, per margin, from `feeder_terminals`
 /// section H. These are policy outcomes, not geometry: a ring can reach every
@@ -154,13 +167,10 @@ fn main() {
         ("first light (TER-REQ-005)", TERMINALS_FIRST_LIGHT),
         ("the million-terminal ceiling", TERMINALS_CEILING),
     ] {
-        let sessions = terminals * CONCURRENCY;
+        let sessions = terminals * SESSIONS_PER_TERMINAL;
         println!(
-            "\n\nB. {} \u{2014} {:.0} terminals, {:.0}% concurrent = {:.0} sessions\n",
-            fleet_label,
-            terminals,
-            CONCURRENCY * 100.0,
-            sessions
+            "\n\nB. {} \u{2014} {:.0} terminals at {:.2} sessions each = {:.0} sessions\n",
+            fleet_label, terminals, SESSIONS_PER_TERMINAL, sessions
         );
 
         // Uniform towns, so sessions divide evenly over the links that exist.
@@ -230,7 +240,7 @@ fn main() {
          \x20  conversation by three orders of magnitude, that one policy number\n\
          \x20  sizes the entire backbone.\n"
     );
-    let sessions = TERMINALS_CEILING * CONCURRENCY;
+    let sessions = TERMINALS_CEILING * SESSIONS_PER_TERMINAL;
     let per_feeder = sessions / (RINGS * SATS_PER_RING * 2.0);
     println!(
         "   At the million-terminal ceiling, {:.0} sessions, busiest feeder link:\n",
@@ -269,10 +279,12 @@ fn main() {
     );
     println!(
         "\n\nD. What this does and does not settle\n\n\
-         \x20  Concurrency is a guess at {:.0}%, and every number above scales\n\
-         \x20  linearly in it. Context length is the other lever and it is worse\n\
-         \x20  than linear in consequence: at 131,072 tokens the working memory is\n\
-         \x20  {:.0} GB, four times the figure used here.\n\n\
+         \x20  Sessions per terminal is a guess at {:.2}, and every number above\n\
+         \x20  scales linearly in it -- a terminal serves a settlement's tablets,\n\
+         \x20  so the figure is a mean and nothing caps it at one. Context length\n\
+         \x20  is the other lever and it is worse than linear in consequence:\n\
+         \x20  at 131,072 tokens the working memory is {:.0} GB, four times the\n\
+         \x20  figure used here.\n\n\
          \x20  Uniform towns is the assumption doing the quiet work. Real settlements\n\
          \x20  cluster, and a clustered band would load a few links far harder than\n\
          \x20  this arithmetic suggests while leaving others idle. The averages here\n\
@@ -295,10 +307,77 @@ fn main() {
          \x20  prefill in the middle of a sentence. So context transfer is\n\
          \x20  first-release work rather than a later block, and that is what the\n\
          \x20  thinking time in section C was bought with.",
-        CONCURRENCY * 100.0,
+        SESSIONS_PER_TERMINAL,
         model.bytes(131_072) / 1e9,
         profile.kv_bytes(&model) / 1e9,
         transfer_time(profile.kv_bytes(&model), 100e9),
         POLICY[CHOSEN].1
+    );
+
+    // ---- E. how much busier may a settlement get? -----------------------
+    //
+    // Sessions per terminal is the one input a *user population* controls,
+    // and every load figure is linear in it, so the interesting question is
+    // not what it is but how far it can rise before the feeder link named in
+    // section 5 stops being big enough.
+    println!("\n\nE. How much busier may a settlement get?\n");
+    println!(
+        "   Every figure above is linear in sessions per terminal, so the link\n\
+         \x20  the proposal has assumed since section 5 -- {:.0} Gbps on one feeder\n\
+         \x20  telescope -- fixes a ceiling on how talkative this planet may get\n\
+         \x20  before the backbone, not the sky, is the binding constraint.\n",
+        FEEDER_LINK_BPS / 1e9
+    );
+    println!(
+        "{:>14} {:>16} {:>18} {:>16}",
+        "margin (km)", "at 0.10/terminal", "sessions/terminal", "vs the default"
+    );
+    for (i, (margin, per_day)) in POLICY.iter().enumerate() {
+        let load = link_load(per_feeder, &profile, &model, dwell_from(*per_day), 2.0);
+        let total = load.conversational + load.migration;
+        if total <= 0.0 {
+            println!(
+                "{:>14.0} {:>16} {:>18} {:>16}",
+                margin / 1e3,
+                gbps(total),
+                "no ceiling",
+                "--"
+            );
+            continue;
+        }
+        let ceiling = SESSIONS_PER_TERMINAL * FEEDER_LINK_BPS / total;
+        println!(
+            "{:>14.0} {:>16} {:>18.2} {:>15.1}x{}",
+            margin / 1e3,
+            gbps(total),
+            ceiling,
+            ceiling / SESSIONS_PER_TERMINAL,
+            if i == CHOSEN { "  <- chosen" } else { "" }
+        );
+    }
+    println!(
+        "\n   Read the chosen row. A terminal is a settlement's base station, so\n\
+         \x20  0.10 conversations apiece is a quiet planet: ten terminals, one\n\
+         \x20  conversation between them. The adopted policy absorbs roughly {:.1}x\n\
+         \x20  that before one feeder telescope is full -- past which the fix is\n\
+         \x20  not more spacecraft but a wider re-anchor margin, since holding\n\
+         \x20  anchors harder is what stops working memory crossing these links\n\
+         \x20  at all. That is the same lever, read from the other end: the margin\n\
+         \x20  buys thinking time when the planet is quiet and capacity when it\n\
+         \x20  is not.\n\n\
+         \x20  The bottom row's ceiling is arithmetic rather than an offer: hold\n\
+         \x20  anchors that hard and no working memory crosses these links at all,\n\
+         \x20  so conversation alone sets the limit -- at the price of all but\n\
+         \x20  10 ms of the first-token budget, which section C already refused.\n",
+        {
+            let load = link_load(
+                per_feeder,
+                &profile,
+                &model,
+                dwell_from(POLICY[CHOSEN].1),
+                2.0,
+            );
+            FEEDER_LINK_BPS / (load.conversational + load.migration)
+        }
     );
 }
