@@ -34,7 +34,7 @@ neighbour and cannot talk past it.
 
 ## The path of a token
 
-Town → serving access satellite → (necklace sidestep, usually empty) → feeder
+Town → serving access satellite → (intra-ring relay, usually empty) → feeder
 telescope → anchor. Computed by three pure functions, in order:
 
 1. **`routing::exit_gateway`** — which ring position the session leaves
@@ -44,8 +44,8 @@ telescope → anchor. Computed by three pure functions, in order:
    the serving satellite — a detour has to win, not merely draw. At the
    adopted margin the steady state never takes a hop at all (ADR-0020): a
    session free to re-anchor holds an anchor its own satellite can reach.
-   Sidesteps appear only when a session is pinned to a distant anchor.
-   `exit_gateway` keeps **no memory of the door it chose last** — deliberately,
+   A relay appears only when a session is pinned to a distant anchor.
+   `exit_gateway` keeps **no memory of the gateway it chose last** — deliberately,
    and see the measurement below.
 2. **`routing::feeder_route`** — whether the ring can reach the anchor, and
    what it costs. Direct when the (ring, anchor) telescope is alive;
@@ -107,10 +107,10 @@ column; a dead necklace link is an optimization lost, not a lifeline — a
 ring is a cycle, so traffic reverses direction around it, costing hops and
 never reachability.
 
-## Does the door flap?
+## Does the gateway flap?
 
-A ring is a cycle, so a door on the far side is reachable either way round,
-and `exit_gateway` has no incumbency preference: where two doors on opposite
+A ring is a cycle, so a gateway on the far side is reachable either way round,
+and `exit_gateway` has no incumbency preference: where two of them on opposite
 sides sit within noise of each other, the cheapest can cross over and back,
 and the route to an *unchanged* anchor swaps sides. Nothing migrates when it
 does — working memory stays where it is — but packets reorder and forwarding
@@ -119,25 +119,25 @@ margin, which is unsurprising at a thousand times real speed: that is the
 frame rate at which a rare event looks constant.
 
 Counted in real time instead (`cargo run --release -p terminus-orbits
---example door_stability`; 200 towns, 30 s steps, a day):
+--example gateway_stability`; 200 towns, 30 s steps, a day):
 
-| margin (km) | off-ring | door changes/day | side flips/day | flaps/day | closest flip |
+| margin (km) | off-ring | gateway changes/day | side flips/day | flaps/day | closest flip |
 |---:|---:|---:|---:|---:|---:|
 | **5,000** | **0.0%** | **0.00** | **0.00** | **0.00** | never twice |
 | 20,000 | 14.6% | 25.14 | 0.66 | 0.19 | 8 min |
 | 25,000 | 33.7% | 60.72 | 15.21 | 13.30 | 2 min |
 
-A *door change* is a re-route to the same anchor from the same access
+A *gateway change* is a re-route to the same anchor from the same access
 satellite; a *side flip* swaps which way round the ring it goes; a *flap* is a
 side flip reversed within half an hour.
 
-**At the adopted margin it is structurally zero**: the door is the serving
+**At the adopted margin it is structurally zero**: the gateway is the serving
 satellite in every sample, so there is no second side to flip to. The churn
 belongs to the wide settings, and at 25,000 km it sits on a *pinned* anchor —
 that row moves no session at all in a day, so every one of those 60 re-routes
 is pure path churn.
 
-**No hysteresis is added to the door, and that is a decision, not an
+**No hysteresis is added to the gateway, and that is a decision, not an
 oversight.** Damping it would take a second tunable, and it would earn its
 keep only at margins the policy does not adopt — while slightly lengthening
 held paths at exactly those margins, which is where the p95 figures the

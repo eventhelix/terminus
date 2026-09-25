@@ -411,7 +411,7 @@ mod tests {
     }
 
     /// An anchor the ring cannot reach is not a candidate. With a whole ring
-    /// to pick a door from this is rare, but the rule has to exist.
+    /// to pick a gateway from this is rare, but the rule has to exist.
     #[test]
     fn an_unreachable_anchor_is_not_a_candidate() {
         let pick = select_anchor(

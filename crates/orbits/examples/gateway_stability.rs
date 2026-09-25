@@ -3,10 +3,10 @@
 
 //! Does the route to a *held* anchor flap between the two sides of the ring?
 //!
-//! A ring is a cycle, so a door on the far side can be reached either way
+//! A ring is a cycle, so a gateway on the far side can be reached either way
 //! round. `routing::exit_gateway` scores every slot and takes the cheapest,
-//! with no memory of the door it chose a moment ago -- so where two doors on
-//! opposite sides sit within noise of each other, the minimum can cross over
+//! with no memory of the gateway it chose a moment ago -- so where two of them
+//! on opposite sides sit within noise of each other, the minimum can cross over
 //! and back, and the path to an unchanged anchor flips sides. Nothing moves
 //! when it does (working memory stays where it is: this is a routing event),
 //! but packets reorder and forwarding state churns for no gain.
@@ -15,10 +15,10 @@
 //! a thousand times real speed, which is exactly the frame rate at which a
 //! rare event looks constant. So count it in real time instead:
 //!
-//!   - a **door change** is the gateway slot changing while the anchor and the
-//!     serving satellite both stay put -- a genuine re-route to the same place
-//!   - a **side flip** is a door change where the signed offset around the ring
-//!     changes sign, both sides non-zero: the sidestep swaps hands
+//!   - a **gateway change** is the exit gateway slot changing while the anchor
+//!     and the serving satellite both stay put -- a re-route to the same place
+//!   - a **side flip** is a gateway change where the signed offset around the
+//!     ring changes sign, both sides non-zero: the relay swaps hands
 //!   - a **flap** is a side flip reversed again within `FLAP_WINDOW`
 //!
 //! This is not a re-derivation of `feeder_terminals` section H, and its
@@ -26,10 +26,10 @@
 //! steps rather than 300, and no activation plan deciding which satellite may
 //! serve. A finer step catches crossings a coarse one steps over, so the
 //! figure here runs a little high. Section H stays the number the policy is
-//! argued from; what this example is for is the shape of the door churn,
+//! argued from; what this example is for is the shape of the gateway churn,
 //! which no sampling artifact invents.
 //!
-//! Run: cargo run --release -p terminus-orbits --example door_stability
+//! Run: cargo run --release -p terminus-orbits --example gateway_stability
 
 use terminus_orbits::backbone::{max_shell_separation, select_anchor, separation};
 use terminus_orbits::constellation::{band_point, plane_phases, PhaseMode, PolarConstellation};
@@ -63,8 +63,8 @@ struct Town {
     unit: [f64; 3],
     access: Option<(usize, usize)>,
     anchor: Vec<Option<usize>>,
-    /// Door last used under each margin, and when it was last changed.
-    door: Vec<Option<usize>>,
+    /// Exit gateway last used under each margin, and when it was last changed.
+    gateway: Vec<Option<usize>>,
     side: Vec<i32>,
     flipped_at: Vec<Option<f64>>,
 }
@@ -73,7 +73,7 @@ struct Town {
 struct Counts {
     samples: usize,
     offring: usize,
-    door_changes: usize,
+    gateway_changes: usize,
     side_flips: usize,
     flaps: usize,
     anchor_changes: usize,
@@ -125,7 +125,7 @@ fn main() {
                 unit: band_point(az, off),
                 access: None,
                 anchor: vec![None; MARGINS.len()],
-                door: vec![None; MARGINS.len()],
+                gateway: vec![None; MARGINS.len()],
                 side: vec![0; MARGINS.len()],
                 flipped_at: vec![None; MARGINS.len()],
             }
@@ -220,12 +220,12 @@ fn main() {
                     counts[m].offring += 1;
                 }
 
-                // A door change only counts when nothing else explains it:
+                // A gateway change only counts when nothing else explains it:
                 // the anchor is the same one, and the session is still on the
                 // same access satellite.
-                if let Some(prev) = town.door[m] {
+                if let Some(prev) = town.gateway[m] {
                     if prev != g.slot && !moved_anchor && !handed_over {
-                        counts[m].door_changes += 1;
+                        counts[m].gateway_changes += 1;
                         let flipped = side != 0
                             && town.side[m] != 0
                             && side.signum() != town.side[m].signum();
@@ -242,7 +242,7 @@ fn main() {
                         }
                     }
                 }
-                town.door[m] = Some(g.slot);
+                town.gateway[m] = Some(g.slot);
                 town.side[m] = side;
             }
         }
@@ -251,8 +251,8 @@ fn main() {
 
     let days = SPAN / 86_400.0;
     println!(
-        "Door stability: {TOWNS} towns, {:.0} s steps over {:.0} h.\n\
-         \x20 A door change is a re-route to the SAME anchor from the SAME access\n\
+        "Gateway stability: {TOWNS} towns, {:.0} s steps over {:.0} h.\n\
+         \x20 A gateway change is a re-route to the SAME anchor from the SAME access\n\
          \x20 satellite; a side flip swaps which way round the ring it goes; a flap\n\
          \x20 is a side flip reversed within {:.0} min.\n",
         STEP,
@@ -261,7 +261,7 @@ fn main() {
     );
     println!(
         "{:>12} {:>12} {:>14} {:>14} {:>12} {:>16}",
-        "margin (km)", "off-ring %", "door chg/day", "side flips/day", "flaps/day", "closest flip"
+        "margin (km)", "off-ring %", "gw chg/day", "side flips/day", "flaps/day", "closest flip"
     );
     for (m, &margin) in MARGINS.iter().enumerate() {
         let c = counts[m];
@@ -270,7 +270,7 @@ fn main() {
             "{:>12.0} {:>11.1}% {:>14.2} {:>14.2} {:>12.2} {:>16}",
             margin / 1e3,
             100.0 * c.offring as f64 / c.samples.max(1) as f64,
-            per(c.door_changes),
+            per(c.gateway_changes),
             per(c.side_flips),
             per(c.flaps),
             if c.shortest_gap.is_finite() {

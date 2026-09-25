@@ -55,7 +55,7 @@ matters when the thinking-time budget is being argued over a few milliseconds
   pure-geometry comparison, which is what most of its unit tests want.
 - `Gateway` carries the one-way `latency` it was chosen on, alongside `path`.
 - `select_anchor` still argues in **metres**, because the re-anchor margin is a
-  stated distance and relays are a thirtieth of a hop. Relays decide which door
+  stated distance and relays are a thirtieth of a hop. Relays decide which gateway
   a session leaves by; the margin decides which anchor it holds. If the margin
   is ever restated in milliseconds, this is the seam to revisit.
 - Any port of the routing — including the site's `terminus-orbits.js` — has to

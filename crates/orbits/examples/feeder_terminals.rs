@@ -334,7 +334,7 @@ fn main() {
             };
             // The anchor policy still argues in metres of path: the margin is
             // a stated distance, and relays are a thirtieth of what a hop
-            // costs, so they decide which door to leave by and not which
+            // costs, so they decide which gateway to leave by and not which
             // anchor to hold.
             let path_cost = |a: usize| route(a).map(|g| g.path);
             for (m, &margin) in MARGINS.iter().enumerate() {

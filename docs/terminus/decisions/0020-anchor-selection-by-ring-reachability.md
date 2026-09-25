@@ -98,5 +98,5 @@ not on steady-state routing at this margin.
 - `select_anchor` is pure — `(anchors, path_cost, current, margin)` — and knows
   nothing about orbits, so the policy is testable without propagating anything.
   It still argues in metres of path: relays are a thirtieth of what a hop
-  costs, so they decide which door a session leaves by, not which anchor it
+  costs, so they decide which gateway a session leaves by, not which anchor it
   holds.

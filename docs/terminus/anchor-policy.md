@@ -19,7 +19,7 @@ deliberately ignorant of orbits:
   Latency is.
 - **The session holds its current anchor unless a rival beats it by the
   margin.** Cost is metres of one-way path, hops priced at what they cost in
-  time's currency (relays are a thirtieth of a hop — they decide which door a
+  time's currency (relays are a thirtieth of a hop — they decide which gateway a
   session leaves by, never which anchor it holds).
 - **`backbone::REANCHOR_MARGIN` = 5,000 km, and it is an operating
   parameter, not a constant of the sky.** It must stay tunable in flight.
