@@ -274,6 +274,35 @@ mod tests {
     }
 
     #[test]
+    fn past_the_first_null_a_faint_sidelobe_returns() {
+        // Tilt on until the far edge lags one and a half wavelengths: a full
+        // cycle cancels as before, and the half left over has nothing to
+        // cancel it. A face sampled finely (λ/16) stands in for a solid one;
+        // its strength there is about a fifth of straight ahead, 13 dB down,
+        // at every width, approaching 2/(3π) for a solid face.
+        let f = 30e9;
+        let lambda = SPEED_OF_LIGHT / f;
+        let solid = 2.0 / (3.0 * std::f64::consts::PI);
+        assert_close(solid, 0.2122, 1e-3);
+        assert_close(20.0 * solid.log10(), -13.46, 1e-3);
+        for k in 2..=12 {
+            let width = k as f64 * lambda;
+            let n = 16 * k;
+            let spacing = lambda / 16.0;
+            let at = |edge_lag: f64| {
+                line_array_factor(n, spacing, f, (edge_lag * lambda / width).asin())
+            };
+            // Edges half a wavelength apart: dimmed to about two-thirds.
+            assert_close(at(0.5), 0.637, 5e-3);
+            // One wavelength: dark. One and a half: the first sidelobe.
+            assert!(at(1.0) < 1e-9);
+            assert_close(at(1.5), solid, 5e-3);
+            // Two wavelengths: dark again.
+            assert!(at(2.0) < 1e-9);
+        }
+    }
+
+    #[test]
     fn half_meter_dish_at_l_band_floods() {
         assert_close(beamwidth_deg(0.5, 1.6e9), 26.23, 1e-3);
     }
