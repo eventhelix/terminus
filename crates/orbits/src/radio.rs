@@ -43,6 +43,34 @@ pub fn beamwidth_deg(diameter: f64, frequency: f64) -> f64 {
     70.0 * (SPEED_OF_LIGHT / frequency) / diameter
 }
 
+/// First null (rad) of a uniformly lit straight-edged face of `width` (m) at
+/// `frequency` (Hz): the angle off boresight where ripples from the far edge
+/// travel one wavelength farther than those from the near edge,
+/// `sin θ = λ/D`. There every point on the face has a partner half a face
+/// away whose trip differs by half a wavelength, and the face cancels
+/// itself out. Returns `None` for a face narrower than one wavelength,
+/// which has no dark direction at all. A round dish goes dark a little
+/// farther out, at about `1.22·λ/D`.
+pub fn first_null_rad(width: f64, frequency: f64) -> Option<f64> {
+    let ratio = (SPEED_OF_LIGHT / frequency) / width;
+    (ratio <= 1.0).then(|| ratio.asin())
+}
+
+/// Far-field amplitude (0..1) of `n` in-phase point sources in a straight
+/// line, `spacing` (m) apart, at `frequency` (Hz), toward `angle` (rad) off
+/// boresight: `|sin(N·x) / (N·sin x)|` with `x = π·(s/λ)·sin θ`. With `n`
+/// sources at half-wavelength spacing standing for a face `n·λ/2` wide,
+/// its first zero is exactly [`first_null_rad`] of that face.
+pub fn line_array_factor(n: usize, spacing: f64, frequency: f64, angle: f64) -> f64 {
+    let lambda = SPEED_OF_LIGHT / frequency;
+    let x = std::f64::consts::PI * (spacing / lambda) * angle.sin();
+    let s = x.sin();
+    if s.abs() < 1e-12 {
+        return 1.0;
+    }
+    ((n as f64 * x).sin() / (n as f64 * s)).abs()
+}
+
 /// Thermal noise power (dBW) collected in `bandwidth` (Hz) at system
 /// temperature `temperature` (K): 10·log₁₀(k·T·B), k the Boltzmann
 /// constant. The narrower the channel, the quieter the floor — which is
@@ -201,6 +229,48 @@ mod tests {
         let theta = 90.0_f64.to_radians();
         assert!(scan_loss_db(theta, 1.2).is_infinite());
         assert!(scanned_beamwidth_deg(0.5, 30e9, theta).is_infinite());
+    }
+
+    #[test]
+    fn first_null_closes_in_as_the_face_widens() {
+        // The aperture plate's readouts: a face 2, 4, 10 and 12 wavelengths
+        // wide goes dark at 30°, 14.5°, 5.7° and 4.8° off boresight.
+        let f = 30e9;
+        let lambda = SPEED_OF_LIGHT / f;
+        for (k, deg) in [(2.0, 30.0), (4.0, 14.4775), (10.0, 5.7392), (12.0, 4.7799)] {
+            let null = first_null_rad(k * lambda, f).unwrap();
+            assert_close(null.to_degrees(), deg, 1e-4);
+        }
+        // Narrower than a wavelength: no dark direction anywhere.
+        assert!(first_null_rad(0.9 * lambda, f).is_none());
+    }
+
+    #[test]
+    fn a_half_meter_face_in_wavelengths() {
+        // 2.7 wavelengths at L-band, 50 at Ka: the plate's two landmarks.
+        assert_close(0.5 / (SPEED_OF_LIGHT / 1.6e9), 2.668, 1e-3);
+        assert_close(0.5 / (SPEED_OF_LIGHT / 30e9), 50.03, 1e-3);
+    }
+
+    #[test]
+    fn pairs_half_a_face_apart_cancel_at_the_first_null() {
+        // At the null the far edge's extra trip is one wavelength, so two
+        // points half a face apart differ by half a wavelength.
+        let f = 30e9;
+        let lambda = SPEED_OF_LIGHT / f;
+        for k in 2..=12 {
+            let width = k as f64 * lambda;
+            let null = first_null_rad(width, f).unwrap();
+            assert_close(width * null.sin(), lambda, 1e-12);
+            assert_close(0.5 * width * null.sin(), 0.5 * lambda, 1e-12);
+            // The plate's face: 2k sources at half-wavelength spacing. Its
+            // array factor is 1 straight ahead and 0 at the first null.
+            let n = 2 * k;
+            assert_close(line_array_factor(n, lambda / 2.0, f, 0.0), 1.0, 1e-12);
+            assert!(line_array_factor(n, lambda / 2.0, f, null) < 1e-9);
+            // And never zero inside the beam.
+            assert!(line_array_factor(n, lambda / 2.0, f, 0.9 * null) > 0.05);
+        }
     }
 
     #[test]
