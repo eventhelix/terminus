@@ -17,9 +17,10 @@
 
 use terminus_orbits::beams::{
     beam_doppler_spread, delay_spread_across_spot, doppler_shift, nadir_angle, nadir_spot_radius,
-    range_rate, range_rate_at, received_doppler, slant_range, spot_cross_half_extent,
-    spot_half_extent,
+    precompensated_delay_residual, precompensated_doppler_residual, range_rate, range_rate_at,
+    received_doppler, slant_range, spot_cross_half_extent, spot_half_extent,
 };
+use terminus_orbits::circular::orbital_period;
 use terminus_orbits::coverage::footprint_radius;
 use terminus_orbits::placement::SPEED_OF_LIGHT;
 use terminus_orbits::CentralBody;
@@ -104,6 +105,79 @@ fn main() {
         dt_edge / 2.0 * 1e6,
         doppler_shift(max_rate, KA) / 1e3,
         (far - near) / SPEED_OF_LIGHT * 1e3
+    );
+
+    // One overhead pass over one town, rise to set, against the clock: what
+    // an unaided terminal would hear, and what precompensation leaves — for
+    // the worst point anywhere in the beam, and for a house 19 km down-track
+    // of the town center (the nadir spot's radius, so inside its beam all pass).
+    let rate = 2.0 * std::f64::consts::PI / orbital_period(&planet, ALT);
+    let pass_s = 2.0 * edge / rate;
+    let house = nadir_spot_radius(ALT, beam) / planet.radius;
+    let sweep = |t: f64| {
+        let c = -edge + rate * t;
+        let d = spot_half_extent(&planet, ALT, c.abs(), beam) / planet.radius;
+        let heard = received_doppler(range_rate(&planet, ALT, c), KA);
+        let delay = slant_range(&planet, ALT, c) / SPEED_OF_LIGHT;
+        let bound_hz = [c - d, c + d]
+            .map(|g| precompensated_doppler_residual(&planet, ALT, c, g, beam, KA).abs())
+            .into_iter()
+            .fold(0.0, f64::max);
+        let bound_s = [c - d, c + d]
+            .map(|g| precompensated_delay_residual(&planet, ALT, c, g, beam).abs())
+            .into_iter()
+            .fold(0.0, f64::max);
+        let house_hz = precompensated_doppler_residual(&planet, ALT, c, c - house, beam, KA);
+        let house_s = precompensated_delay_residual(&planet, ALT, c, c - house, beam);
+        (heard, delay, bound_hz, bound_s, house_hz, house_s)
+    };
+    println!(
+        "\nOne overhead pass over one town, rise to set in {:.1} min — unaided,\n\
+         then precompensated (worst point in the beam · a house 19 km down-track):",
+        pass_s / 60.0
+    );
+    println!("   min   heard kHz   left kHz         delay ms   left µs");
+    let overhead = pass_s / 120.0;
+    for minute in [
+        0.0,
+        2.0,
+        4.0,
+        6.0,
+        8.0,
+        overhead,
+        10.0,
+        12.0,
+        14.0,
+        16.0,
+        2.0 * overhead,
+    ] {
+        let (heard, delay, bound_hz, bound_s, house_hz, house_s) = sweep(minute * 60.0);
+        println!(
+            "  {minute:4.1}   {:+7.0}   ±{:.2} · {:+.2}   {:6.2}   ±{:3.0} · {:+4.0}",
+            heard / 1e3,
+            bound_hz / 1e3,
+            house_hz / 1e3,
+            delay * 1e3,
+            bound_s * 1e6,
+            house_s * 1e6
+        );
+    }
+    let (mut worst, mut house_peak) = ((0.0_f64, 0.0_f64), (0.0_f64, 0.0_f64));
+    for i in 0..=2_000 {
+        let (_, _, bound_hz, bound_s, house_hz, house_s) = sweep(pass_s * i as f64 / 2_000.0);
+        worst = (worst.0.max(bound_hz), worst.1.max(bound_s));
+        house_peak = (
+            house_peak.0.max(house_hz.abs()),
+            house_peak.1.max(house_s.abs()),
+        );
+    }
+    println!(
+        "  all pass, worst point in the beam: ±{:.2} kHz, ±{:.0} µs (at rise and set)\n\
+         \x20 all pass, the house:              ±{:.2} kHz (overhead), ±{:.0} µs (at the rim)",
+        worst.0 / 1e3,
+        worst.1 * 1e6,
+        house_peak.0 / 1e3,
+        house_peak.1 * 1e6
     );
 
     println!(
