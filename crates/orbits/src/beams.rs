@@ -10,6 +10,7 @@
 //! (11.2 days vs ~2 h orbits for the reference planet) is neglected.
 
 use crate::circular::{orbital_period, orbital_velocity};
+use crate::coverage::footprint_radius;
 use crate::placement::SPEED_OF_LIGHT;
 use crate::CentralBody;
 
@@ -235,6 +236,60 @@ pub fn precompensated_delay_residual(
     };
     let midpoint = (near.max(far) + shortest) / 2.0;
     (slant_range(body, altitude, terminal_angle) - midpoint) / SPEED_OF_LIGHT
+}
+
+/// Area (m²) of the habitable band: every point within `band_half_angle`
+/// (rad) of its central great circle, `4πR²·sin b`.
+pub fn band_area(body: &CentralBody, band_half_angle: f64) -> f64 {
+    4.0 * std::f64::consts::PI * body.radius * body.radius * band_half_angle.sin()
+}
+
+/// Area (m²) of one satellite's footprint: the spherical cap that sees it at
+/// least `min_elevation` up.
+pub fn footprint_area(body: &CentralBody, altitude: f64, min_elevation: f64) -> f64 {
+    let lambda = footprint_radius(body, altitude, min_elevation) / body.radius;
+    2.0 * std::f64::consts::PI * body.radius * body.radius * (1.0 - lambda.cos())
+}
+
+/// Mean ground area (m²) of one beam's spot, averaged over the footprint by
+/// area: each spot is the ellipse `π · along · across` of its true
+/// farther/flatter/fatter extents, so rim spots count for the 5.3x stretch
+/// they really have. A uniform scatter of towns lands mostly toward the rim,
+/// where the ground is, so this mean sits well above the nadir circle.
+pub fn mean_spot_area(
+    body: &CentralBody,
+    altitude: f64,
+    min_elevation: f64,
+    beamwidth: f64,
+) -> f64 {
+    let lambda = footprint_radius(body, altitude, min_elevation) / body.radius;
+    let n = 2_000;
+    let (mut sum, mut weight) = (0.0, 0.0);
+    for i in 0..n {
+        let g = lambda * (i as f64 + 0.5) / n as f64;
+        let w = g.sin();
+        let area = std::f64::consts::PI
+            * spot_half_extent(body, altitude, g, beamwidth)
+            * spot_cross_half_extent(body, altitude, g, beamwidth);
+        sum += w * area;
+        weight += w;
+    }
+    sum / weight
+}
+
+/// Simultaneous beams one satellite needs to light `towns` settlements
+/// scattered evenly over its `served_area` (m²), when each beam paints a
+/// spot of `spot_area` (m²).
+///
+/// Towns that fall in the same spot share one beam. With the served area cut
+/// into `cells = served_area / spot_area` spots and towns landing at random,
+/// the expected number of spots holding at least one town is
+/// `cells · (1 − e^(−towns/cells))`. Sparse towns need one beam each; once
+/// towns outnumber spots, every spot is lit and the count saturates at the
+/// tiling itself.
+pub fn beams_needed(towns: f64, served_area: f64, spot_area: f64) -> f64 {
+    let cells = served_area / spot_area;
+    cells * (1.0 - (-towns / cells).exp())
 }
 
 #[cfg(test)]
@@ -541,5 +596,49 @@ mod tests {
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         assert!(precompensated_doppler_residual(&p, 2_200e3, edge, edge, beam, KA).abs() < 300.0);
         assert!(precompensated_delay_residual(&p, 2_200e3, edge, edge, beam).abs() < 2.5e-6);
+    }
+
+    #[test]
+    fn a_footprint_covers_a_ninth_of_the_band_and_four_thousand_spots() {
+        let p = reference_planet();
+        let beam = 1.0_f64.to_radians();
+        let band = band_area(&p, 20.0_f64.to_radians());
+        let footprint = footprint_area(&p, 2_200e3, MIN_ELEVATION);
+        assert_close(band, 1.745e14, 1e-3);
+        assert_close(footprint / band, 0.1127, 1e-2);
+        // Rim spots stretch 5.3x and most of the ground is near the rim, so
+        // the mean spot is four times the 1,158 km² nadir circle.
+        let spot = mean_spot_area(&p, 2_200e3, MIN_ELEVATION, beam);
+        assert_close(spot, 4.744e9, 1e-3);
+        assert_close(footprint / spot, 4_145.0, 1e-3);
+    }
+
+    #[test]
+    fn beams_track_towns_when_sparse_and_saturate_at_the_tiling() {
+        // 1,000 cells: ten towns need ten beams (barely any sharing); a
+        // hundred thousand towns light all 1,000 spots and no more.
+        assert_close(beams_needed(10.0, 1_000.0, 1.0), 9.95, 1e-3);
+        assert_close(beams_needed(1e5, 1_000.0, 1.0), 1_000.0, 1e-9);
+        // The beam_budget example's headline numbers: the average lit
+        // satellite (1/23.1 of the band) and the duty-ring bound (its whole
+        // 95%-on-band footprint), at first light and at the ceiling.
+        let p = reference_planet();
+        let beam = 1.0_f64.to_radians();
+        let band = band_area(&p, 20.0_f64.to_radians());
+        let spot = mean_spot_area(&p, 2_200e3, MIN_ELEVATION, beam);
+        let mean_share = band / 23.1;
+        let on_band = crate::acquisition::band_raster_fraction(
+            &p,
+            2_200e3,
+            MIN_ELEVATION,
+            20.0_f64.to_radians(),
+            0.0,
+        );
+        let duty_share = footprint_area(&p, 2_200e3, MIN_ELEVATION) * on_band;
+        let beams = |towns: f64, share: f64| beams_needed(towns * share / band, share, spot);
+        assert_close(beams(1e4, mean_share), 379.0, 1e-2);
+        assert_close(beams(1e4, duty_share), 942.0, 1e-2);
+        assert_close(beams(1e6, mean_share), 1_592.0, 1e-2);
+        assert_close(beams(1e6, duty_share), 3_956.0, 1e-2);
     }
 }
