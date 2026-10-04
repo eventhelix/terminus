@@ -25,7 +25,8 @@ use terminus_orbits::acquisition::{
     band_raster_fraction, beacon_raster_period, doa_rms, sky_positions, spots_per_footprint,
 };
 use terminus_orbits::beams::{
-    beam_doppler_spread, nadir_spot_radius, spot_half_extent, worst_precompensation_residuals,
+    beam_doppler_spread, doppler_shift, nadir_spot_radius, range_rate, spot_half_extent,
+    worst_precompensation_residuals,
 };
 use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
 use terminus_orbits::placement::one_way_light_time;
@@ -129,12 +130,14 @@ fn main() {
         worst_precompensation_residuals(&planet, ALT, min_elevation, ka_beam, KA, 2_000);
     let (x_hz, x_s) =
         worst_precompensation_residuals(&planet, ALT, min_elevation, x_beam, X, 2_000);
+    let blanket_rate = range_rate(&planet, ALT, edge);
     println!(
         "\nOne beam, two bands (worst terminal, swept over a pass):\n\
          \x20                          Ka service    X beacon\n\
          \x20 beamwidth                {:>7.2}°     {:>6.2}°\n\
          \x20 spot radius, nadir       {:>6.1} km   {:>6.1} km\n\
          \x20 spot half-length, rim    {:>6.0} km   {:>6.0} km\n\
+         \x20 Doppler window, blanket   ±{:.0} kHz    ±{:.0} kHz\n\
          \x20 Doppler residual        ±{:>4.2} kHz  ±{:>4.2} kHz\n\
          \x20 delay residual            ±{:.0} µs   ±{:.2} ms\n\
          The aperture-only law v·k/D is first order: the wide X spot bends\n\
@@ -146,6 +149,8 @@ fn main() {
         spot / 1e3,
         ka_half / 1e3,
         x_half / 1e3,
+        doppler_shift(blanket_rate, KA) / 1e3,
+        doppler_shift(blanket_rate, X) / 1e3,
         ka_hz / 1e3,
         x_hz / 1e3,
         ka_s * 1e6,
