@@ -238,6 +238,34 @@ pub fn precompensated_delay_residual(
     (slant_range(body, altitude, terminal_angle) - midpoint) / SPEED_OF_LIGHT
 }
 
+/// Worst precompensation residuals `(Hz, s)` left to any terminal in a beam
+/// over one overhead pass, rise to set: the beam re-aimed at each of `n + 1`
+/// evenly spaced spot centers across the footprint, and both in-plane edges
+/// of its spot checked at each. The worst terminal sits at a spot edge.
+pub fn worst_precompensation_residuals(
+    body: &CentralBody,
+    altitude: f64,
+    min_elevation: f64,
+    beamwidth: f64,
+    frequency: f64,
+    n: usize,
+) -> (f64, f64) {
+    let edge = footprint_radius(body, altitude, min_elevation) / body.radius;
+    let (mut worst_hz, mut worst_s) = (0.0_f64, 0.0_f64);
+    for i in 0..=n {
+        let c = -edge + 2.0 * edge * i as f64 / n as f64;
+        let d = spot_half_extent(body, altitude, c.abs(), beamwidth) / body.radius;
+        for t in [c - d, c + d] {
+            worst_hz = worst_hz.max(
+                precompensated_doppler_residual(body, altitude, c, t, beamwidth, frequency).abs(),
+            );
+            worst_s =
+                worst_s.max(precompensated_delay_residual(body, altitude, c, t, beamwidth).abs());
+        }
+    }
+    (worst_hz, worst_s)
+}
+
 /// Area (m²) of the habitable band: every point within `band_half_angle`
 /// (rad) of its central great circle, `4πR²·sin b`.
 pub fn band_area(body: &CentralBody, band_half_angle: f64) -> f64 {
@@ -554,15 +582,8 @@ mod tests {
         // peaks at ±308 µs under the rim beam, shrinking to ~0 overhead.
         let p = reference_planet();
         let beam = 1.0_f64.to_radians();
-        let (mut worst_hz, mut worst_s) = (0.0_f64, 0.0_f64);
-        for c in overhead_pass(&p, 2_000) {
-            let d = spot_half_extent(&p, 2_200e3, c.abs(), beam) / p.radius;
-            for t in [c - d, c + d] {
-                worst_hz = worst_hz
-                    .max(precompensated_doppler_residual(&p, 2_200e3, c, t, beam, KA).abs());
-                worst_s = worst_s.max(precompensated_delay_residual(&p, 2_200e3, c, t, beam).abs());
-            }
-        }
+        let (worst_hz, worst_s) =
+            worst_precompensation_residuals(&p, 2_200e3, MIN_ELEVATION, beam, KA, 2_000);
         assert!(worst_hz < 6.0e3, "doppler residual {worst_hz}");
         assert_close(
             worst_hz,
@@ -570,6 +591,26 @@ mod tests {
             1e-2,
         );
         assert_close(worst_s, 3.08e-4, 1e-2);
+    }
+
+    #[test]
+    fn x_beacon_residuals_swept_over_a_pass() {
+        // The 3.57° X beacon from the same 0.7 m face. Its half-spread is
+        // Ka's ±5.95 kHz (v·k/D is aperture-only), but that law is first
+        // order: at the rim the wide spot bends it, and the swept worst
+        // terminal sits ±6.3 kHz off. Delay grows with the longer spot:
+        // ±1.14 ms against Ka's ±308 µs.
+        let p = reference_planet();
+        let beam = crate::radio::beamwidth_deg(0.7, 8.4e9).to_radians();
+        let (worst_hz, worst_s) =
+            worst_precompensation_residuals(&p, 2_200e3, MIN_ELEVATION, beam, 8.4e9, 2_000);
+        assert_close(
+            beam_doppler_spread(&p, 2_200e3, beam, 8.4e9) / 2.0,
+            beam_doppler_spread(&p, 2_200e3, 1.0_f64.to_radians(), KA) / 2.0,
+            1e-2,
+        );
+        assert_close(worst_hz, 6.29e3, 1e-2);
+        assert_close(worst_s, 1.136e-3, 1e-2);
     }
 
     #[test]

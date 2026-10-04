@@ -5,9 +5,10 @@
 //! clock, no position — under the reference access constellation (2,200 km,
 //! 25° min elevation), with the beacon lantern on X band: the same 0.7 m
 //! array that throws a 1° pencil at Ka throws a 3.57° beam at X, and a
-//! beam's Doppler spread is set by the aperture alone (v·k/D), so the wider
-//! lantern keeps the same ±6 kHz residual while tiling the footprint with
-//! 13× fewer positions. The whole handshake — beacon down, first reply up —
+//! beam's Doppler spread is set, to first order, by the aperture alone
+//! (v·k/D), so the wider lantern stays near Ka's ±6 kHz residual (±6.3 kHz
+//! swept, where the wide rim spot bends the law) while tiling the footprint
+//! with 13× fewer positions. The whole handshake — beacon down, first reply up —
 //! stays on X, which also rides through the storms that silence Ka.
 //!
 //! The receive side never searches either (ADR-0027): each element of the
@@ -24,7 +25,7 @@ use terminus_orbits::acquisition::{
     band_raster_fraction, beacon_raster_period, doa_rms, sky_positions, spots_per_footprint,
 };
 use terminus_orbits::beams::{
-    beam_doppler_spread, delay_spread_across_spot, nadir_spot_radius, spot_half_extent,
+    beam_doppler_spread, nadir_spot_radius, spot_half_extent, worst_precompensation_residuals,
 };
 use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
 use terminus_orbits::placement::one_way_light_time;
@@ -76,7 +77,8 @@ fn main() {
         "  sky is never empty (coverage minimum ≥ 1 satellite ≥ 25° up)\n\
          \x20 the lantern is X-band: the {APERTURE} m array that throws a {:.2}° pencil\n\
          \x20 at Ka throws a {:.2}° beam at X — and a beam's Doppler spread is set\n\
-         \x20 by the aperture alone (v·k/D): ±{:.1} kHz at Ka, ±{:.1} kHz at X\n\
+         \x20 to first order by the aperture alone (v·k/D): half-spread\n\
+         \x20 ±{:.1} kHz at Ka, ±{:.1} kHz at X (swept residuals below)\n\
          \x20 footprint radius: {:.0} km; X spot radius: {:.1} km\n\
          \x20 spots to raster:  {:.0} ({} ms beacon dwell each)\n\
          \x20 full beacon raster: {:.1} s",
@@ -121,14 +123,33 @@ fn main() {
     );
 
     let edge = footprint_radius(&planet, ALT, min_elevation) / planet.radius;
+    let ka_half = spot_half_extent(&planet, ALT, edge, ka_beam);
     let x_half = spot_half_extent(&planet, ALT, edge, x_beam);
+    let (ka_hz, ka_s) =
+        worst_precompensation_residuals(&planet, ALT, min_elevation, ka_beam, KA, 2_000);
+    let (x_hz, x_s) =
+        worst_precompensation_residuals(&planet, ALT, min_elevation, x_beam, X, 2_000);
     println!(
-        "\nThe lantern's reply window: the X spot at the footprint rim\n\
-         stretches to ±{:.0} km, so a first reply lands within ±{:.1} ms of\n\
-         the satellite's expectation — a wide window, absorbed in orbit;\n\
-         Ka service keeps its ±308 µs.",
+        "\nOne beam, two bands (worst terminal, swept over a pass):\n\
+         \x20                          Ka service    X beacon\n\
+         \x20 beamwidth                {:>7.2}°     {:>6.2}°\n\
+         \x20 spot radius, nadir       {:>6.1} km   {:>6.1} km\n\
+         \x20 spot half-length, rim    {:>6.0} km   {:>6.0} km\n\
+         \x20 Doppler residual        ±{:>4.2} kHz  ±{:>4.2} kHz\n\
+         \x20 delay residual            ±{:.0} µs   ±{:.2} ms\n\
+         The aperture-only law v·k/D is first order: the wide X spot bends\n\
+         it at the rim. The satellite opens its reply window to the X\n\
+         delay residual — a wide window, absorbed in orbit.",
+        ka_beam.to_degrees(),
+        x_beam.to_degrees(),
+        nadir_spot_radius(ALT, ka_beam) / 1e3,
+        spot / 1e3,
+        ka_half / 1e3,
         x_half / 1e3,
-        delay_spread_across_spot(&planet, ALT, edge, x_half) / 2.0 * 1e3
+        ka_hz / 1e3,
+        x_hz / 1e3,
+        ka_s * 1e6,
+        x_s * 1e3,
     );
 
     // ---- the receive side: why the terminal never scans back (ADR-0027) ----
