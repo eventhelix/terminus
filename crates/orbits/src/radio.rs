@@ -43,6 +43,17 @@ pub fn beamwidth_deg(diameter: f64, frequency: f64) -> f64 {
     70.0 * (SPEED_OF_LIGHT / frequency) / diameter
 }
 
+/// Number of elements a round phased-array face of `diameter` (m) holds at
+/// `frequency` (Hz) with neighbors half a wavelength apart on a square grid:
+/// the face's area over (λ/2)². Half a wavelength is the widest spacing that
+/// scans the beam to the horizon without a second, ghost beam (a grating
+/// lobe). A hexagonal lattice tolerates slightly wider spacing and needs
+/// about 13% fewer elements; this square-grid count is the round upper figure.
+pub fn elements_at_half_wavelength(diameter: f64, frequency: f64) -> f64 {
+    let half = SPEED_OF_LIGHT / frequency / 2.0;
+    std::f64::consts::PI * (diameter / 2.0).powi(2) / (half * half)
+}
+
 /// First null (rad) of a uniformly lit straight-edged face of `width` (m) at
 /// `frequency` (Hz): the angle off boresight where ripples from the far edge
 /// travel one wavelength farther than those from the near edge,
@@ -135,6 +146,22 @@ mod tests {
         assert!(
             rel < rel_tol,
             "actual {actual}, expected {expected}, rel err {rel}"
+        );
+    }
+
+    #[test]
+    fn ka_faces_hold_thousands_of_elements_not_hundreds() {
+        // At 30 GHz, λ/2 is 5 mm: the satellite's 0.7 m face is ~140
+        // elements across and ~15,400 in all, the terminal's 0.5 m face
+        // ~7,900. Starlink's Ku dish (~0.25 m², ~1,200 elements) scaled to
+        // Ka's 2.5x frequency lands in the same range.
+        assert_close(elements_at_half_wavelength(0.7, 30e9), 15_412.0, 1e-3);
+        assert_close(elements_at_half_wavelength(0.5, 30e9), 7_863.0, 1e-3);
+        // The count scales with frequency squared.
+        assert_close(
+            elements_at_half_wavelength(0.7, 30e9) / elements_at_half_wavelength(0.7, 8.4e9),
+            (30.0_f64 / 8.4).powi(2),
+            1e-12,
         );
     }
 

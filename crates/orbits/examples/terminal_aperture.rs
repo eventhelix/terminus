@@ -9,11 +9,13 @@
 //! Run: cargo run -p terminus-orbits --example terminal_aperture
 
 use terminus_orbits::radio::{
-    beamwidth_deg, dish_gain_dbi, fspl_db, planar_array_gain_dbi, scan_loss_db,
-    scanned_beamwidth_deg,
+    beamwidth_deg, dish_gain_dbi, elements_at_half_wavelength, fspl_db, planar_array_gain_dbi,
+    scan_loss_db, scanned_beamwidth_deg,
 };
 
 const PANEL_M: f64 = 0.5;
+/// The satellite's user-link face (first_contact's 0.7 m aperture).
+const SATELLITE_M: f64 = 0.7;
 const EFFICIENCY: f64 = 0.6;
 const KA: f64 = 30e9;
 const L_BAND: f64 = 1.6e9;
@@ -30,9 +32,15 @@ fn main() {
         KA / 1e9
     );
     println!(
-        "Boresight (zenith) gain: {:.2} dBi, beamwidth {:.2}°\n",
+        "Boresight (zenith) gain: {:.2} dBi, beamwidth {:.2}°",
         dish_gain_dbi(PANEL_M, KA, EFFICIENCY),
         beamwidth_deg(PANEL_M, KA)
+    );
+    println!(
+        "Elements at half-wavelength spacing (5 mm at Ka): {:.0} on this face,\n\
+         {:.0} on the satellite's {SATELLITE_M} m face — thousands, not hundreds.\n",
+        elements_at_half_wavelength(PANEL_M, KA),
+        elements_at_half_wavelength(SATELLITE_M, KA)
     );
 
     println!(
