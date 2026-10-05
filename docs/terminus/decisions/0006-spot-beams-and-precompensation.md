@@ -33,8 +33,8 @@ precompensating each beam to its spot center, a terminal's residuals are
 at most **±6 kHz (every spot alike) and ±309 µs (under the rim beam)** —
 inside any receiver's ordinary tracking range, ×77 and ×8 smaller than
 the blanket windows. (Corrected 2026-08-30, twice: the ADR originally
-budgeted ±1.2 kHz/±60 µs by modeling the edge spot at nadir size; the
-nadir Doppler sweep through zero is 5.3× steeper than the edge spot's,
+budgeted ±1.2 kHz/±60 µs by modeling the rim spot at nadir size; the
+nadir Doppler sweep through zero is 5.3× steeper than the rim spot's,
 and the elongated rim spot's delay spread is 5.3× wider. Corrected
 2026-10-04: residuals were taken at edges drawn symmetric about the aim
 point, but a leaning beam's spot is lopsided — 98 km near, 106 km far of
