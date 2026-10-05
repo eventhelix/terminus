@@ -725,18 +725,23 @@ mod tests {
     }
 
     #[test]
-    fn the_whole_rim_spot_stays_inside_its_in_plane_bounds() {
+    fn the_whole_spot_stays_inside_its_in_plane_bounds_at_rim_and_nadir() {
         // Off the orbit plane the spot narrows and its corners see a slightly
         // different line of sight, yet no point of the 2D outline is worse
         // than the in-plane tips: the in-plane residuals bound the whole spot,
-        // Ka and X alike. Its tips are spot_edges; its width is the cross
-        // half-extent.
+        // Ka and X alike, at the rim and straight down. Its tips are
+        // spot_edges; its width is the cross half-extent. Straight down the
+        // spots are circles and Doppler is unchanged, but delay all but
+        // vanishes: ±0.19 µs for Ka, ±2.4 µs for X.
         let p = reference_planet();
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let ka = 1.0_f64.to_radians();
         let x = crate::radio::beamwidth_deg(0.7, 8.4e9).to_radians();
-        for (beam, f, hz, s) in [
-            (1.0_f64.to_radians(), KA, 5.96e3, 3.09e-4),
-            (x, 8.4e9, 5.95e3, 1.144e-3),
+        for (edge, beam, f, hz, s) in [
+            (edge, ka, KA, 5.96e3, 3.09e-4),
+            (edge, x, 8.4e9, 5.95e3, 1.144e-3),
+            (0.0, ka, KA, 5.955e3, 1.88e-7),
+            (0.0, x, 8.4e9, 5.95e3, 2.396e-6),
         ] {
             let (near, far) = spot_edges(&p, 2_200e3, edge, beam);
             let shift = |a: f64, c: f64| received_doppler(range_rate_at(&p, 2_200e3, a, c), f);

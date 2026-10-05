@@ -24,8 +24,9 @@ use terminus_orbits::acquisition::{
     band_raster_fraction, beacon_raster_period, doa_rms, sky_positions, spots_per_footprint,
 };
 use terminus_orbits::beams::{
-    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_spot_radius, range_rate,
-    spot_edges, worst_precompensation_residuals,
+    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_spot_radius,
+    precompensated_delay_residual, precompensated_doppler_residual, range_rate, spot_edges,
+    worst_precompensation_residuals,
 };
 use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
 use terminus_orbits::placement::one_way_light_time;
@@ -170,6 +171,34 @@ fn main() {
         beam_delay_spread(&planet, ALT, edge, x_beam) * 1e3,
         ka_s * 1e6,
         x_s * 1e3,
+    );
+
+    // The same two beams straight down: round spots, the same Doppler, and
+    // almost no delay spread — the far edge is barely farther than nadir.
+    let nadir = |beam: f64, f: f64| {
+        let (_, far) = spot_edges(&planet, ALT, 0.0, beam);
+        (
+            precompensated_doppler_residual(&planet, ALT, 0.0, far, beam, f).abs(),
+            beam_delay_spread(&planet, ALT, 0.0, beam),
+            precompensated_delay_residual(&planet, ALT, 0.0, far, beam).abs(),
+        )
+    };
+    let (ka_n_hz, ka_n_spread, ka_n_s) = nadir(ka_pencil, KA);
+    let (x_n_hz, x_n_spread, x_n_s) = nadir(x_beam, X);
+    println!(
+        "\nStraight down (the nadir spot):\n\
+         \x20                          Ka service    X beacon\n\
+         \x20 Doppler residual        ±{:>4.2} kHz  ±{:>4.2} kHz\n\
+         \x20 delay spread             {:>5.2} µs   {:>5.2} µs\n\
+         \x20 delay residual           ±{:.2} µs    ±{:.2} µs\n\
+         Doppler is steepest here and the spots smallest; the two cancel, as\n\
+         everywhere. Delay is flattest here: both spots sit inside microseconds.",
+        ka_n_hz / 1e3,
+        x_n_hz / 1e3,
+        ka_n_spread * 1e6,
+        x_n_spread * 1e6,
+        ka_n_s * 1e6,
+        x_n_s * 1e6,
     );
 
     // ---- the receive side: why the terminal never scans back (ADR-0027) ----
