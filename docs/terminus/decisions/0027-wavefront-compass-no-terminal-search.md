@@ -55,8 +55,12 @@ ways of paying that price lose:
   weakest point the phase-tilt fit reads the direction to **0.87° rms**
   (`doa_rms`, monopulse rule of thumb θ_bw/(1.6·√(2·SNR))) — 3.8× finer
   than the 3.31° Ka pencil (broadened at the 65° scan) the box must
-  eventually point. The reply returns at 26.2 dBi, +25.7 dB over the
-  bare element, without the box ever computing where *it* is.
+  eventually point. The figure is conservative: the rule of thumb takes
+  the whole aperture's SNR, and `doa_rms` is fed a single element's
+  (15.1 dB); the phase-plane fit draws on every element, recovering up to
+  the 25.7 dB of array gain, so the true bearing error is smaller. The
+  reply returns at 26.2 dBi, +25.7 dB over the bare element, without the
+  box ever computing where *it* is.
 - **TER-REQ-009's philosophy, completed.** The requirement forbids blind
   timing and Doppler search; precompensation (ADR-0006) killed the
   frequency dial and the spot geometry killed the timing sweep. This
