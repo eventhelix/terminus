@@ -9,6 +9,7 @@
 pub mod acquisition;
 pub mod activation;
 pub mod atmosphere;
+pub mod attitude;
 pub mod backbone;
 pub mod beams;
 mod body;
