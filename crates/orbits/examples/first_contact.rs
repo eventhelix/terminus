@@ -6,8 +6,9 @@
 //! 25° min elevation), with the beacon lantern on X band: the same 0.7 m
 //! array that throws a 1° pencil at Ka throws a 3.57° beam at X, and a
 //! beam's Doppler spread is set by the aperture alone (v·k/D), so the wider
-//! lantern keeps the same ±6 kHz residual while tiling the footprint with
-//! 13× fewer positions. The whole handshake — beacon down, first reply up —
+//! lantern keeps the same ±6 kHz residual while each position covers 13×
+//! the ground. The raster is a gap-free covering that follows each beam's
+//! true, elongated size: 925 positions, a 9.2 s round. The whole handshake — beacon down, first reply up —
 //! stays on X, which also rides through the storms that silence Ka.
 //!
 //! The receive side never searches either (ADR-0027): each element of the
@@ -15,18 +16,19 @@
 //! at bare-element gain because it is narrow and slow, and the phase tilt
 //! of the arriving wavefront across the face *is* the direction — measured,
 //! not found. The alternatives are priced below and both lose: a two-sided
-//! raster search blows the budget 9x, and a nested fast receive scan nets
+//! raster search blows the budget 6x, and a nested fast receive scan nets
 //! -2.2 dB against not scanning at all.
 //!
 //! Run: cargo run -p terminus-orbits --example first_contact
 
 use terminus_orbits::acquisition::{
-    band_raster_fraction, beacon_raster_period, doa_rms, sky_positions, spots_per_footprint,
+    beacon_raster_period, beam_edge_loss_db, covering_raster, doa_rms, raster_in_band,
+    raster_link_floor, sky_positions, spots_per_footprint,
 };
 use terminus_orbits::beams::{
-    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_spot_radius,
-    precompensated_delay_residual, precompensated_doppler_residual, range_rate, spot_edges,
-    worst_precompensation_residuals,
+    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_angle, nadir_spot_radius,
+    precompensated_delay_residual, precompensated_doppler_residual, range_rate, ray_ground_angle,
+    slant_range, spot_edges, worst_precompensation_residuals,
 };
 use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
 use terminus_orbits::placement::one_way_light_time;
@@ -69,8 +71,17 @@ fn main() {
     let ka_beam = beamwidth_deg(APERTURE, KA).to_radians();
     let x_beam = beamwidth_deg(APERTURE, X).to_radians();
     let spot = nadir_spot_radius(ALT, x_beam);
-    let spots = spots_per_footprint(&planet, ALT, min_elevation, spot);
-    let raster = beacon_raster_period(spots, BEACON_DWELL);
+    let edge_angle = footprint_radius(&planet, ALT, min_elevation) / planet.radius;
+    let eta_max = nadir_angle(&planet, ALT, edge_angle);
+    // The area estimate: footprint cap over a nadir spot's cap. Circles
+    // cannot tile, so it leaves gaps; a gap-free hexagonal covering of
+    // nadir-sized spots needs 2π/√27 ≈ 1.209x as many.
+    let area_spots = spots_per_footprint(&planet, ALT, min_elevation, spot);
+    let hex_nadir = area_spots * 2.0 * std::f64::consts::PI / 27.0_f64.sqrt();
+    // The raster the lantern walks: a gap-free covering that follows each
+    // beam's true, elongated size (ADR-0007).
+    let (lattice, (worst_u, worst_eta, _)) = covering_raster(eta_max, x_beam);
+    let raster = beacon_raster_period(lattice.len() as f64, BEACON_DWELL);
     let rtt = 2.0 * one_way_light_time(edge_slant_range(&planet, ALT, min_elevation));
 
     println!("Cold start: terminal with no almanac, no clock, no position\n");
@@ -79,18 +90,31 @@ fn main() {
          \x20 the lantern is X-band: the {APERTURE} m array that throws a {:.2}° pencil\n\
          \x20 at Ka throws a {:.2}° beam at X — and a beam's Doppler spread is set\n\
          \x20 by the aperture alone (v·k/D): ±{:.1} kHz at Ka, ±{:.1} kHz at X\n\
-         \x20 footprint radius: {:.0} km; X spot radius: {:.1} km\n\
-         \x20 spots to raster:  {:.0} ({} ms beacon dwell each)\n\
-         \x20 full beacon raster: {:.1} s",
+         \x20 footprint radius: {:.0} km; X spot radius at nadir: {:.1} km",
         ka_beam.to_degrees(),
         x_beam.to_degrees(),
         beam_doppler_spread(&planet, ALT, ka_beam, KA) / 2e3,
         beam_doppler_spread(&planet, ALT, x_beam, X) / 2e3,
         footprint_radius(&planet, ALT, min_elevation) / 1e3,
         spot / 1e3,
-        spots,
+    );
+    println!(
+        "\nTiling the footprint ({} ms beacon dwell per position):\n\
+         \x20 area estimate, nadir-sized spots:      {:>5.0} positions  {:>5.1} s  (leaves gaps)\n\
+         \x20 gap-free hexagonal, nadir-sized spots: {:>5.0} positions  {:>5.1} s\n\
+         \x20 gap-free rings, true elongated spots:  {:>5} positions  {:>5.1} s  <- the raster\n\
+         \x20 every direction within {:.3} of a beam's half-power contour (worst at\n\
+         \x20 {:.1}° off nadir): beam-edge loss never more than {:.2} dB",
         (BEACON_DWELL * 1e3) as u64,
+        area_spots,
+        beacon_raster_period(area_spots, BEACON_DWELL),
+        hex_nadir,
+        beacon_raster_period(hex_nadir, BEACON_DWELL),
+        lattice.len(),
         raster,
+        worst_u,
+        worst_eta.to_degrees(),
+        -beam_edge_loss_db(worst_u),
     );
     println!("\nWorst-case budget vs TER-REQ-008 (15 min):");
     println!(
@@ -202,66 +226,90 @@ fn main() {
     );
 
     // ---- the receive side: why the terminal never scans back (ADR-0027) ----
-    let scan = std::f64::consts::FRAC_PI_2 - min_elevation;
     let x_terminal_beam = beamwidth_deg(TERMINAL_APERTURE, X).to_radians();
     let positions = sky_positions(min_elevation, x_terminal_beam);
     let array_gain = dish_gain_dbi(TERMINAL_APERTURE, X, EFFICIENCY);
     let nested_db = (array_gain - ELEMENT_GAIN_DBI) - 10.0 * positions.log10();
-    let slant = edge_slant_range(&planet, ALT, min_elevation);
-    let eirp = 10.0 * BEACON_TX_POWER_W.log10() + dish_gain_dbi(APERTURE, X, EFFICIENCY);
-    let element_worst = ELEMENT_GAIN_DBI + scan_loss_db(scan, ROLLOFF);
-    let snr_db = eirp - fspl_db(slant, X) + element_worst
-        - thermal_noise_dbw(SYSTEM_NOISE_K, BEACON_BANDWIDTH);
-    let listen_beam = scanned_beamwidth_deg(TERMINAL_APERTURE, X, scan);
+    let noise = thermal_noise_dbw(SYSTEM_NOISE_K, BEACON_BANDWIDTH);
+    // The link toward any look direction, at a beam's peak: the satellite's
+    // face steered `eta` off nadir (scan loss, as on the terminal), the slant
+    // to where that ray lands, and the terminal's bare element leaned to the
+    // satellite's zenith angle there (η + γ).
+    let tx_dbw = 10.0 * BEACON_TX_POWER_W.log10();
+    let link = |eta: f64| {
+        let gamma = ray_ground_angle(&planet, ALT, eta);
+        let slant = slant_range(&planet, ALT, gamma);
+        let sat = planar_array_gain_dbi(APERTURE, X, EFFICIENCY, eta, ROLLOFF);
+        let element = ELEMENT_GAIN_DBI + scan_loss_db(eta + gamma, ROLLOFF);
+        (sat, slant, element, eta + gamma)
+    };
+    let peak_db = |eta: f64| {
+        let (sat, slant, element, _) = link(eta);
+        tx_dbw + sat - fspl_db(slant, X) + element - noise
+    };
+    // The weakest point anywhere in the footprint: every direction, at its
+    // nearest raster beam's edge loss.
+    let (snr_db, floor_eta, edge_db) = raster_link_floor(&lattice, eta_max, x_beam, peak_db);
+    let (sat_db, slant, element_db, zenith) = link(floor_eta);
+    let rx_dbw = snr_db + noise;
+    let listen_beam = scanned_beamwidth_deg(TERMINAL_APERTURE, X, zenith);
     let compass = doa_rms(listen_beam, 10.0_f64.powf(snr_db / 10.0));
+    let scan = std::f64::consts::FRAC_PI_2 - min_elevation;
     let ka_pencil = scanned_beamwidth_deg(TERMINAL_APERTURE, KA, scan);
     let reply_gain = planar_array_gain_dbi(TERMINAL_APERTURE, X, EFFICIENCY, scan, ROLLOFF);
+    let element_rim = ELEMENT_GAIN_DBI + scan_loss_db(scan, ROLLOFF);
 
     println!(
         "\nThe receive side (ADR-0027): the box never forms a beam to search.\n\
          \x20 each element of its {TERMINAL_APERTURE} m panel hears the whole visible sky at\n\
-         \x20 ~{ELEMENT_GAIN_DBI:.0} dBi; worst case — edge slant {:.0} km, element leaned {:.0}° —\n\
-         \x20 the {:.0} W lantern still closes at {:.1} dB SNR in its {:.0} kHz\n\
+         \x20 ~{ELEMENT_GAIN_DBI:.0} dBi; at the weakest point anywhere in the footprint —\n\
+         \x20 {:.1}° off nadir, slant {:.0} km, element leaned {:.0}°, between raster\n\
+         \x20 beams — the {:.0} W lantern still closes at {:.1} dB SNR in its {:.0} kHz\n\
          \x20 channel: detection by correlation against the hard-coded\n\
          \x20 waveform (ADR-0028), inside one {} ms dwell.\n\
          \x20 the face is the compass: the wavefront's phase tilt across the\n\
-         \x20 panel fixes the beacon's direction to {compass:.2}° rms — {:.1}x finer\n\
-         \x20 than the {ka_pencil:.2}° Ka pencil it must seed — and the reply returns\n\
-         \x20 along the measured wavefront at {reply_gain:.1} dBi, {:.1} dB over the\n\
-         \x20 bare element.",
+         \x20 panel fixes the beacon's direction to {compass:.2}° rms there — {:.1}x\n\
+         \x20 finer than the {ka_pencil:.2}° Ka pencil it must seed — and the reply\n\
+         \x20 returns along the measured wavefront at {reply_gain:.1} dBi at the 65° lean,\n\
+         \x20 {:.1} dB over the bare element.",
+        floor_eta.to_degrees(),
         slant / 1e3,
-        scan.to_degrees(),
+        zenith.to_degrees(),
         BEACON_TX_POWER_W,
         snr_db,
         BEACON_BANDWIDTH / 1e3,
         (BEACON_DWELL * 1e3) as u64,
         ka_pencil / compass,
-        reply_gain - element_worst,
+        reply_gain - element_rim,
     );
-    let rx_dbw = eirp - fspl_db(slant, X) + element_worst;
-    let noise = thermal_noise_dbw(SYSTEM_NOISE_K, BEACON_BANDWIDTH);
     println!(
-        "\nThe ledger, in decibels (worst case: edge slant, 65° lean):\n\
+        "\nThe ledger, in decibels (the weakest point in the footprint):\n\
          \x20 lantern transmit power:      +{:.1} dBW   ({:.0} W)\n\
-         \x20 satellite X aperture gain:   +{:.1} dBi   ({APERTURE} m, 60% efficient)\n\
+         \x20 satellite X aperture gain:   +{:.1} dBi   ({APERTURE} m, 60% efficient, steered {:.0}°)\n\
+         \x20 beam-edge loss:              {:.1} dB    (between raster beams)\n\
          \x20 spreading loss:             -{:.1} dB    ({:.0} km at {:.1} GHz)\n\
-         \x20 element gain, leaned 65°:     +{:.1} dBi   ({ELEMENT_GAIN_DBI:.0} dBi patch {:.1} dB lean)\n\
+         \x20 element gain, leaned {:.0}°:   {:+.1} dBi   ({ELEMENT_GAIN_DBI:.0} dBi patch {:.1} dB lean)\n\
          \x20 power reaching the element: -{:.1} dBW   ({:.0} femtowatts)\n\
          \x20 thermal noise in 50 kHz:    -{:.1} dBW   (kTB at {SYSTEM_NOISE_K:.0} K)\n\
-         \x20 signal over noise:           +{:.1} dB    (a {:.0}x power ratio)",
-        10.0 * BEACON_TX_POWER_W.log10(),
+         \x20 signal over noise:           +{:.1} dB    (a {:.0}x power ratio)\n\
+         For reference, a beam's peak at the rim: {:.1} dB.",
+        tx_dbw,
         BEACON_TX_POWER_W,
-        dish_gain_dbi(APERTURE, X, EFFICIENCY),
+        sat_db,
+        floor_eta.to_degrees(),
+        edge_db,
         fspl_db(slant, X),
         slant / 1e3,
         X / 1e9,
-        element_worst,
-        scan_loss_db(scan, ROLLOFF),
+        zenith.to_degrees(),
+        element_db,
+        element_db - ELEMENT_GAIN_DBI,
         -rx_dbw,
         10.0_f64.powf(rx_dbw / 10.0) * 1e15,
         -noise,
         snr_db,
         10.0_f64.powf(snr_db / 10.0),
+        peak_db(eta_max),
     );
 
     println!(
@@ -280,7 +328,8 @@ fn main() {
     println!(
         "\nThe raster region is one generic rule — footprint ∩ habitable band\n\
          (±20°) — evaluated per satellite; the {raster:.1} s full-footprint round\n\
-         stays the ceiling:"
+         stays the ceiling. Rim positions are few and long, so a trimmed round\n\
+         counts positions, not area:"
     );
     for (offset, role) in [
         (0.0_f64, " (duty ring)"),
@@ -288,18 +337,20 @@ fn main() {
         (20.0, ""),
         (30.0, " (hole-filler)"),
     ] {
-        let frac = band_raster_fraction(
+        let n = raster_in_band(
             &planet,
             ALT,
-            min_elevation,
+            &lattice,
             20.0_f64.to_radians(),
             offset.to_radians(),
         );
         println!(
-            "  {:>4.0}° off the band's center: {:>3.0}% of footprint  ->  {:>4.1} s round{}",
+            "  {:>4.0}° off the band's center: {:>4} of {} positions ({:>3.0}%)  ->  {:>4.1} s round{}",
             offset,
-            frac * 100.0,
-            frac * raster,
+            n,
+            lattice.len(),
+            100.0 * n as f64 / lattice.len() as f64,
+            beacon_raster_period(n as f64, BEACON_DWELL),
             role
         );
     }

@@ -34,22 +34,26 @@ ways of paying that price lose:
 - **Unsynchronized receive raster:** the 0.5 m panel throws a 5.0° beam
   at X, and the sky above the 25° elevation floor tiles into ≈ 607 beam
   positions (`sky_positions`). To guarantee intersection with the
-  lantern's walk, each position must be held for one full 13.3 s round:
-  ≈ 135 minutes, **9× over** TER-REQ-008's 15-minute bound.
+  lantern's walk, each position must be held for one full 9.2 s round:
+  ≈ 94 minutes, **6× over** TER-REQ-008's 15-minute bound.
 - **Nested fast raster** (sweep all 607 positions electronically inside
   each 10 ms dwell): the pointed beam buys +25.7 dB of array-over-element
   gain but splitting the dwell 607 ways costs 27.8 dB of integration
   time — a net **−2.2 dB, worse than not scanning at all**.
-- **Wide-listen closes with margin.** Worst case twice over — edge slant
-  (3,642 km) and the element's own pattern leaned 65° off boresight — a
-  10 W lantern behind the satellite's 0.7 m X aperture still delivers
-  **18.9 dB SNR** in the 50 kHz beacon channel (`thermal_noise_dbw`):
-  detection inside a single dwell. The narrow channel is what makes the
+- **Wide-listen closes with margin.** At the weakest point anywhere in
+  the footprint (`raster_link_floor`: every direction, at its nearest
+  raster beam) — 41.8° off nadir, between beams (−2.6 dB beam-edge loss),
+  the satellite's face steered 42° (−1.6 dB scan loss), a 3,572 km slant,
+  and the element's own pattern leaned 64° off boresight — a 10 W lantern
+  behind the satellite's 0.7 m X aperture still delivers **15.1 dB SNR**
+  in the 50 kHz beacon channel (`thermal_noise_dbw`): detection inside a
+  single dwell. (Corrected 2026-10-05: first priced at a beam's peak at
+  the rim with no satellite scan loss, 18.9 dB.) The narrow channel is what makes the
   humble antenna sufficient — kTB physics, the same reason a slow, narrow
   beacon can always be heard by hardware too simple to carry traffic.
-- **The compass is finer than anything it must seed.** At that same worst
-  case the phase-tilt fit reads the direction to **0.59° rms**
-  (`doa_rms`, monopulse rule of thumb θ_bw/(1.6·√(2·SNR))) — 5.6× finer
+- **The compass is finer than anything it must seed.** At that same
+  weakest point the phase-tilt fit reads the direction to **0.87° rms**
+  (`doa_rms`, monopulse rule of thumb θ_bw/(1.6·√(2·SNR))) — 3.8× finer
   than the 3.31° Ka pencil (broadened at the 65° scan) the box must
   eventually point. The reply returns at 26.2 dBi, +25.7 dB over the
   bare element, without the box ever computing where *it* is.

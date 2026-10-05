@@ -40,7 +40,8 @@ touching a fielded terminal.
   lands inside the satellite's wide acquisition window, where slack
   belongs.
 - **Correlation detection requires a known sequence.** The wide-listen
-  budget of ADR-0027 (18.9 dB SNR in 50 kHz at bare-element gain) is
+  budget of ADR-0027 (15.1 dB SNR in 50 kHz at bare-element gain, at the
+  weakest point in the footprint) is
   only usable because the receiver knows what it is listening for; the
   sequence must therefore be part of the contract, not of the updatable
   almanac.

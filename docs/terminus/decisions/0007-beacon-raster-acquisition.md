@@ -23,20 +23,24 @@ lantern and requests sustained X-band service for its spot.
 - **Coverage makes the sky never empty** (ADR-0003: minimum one satellite
   ≥ 25° up everywhere, always), so a cold terminal never waits for a
   satellite — only for the lamplighter's lantern to swing its way.
-- **X costs nothing in frequency certainty and buys a 13× shorter round.**
+- **X costs nothing in frequency certainty and buys 13× the ground per position.**
   A beam's Doppler spread is (f/c)·v·β, and a diffraction-limited beam has
   β = k·λ/D — so the spread is v·k/D, set by the aperture alone, the same
   for every band. The 0.7 m array that throws a 1° pencil at Ka throws a
-  3.57° beam at X with the identical ±6 kHz residual, and the footprint
-  tiles into ≈ 1,333 positions of 68.5 km radius instead of ≈ 17,000: a
-  full raster takes ≈ 13.3 s. Worst-case cold start — full raster wait,
-  zero frequency search (precompensation), one round trip of timing
-  alignment (24 ms), and a 30 s registration allowance — totals ≈ 43 s,
-  21× inside TER-REQ-008's 15-minute bound. The count still prices every
-  position at nadir-spot size, ignoring the elongation of leaning spots
-  (ADR-0006's farther/flatter/fatter): a raster stepped at uniform nadir
-  pitch over-tiles the rim, so 13.3 s is a ceiling, with the overlap
-  landing where the link budget is thinnest.
+  3.57° beam at X with the identical ±6 kHz residual, and each position
+  covers about 13× the ground of a Ka one. The raster is a gap-free
+  covering laid in rings that follow each beam's true, elongated size
+  (`covering_raster`): 925 positions, with every direction inside its
+  nearest beam's half-power contour, so a full round takes ≈ 9.2 s.
+  Worst-case cold start — full raster wait, zero frequency search
+  (precompensation), one round trip of timing alignment (24 ms), and a
+  30 s registration allowance — totals ≈ 39 s, 23× inside TER-REQ-008's
+  15-minute bound. (Corrected 2026-10-05: the raster was first priced as
+  footprint area over a nadir spot's area, ≈ 1,333 positions and 13.3 s.
+  Circles cannot tile, so that count left gaps — a gap-free grid of
+  nadir-sized spots needs 1,611 — and it ignored that leaning spots land
+  up to 5.3× longer, ADR-0006's farther/flatter/fatter. The
+  elongation-aware covering needs fewer positions than either.)
 - **X is the band storms cannot take.** The lantern lives where rain
   costs 1.9 dB instead of Ka's 23.5 dB (ADR-0005's diversity band), so
   first contact works in the weather a new terminal may land in — and the
@@ -52,19 +56,22 @@ lantern and requests sustained X-band service for its spot.
   sweep to the same ±5.95 kHz residual.
 - **Warm start is trivial by construction.** A remembered spot identity
   plus the scheduled beam plan bounds reacquisition by one beam revisit —
-  seconds against the 30 s requirement, and the lantern's 13.3 s round
+  seconds against the 30 s requirement, and the lantern's 9.2 s round
   bounds it even when a storm has taken Ka.
 - **The raster region is one generic rule: footprint ∩ habitable band.**
   Only active satellites raster (ADR-0016/0017's duty ring plus
   hole-fillers; dark satellites carry no lantern — safe, because
   TER-REQ-001 guarantees every band point an *active* satellite), and
   each evaluates the same intersection (plus a drop-wind margin) rather
-  than special-casing its role. `band_raster_fraction` prices it: a
-  duty-ring satellite riding the terminator keeps 95% of its footprint
-  (a 22.65° cap against the ±20° band), a satellite 10° off keeps 78%,
-  20° off 52%, and a hole-filler 30° off just 24% — a 3.2 s round
-  instead of wasting most of 13.3 s on nightside ice. Trimming only ever
-  shortens rounds, so the 13.3 s full-footprint ceiling stands.
+  than special-casing its role. `raster_in_band` prices it by counting
+  the positions whose aim point lands in the band: a duty-ring satellite
+  riding the terminator walks 839 of the 925 (91%, an 8.4 s round), a
+  satellite 10° off 763 (82%), 20° off 479 (52%), and a hole-filler 30°
+  off just 182 (20%) — a 1.8 s round instead of wasting most of 9.2 s on
+  nightside ice. Positions, not area: rim positions are few and long, so
+  these shares differ from the 95%/78%/52%/24% of footprint area
+  (`band_raster_fraction`). Trimming only ever shortens rounds, so the
+  9.2 s full-footprint ceiling stands.
 - The terminal's role remains "listen, lock, answer": no stored almanac,
   no clock, and no position are ever required (TER-REQ-006), keeping all
   acquisition complexity on the spacecraft.
