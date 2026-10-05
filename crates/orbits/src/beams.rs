@@ -129,6 +129,27 @@ pub fn spot_half_extent(
         / 2.0
 }
 
+/// Ground central angles `(near, far)` (rad) of the two in-plane edges of
+/// the spot painted by a beam aimed at `center_angle`: where the rays
+/// η ∓ β/(2·cos η) strike the surface. A leaning beam's spot is lopsided —
+/// its far edge lands farther from the aim point than its near edge — so
+/// the edges are not `center ± spot_half_extent`. Signed like
+/// `center_angle`; the near edge crosses zero when the spot straddles the
+/// sub-satellite point.
+pub fn spot_edges(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+) -> (f64, f64) {
+    let eta = nadir_angle(body, altitude, center_angle.abs());
+    let broadened = beamwidth / eta.cos();
+    let near = ray_ground_angle(body, altitude, eta - broadened / 2.0);
+    let far = ray_ground_angle(body, altitude, eta + broadened / 2.0);
+    let sign = if center_angle < 0.0 { -1.0 } else { 1.0 };
+    (sign * near, sign * far)
+}
+
 /// Cross-track half-extent (m) of the same spot: the slant range times the
 /// half beamwidth (no scan broadening or obliquity in that plane).
 pub fn spot_cross_half_extent(
@@ -209,16 +230,49 @@ pub fn precompensated_doppler_residual(
     beamwidth: f64,
     frequency: f64,
 ) -> f64 {
-    let d = spot_half_extent(body, altitude, center_angle.abs(), beamwidth) / body.radius;
+    let (near, far) = spot_edges(body, altitude, center_angle, beamwidth);
     let shift = |g: f64| received_doppler(range_rate(body, altitude, g), frequency);
-    shift(terminal_angle) - (shift(center_angle - d) + shift(center_angle + d)) / 2.0
+    shift(terminal_angle) - (shift(near) + shift(far)) / 2.0
+}
+
+/// Shortest and longest slant ranges (m) to the spot painted by a beam aimed
+/// at `center_angle`, taken at its true (lopsided) edges; the shortest is the
+/// altitude itself when the spot straddles the sub-satellite point.
+fn spot_slant_bounds(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+) -> (f64, f64) {
+    let (near_edge, far_edge) = spot_edges(body, altitude, center_angle, beamwidth);
+    let near = slant_range(body, altitude, near_edge);
+    let far = slant_range(body, altitude, far_edge);
+    let shortest = if near_edge * far_edge < 0.0 {
+        slant_range(body, altitude, 0.0)
+    } else {
+        near.min(far)
+    };
+    (shortest, near.max(far))
+}
+
+/// Delay spread (s) across the spot of a beam aimed at `center_angle`:
+/// longest minus shortest one-way delay between its true edges (617 µs
+/// under the 1° rim beam).
+pub fn beam_delay_spread(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+) -> f64 {
+    let (shortest, longest) = spot_slant_bounds(body, altitude, center_angle, beamwidth);
+    (longest - shortest) / SPEED_OF_LIGHT
 }
 
 /// Propagation delay (s) still left for an in-plane terminal at
 /// `terminal_angle` (rad) once the satellite precompensates the beam aimed at
 /// `center_angle`: the beam is sent early by the midpoint of the shortest and
 /// longest delays in its spot, so the worst terminal in the spot is left half
-/// the spot's delay spread (±308 µs under the rim beam).
+/// the spot's delay spread (±309 µs under the rim beam).
 pub fn precompensated_delay_residual(
     body: &CentralBody,
     altitude: f64,
@@ -226,15 +280,8 @@ pub fn precompensated_delay_residual(
     terminal_angle: f64,
     beamwidth: f64,
 ) -> f64 {
-    let d = spot_half_extent(body, altitude, center_angle.abs(), beamwidth) / body.radius;
-    let near = slant_range(body, altitude, center_angle - d);
-    let far = slant_range(body, altitude, center_angle + d);
-    let shortest = if center_angle.abs() < d {
-        slant_range(body, altitude, 0.0)
-    } else {
-        near.min(far)
-    };
-    let midpoint = (near.max(far) + shortest) / 2.0;
+    let (shortest, longest) = spot_slant_bounds(body, altitude, center_angle, beamwidth);
+    let midpoint = (longest + shortest) / 2.0;
     (slant_range(body, altitude, terminal_angle) - midpoint) / SPEED_OF_LIGHT
 }
 
@@ -254,8 +301,8 @@ pub fn worst_precompensation_residuals(
     let (mut worst_hz, mut worst_s) = (0.0_f64, 0.0_f64);
     for i in 0..=n {
         let c = -edge + 2.0 * edge * i as f64 / n as f64;
-        let d = spot_half_extent(body, altitude, c.abs(), beamwidth) / body.radius;
-        for t in [c - d, c + d] {
+        let (near, far) = spot_edges(body, altitude, c, beamwidth);
+        for t in [near, far] {
             worst_hz = worst_hz.max(
                 precompensated_doppler_residual(body, altitude, c, t, beamwidth, frequency).abs(),
             );
@@ -553,7 +600,7 @@ mod tests {
     #[test]
     fn delay_spread_grows_to_617_us_at_the_rim() {
         // With the elongated spot, the rim beam's timing spread is 617 µs
-        // (residual ±308 µs after precompensation), not the 116 µs a
+        // (residual ±309 µs after precompensation), not the 116 µs a
         // nadir-sized spot would suggest.
         let p = reference_planet();
         let beam = 1.0_f64.to_radians();
@@ -564,6 +611,9 @@ mod tests {
             6.17e-4,
             1e-2,
         );
+        // Measured between the spot's true, lopsided edges, the spread is
+        // the same 617 µs.
+        assert_close(beam_delay_spread(&p, 2_200e3, edge, beam), 6.17e-4, 1e-2);
     }
 
     /// One overhead pass over a town, rise to set: the beam's center angle
@@ -579,7 +629,7 @@ mod tests {
     fn precompensation_leaves_half_the_spread_all_pass() {
         // Worst terminal anywhere in the beam, swept over a whole pass: the
         // Doppler bound holds at ±6 kHz from rise to set, and the delay bound
-        // peaks at ±308 µs under the rim beam, shrinking to ~0 overhead.
+        // peaks at ±309 µs under the rim beam, shrinking to ~0 overhead.
         let p = reference_planet();
         let beam = 1.0_f64.to_radians();
         let (worst_hz, worst_s) =
@@ -590,31 +640,28 @@ mod tests {
             beam_doppler_spread(&p, 2_200e3, beam, KA) / 2.0,
             1e-2,
         );
-        assert_close(worst_s, 3.08e-4, 1e-2);
+        assert_close(worst_s, 3.09e-4, 1e-2);
     }
 
     #[test]
     fn x_beacon_residuals_swept_over_a_pass() {
-        // The 3.57° X beacon from the same 0.7 m face. Its half-spread is
-        // Ka's ±5.95 kHz (v·k/D is aperture-only), but that law is first
-        // order: at the rim the wide spot bends it, and the swept worst
-        // terminal sits ±6.3 kHz off. Delay grows with the longer spot:
-        // ±1.14 ms against Ka's ±308 µs.
+        // The 3.57° X beacon from the same 0.7 m face. Its rim spot is
+        // lopsided (318 km near, 436 km far of the aim point), yet Doppler
+        // follows the look angle, not the ground: the swept worst terminal
+        // keeps Ka's half-spread, v·k/D / 2 ≈ 5.95 kHz. Delay grows with the
+        // longer spot: ±1.14 ms against Ka's ±309 µs.
         let p = reference_planet();
         let beam = crate::radio::beamwidth_deg(0.7, 8.4e9).to_radians();
         let (worst_hz, worst_s) =
             worst_precompensation_residuals(&p, 2_200e3, MIN_ELEVATION, beam, 8.4e9, 2_000);
-        assert_close(
-            beam_doppler_spread(&p, 2_200e3, beam, 8.4e9) / 2.0,
-            beam_doppler_spread(&p, 2_200e3, 1.0_f64.to_radians(), KA) / 2.0,
-            1e-2,
-        );
-        assert_close(worst_hz, 6.29e3, 1e-2);
-        assert_close(worst_s, 1.136e-3, 1e-2);
+        let ka_half_spread = beam_doppler_spread(&p, 2_200e3, 1.0_f64.to_radians(), KA) / 2.0;
+        assert!(worst_hz < 6.0e3, "doppler residual {worst_hz}");
+        assert_close(worst_hz, ka_half_spread, 1e-2);
+        assert_close(worst_s, 1.144e-3, 1e-2);
     }
 
     #[test]
-    fn a_house_at_the_edge_of_town_stays_inside_six_khz_and_sixty_us() {
+    fn a_house_at_the_edge_of_town_stays_inside_six_khz_and_seventy_five_us() {
         // A terminal 19 km down-track of the town center sits inside its
         // town's beam all pass (the nadir circle is the smallest spot). Its
         // Doppler residual peaks overhead, where the gradient is steepest; its
@@ -624,19 +671,25 @@ mod tests {
         let offset = nadir_spot_radius(2_200e3, beam) / p.radius;
         let (mut peak_hz, mut peak_s) = (0.0_f64, 0.0_f64);
         for c in overhead_pass(&p, 2_000) {
-            assert!(offset <= spot_half_extent(&p, 2_200e3, c.abs(), beam) / p.radius + 1e-9);
+            let (near, far) = spot_edges(&p, 2_200e3, c, beam);
+            // Inside the beam to within a meter: near nadir the flat-ground
+            // radius overshoots the curved near edge by centimeters.
+            let (house, slack) = (c - offset, 1.0 / p.radius);
+            assert!(house >= near.min(far) - slack && house <= near.max(far) + slack);
             peak_hz = peak_hz
                 .max(precompensated_doppler_residual(&p, 2_200e3, c, c - offset, beam, KA).abs());
             peak_s =
                 peak_s.max(precompensated_delay_residual(&p, 2_200e3, c, c - offset, beam).abs());
         }
         assert_close(peak_hz, 5.96e3, 1e-2);
-        assert_close(peak_s, 6.0e-5, 2e-2);
-        // At the town center itself almost nothing is left: the field curves
-        // a little across the long rim spot, so a few hundred hertz and ~2 µs.
+        assert_close(peak_s, 7.3e-5, 2e-2);
+        // At the town center little is left. The rim spot is lopsided (its far
+        // edge lands farther from the aim point than its near edge), and the
+        // correction is centered on the spot, not the town: tens of hertz,
+        // and ~15 µs of delay.
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
-        assert!(precompensated_doppler_residual(&p, 2_200e3, edge, edge, beam, KA).abs() < 300.0);
-        assert!(precompensated_delay_residual(&p, 2_200e3, edge, edge, beam).abs() < 2.5e-6);
+        assert!(precompensated_doppler_residual(&p, 2_200e3, edge, edge, beam, KA).abs() < 50.0);
+        assert!(precompensated_delay_residual(&p, 2_200e3, edge, edge, beam).abs() < 1.6e-5);
     }
 
     #[test]

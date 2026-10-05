@@ -30,12 +30,16 @@ slope per unit of beam angle, (f/c)·v·cos η, and the beam's broadening,
 the nadir beam (its rim trails its center by 113 m of slant — the
 spot's shortest path is its own middle) to 617 µs under the rim beam. With the satellite
 precompensating each beam to its spot center, a terminal's residuals are
-at most **±6 kHz (every spot alike) and ±308 µs (under the rim beam)** —
+at most **±6 kHz (every spot alike) and ±309 µs (under the rim beam)** —
 inside any receiver's ordinary tracking range, ×77 and ×8 smaller than
 the blanket windows. (Corrected 2026-08-30, twice: the ADR originally
 budgeted ±1.2 kHz/±60 µs by modeling the edge spot at nadir size; the
 nadir Doppler sweep through zero is 5.3× steeper than the edge spot's,
-and the elongated rim spot's delay spread is 5.3× wider.) The satellite
+and the elongated rim spot's delay spread is 5.3× wider. Corrected
+2026-10-04: residuals were taken at edges drawn symmetric about the aim
+point, but a leaning beam's spot is lopsided — 98 km near, 106 km far of
+center under the 1° rim beam. Measured at the true edges, ±308 µs became
+±309 µs and the Doppler bound holds level at ±5.96 kHz all pass.) The satellite
 knows its own orbit and every spot's
 position; the terminals, which must survive ten years untouched after a
 parachute landing (TER-REQ-006), know nothing and need to know nothing.

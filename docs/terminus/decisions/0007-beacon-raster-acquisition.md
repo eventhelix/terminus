@@ -44,10 +44,12 @@ lantern and requests sustained X-band service for its spot.
   Ka beam (TER-REQ-012): one lantern round, one answer, and the network
   schedules longer-dwell X service for the impacted spots.
 - **The wide spot's timing spread lands in orbit.** The X spot at the
-  footprint rim stretches to ±377 km, so a first reply arrives within
-  ±1.1 ms of the satellite's expectation — a wide acceptance window the
-  satellite absorbs, exactly where complexity belongs; Ka service keeps
-  its ±308 µs swept worst case (budgeted ≤ ±310 µs, ADR-0006).
+  footprint rim runs 318 km near and 436 km far of its aim point, so a
+  first reply arrives within ±1.1 ms of the satellite's expectation — a
+  wide acceptance window the satellite absorbs, exactly where complexity
+  belongs; Ka service keeps its ±309 µs swept worst case (budgeted
+  ≤ ±310 µs, ADR-0006). Doppler is unaffected by the width: both bands
+  sweep to the same ±5.95 kHz residual.
 - **Warm start is trivial by construction.** A remembered spot identity
   plus the scheduled beam plan bounds reacquisition by one beam revisit —
   seconds against the 30 s requirement, and the lantern's 13.3 s round

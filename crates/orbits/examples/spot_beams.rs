@@ -16,9 +16,9 @@
 //! Run: cargo run -p terminus-orbits --example spot_beams
 
 use terminus_orbits::beams::{
-    beam_doppler_spread, delay_spread_across_spot, doppler_shift, nadir_angle, nadir_spot_radius,
+    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_angle, nadir_spot_radius,
     precompensated_delay_residual, precompensated_doppler_residual, range_rate, range_rate_at,
-    received_doppler, slant_range, spot_cross_half_extent, spot_half_extent,
+    received_doppler, slant_range, spot_cross_half_extent, spot_edges, spot_half_extent,
 };
 use terminus_orbits::circular::orbital_period;
 use terminus_orbits::coverage::footprint_radius;
@@ -85,8 +85,7 @@ fn main() {
     println!("Delay spread across a beam's spot grows toward the rim:");
     for frac in [0.0, 0.25, 0.5, 0.75, 1.0] {
         let center = edge * frac;
-        let half = spot_half_extent(&planet, ALT, center, beam);
-        let us = delay_spread_across_spot(&planet, ALT, center, half).abs() * 1e6;
+        let us = beam_delay_spread(&planet, ALT, center, beam) * 1e6;
         let shown = if us < 1.0 {
             format!("{us:.1}")
         } else {
@@ -94,7 +93,7 @@ fn main() {
         };
         println!("  {frac:.2} of edge: {shown:>3} µs");
     }
-    let dt_edge = delay_spread_across_spot(&planet, ALT, edge, edge_half);
+    let dt_edge = beam_delay_spread(&planet, ALT, edge, beam);
     println!(
         "\nPrecompensating each beam to its spot center, a terminal sees\n\
          residuals of at most ±{:.1} kHz (every spot alike) and ±{:.0} µs\n\
@@ -116,14 +115,14 @@ fn main() {
     let house = nadir_spot_radius(ALT, beam) / planet.radius;
     let sweep = |t: f64| {
         let c = -edge + rate * t;
-        let d = spot_half_extent(&planet, ALT, c.abs(), beam) / planet.radius;
+        let (near, far) = spot_edges(&planet, ALT, c, beam);
         let heard = received_doppler(range_rate(&planet, ALT, c), KA);
         let delay = slant_range(&planet, ALT, c) / SPEED_OF_LIGHT;
-        let bound_hz = [c - d, c + d]
+        let bound_hz = [near, far]
             .map(|g| precompensated_doppler_residual(&planet, ALT, c, g, beam, KA).abs())
             .into_iter()
             .fold(0.0, f64::max);
-        let bound_s = [c - d, c + d]
+        let bound_s = [near, far]
             .map(|g| precompensated_delay_residual(&planet, ALT, c, g, beam).abs())
             .into_iter()
             .fold(0.0, f64::max);
