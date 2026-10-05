@@ -161,6 +161,38 @@ pub fn spot_cross_half_extent(
     slant_range(body, altitude, center_angle) * (beamwidth / 2.0).tan()
 }
 
+/// Outline of the ground spot painted by a beam aimed at the in-plane
+/// `center_angle`, as `n` points of `(along_track, cross_track)` angles (rad,
+/// the frame of `range_rate_at`). The beam is an elliptical cone — broadened
+/// by 1/cos η in the scan plane and not across it, as `spot_edges` and
+/// `spot_cross_half_extent` model — and each boundary ray is traced to the
+/// surface. Its in-plane tips are exactly `spot_edges`; seen from above, the
+/// spot is long, narrow, and lopsided.
+pub fn spot_outline(
+    body: &CentralBody,
+    altitude: f64,
+    center_angle: f64,
+    beamwidth: f64,
+    n: usize,
+) -> Vec<(f64, f64)> {
+    let r = body.radius + altitude;
+    let eta = nadir_angle(body, altitude, center_angle.abs());
+    let (half_in, half_cross) = (beamwidth / eta.cos() / 2.0, beamwidth / 2.0);
+    let sign = if center_angle < 0.0 { -1.0 } else { 1.0 };
+    (0..n)
+        .map(|i| {
+            let t = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
+            let (e, psi) = (eta + half_in * t.cos(), half_cross * t.sin());
+            let d = [e.sin() * psi.cos(), psi.sin(), -e.cos() * psi.cos()];
+            // Near root of |S + s·d| = R, with S = (0, 0, r).
+            let b = r * d[2];
+            let s = -b - (b * b - (r * r - body.radius * body.radius)).sqrt();
+            let p = [s * d[0], s * d[1], r + s * d[2]];
+            (sign * p[0].atan2(p[2]), (p[1] / body.radius).asin())
+        })
+        .collect()
+}
+
 /// Doppler spread (Hz) across the spot of *any* beam of full width
 /// `beamwidth` from the array — independent of where the beam points.
 ///
@@ -690,6 +722,40 @@ mod tests {
         let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
         assert!(precompensated_doppler_residual(&p, 2_200e3, edge, edge, beam, KA).abs() < 50.0);
         assert!(precompensated_delay_residual(&p, 2_200e3, edge, edge, beam).abs() < 1.6e-5);
+    }
+
+    #[test]
+    fn the_whole_rim_spot_stays_inside_its_in_plane_bounds() {
+        // Off the orbit plane the spot narrows and its corners see a slightly
+        // different line of sight, yet no point of the 2D outline is worse
+        // than the in-plane tips: the in-plane residuals bound the whole spot,
+        // Ka and X alike. Its tips are spot_edges; its width is the cross
+        // half-extent.
+        let p = reference_planet();
+        let edge = footprint_radius(&p, 2_200e3, MIN_ELEVATION) / p.radius;
+        let x = crate::radio::beamwidth_deg(0.7, 8.4e9).to_radians();
+        for (beam, f, hz, s) in [
+            (1.0_f64.to_radians(), KA, 5.96e3, 3.09e-4),
+            (x, 8.4e9, 5.95e3, 1.144e-3),
+        ] {
+            let (near, far) = spot_edges(&p, 2_200e3, edge, beam);
+            let shift = |a: f64, c: f64| received_doppler(range_rate_at(&p, 2_200e3, a, c), f);
+            let mid_hz = (shift(near, 0.0) + shift(far, 0.0)) / 2.0;
+            let (lo, hi) = spot_slant_bounds(&p, 2_200e3, edge, beam);
+            let outline = spot_outline(&p, 2_200e3, edge, beam, 720);
+            let (mut worst_hz, mut worst_s, mut cross) = (0.0_f64, 0.0_f64, 0.0_f64);
+            for &(a, c) in &outline {
+                worst_hz = worst_hz.max((shift(a, c) - mid_hz).abs());
+                let slant = slant_range_at(&p, 2_200e3, a, c);
+                worst_s = worst_s.max(((slant - (lo + hi) / 2.0) / SPEED_OF_LIGHT).abs());
+                cross = cross.max(c.abs() * p.radius);
+            }
+            assert_close(worst_hz, hz, 5e-3);
+            assert_close(worst_s, s, 5e-3);
+            assert!((outline[0].0 - far).abs() < 1e-12);
+            assert!((outline[360].0 - near).abs() < 1e-12);
+            assert_close(cross, spot_cross_half_extent(&p, 2_200e3, edge, beam), 1e-2);
+        }
     }
 
     #[test]

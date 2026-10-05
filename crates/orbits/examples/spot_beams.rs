@@ -60,10 +60,14 @@ fn main() {
         "  straight down: a circle of {:.0} km radius",
         nadir_spot_radius(ALT, beam) / 1e3
     );
+    let (near_edge, far_edge) = spot_edges(&planet, ALT, edge, beam);
     println!(
-        "  at the footprint edge: an ellipse ±{:.0} km radial × ±{:.0} km cross —",
-        edge_half / 1e3,
-        edge_cross / 1e3
+        "  at the footprint edge: a lopsided oval {:.0} km radial ({:.0} short of\n\
+         \x20   its aim point, {:.0} beyond) × {:.0} km cross —",
+        2.0 * edge_half / 1e3,
+        (edge - near_edge) * planet.radius / 1e3,
+        (far_edge - edge) * planet.radius / 1e3,
+        2.0 * edge_cross / 1e3
     );
     println!(
         "    farther (slant {:.2}×) · flatter (1/sin 25° = {:.2}×) ·\n\

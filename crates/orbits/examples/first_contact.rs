@@ -24,8 +24,8 @@ use terminus_orbits::acquisition::{
     band_raster_fraction, beacon_raster_period, doa_rms, sky_positions, spots_per_footprint,
 };
 use terminus_orbits::beams::{
-    beam_doppler_spread, doppler_shift, nadir_spot_radius, range_rate, spot_edges,
-    worst_precompensation_residuals,
+    beam_delay_spread, beam_doppler_spread, doppler_shift, nadir_spot_radius, range_rate,
+    spot_edges, worst_precompensation_residuals,
 };
 use terminus_orbits::coverage::{edge_slant_range, footprint_radius};
 use terminus_orbits::placement::one_way_light_time;
@@ -121,6 +121,10 @@ fn main() {
         REQUIREMENT / 60.0
     );
 
+    // The Ka column is the 1° reference pencil that spot_beams and ADR-0006
+    // price (the 0.7 m face's 70·λ/D gives 0.9993°), so its residuals match
+    // the ones published for the service beams.
+    let ka_pencil = 1.0_f64.to_radians();
     let edge = footprint_radius(&planet, ALT, min_elevation) / planet.radius;
     let rim_sides = |beam: f64| {
         let (near, far) = spot_edges(&planet, ALT, edge, beam);
@@ -129,10 +133,10 @@ fn main() {
             (far - edge) * planet.radius / 1e3,
         )
     };
-    let (ka_near, ka_far) = rim_sides(ka_beam);
+    let (ka_near, ka_far) = rim_sides(ka_pencil);
     let (x_near, x_far) = rim_sides(x_beam);
     let (ka_hz, ka_s) =
-        worst_precompensation_residuals(&planet, ALT, min_elevation, ka_beam, KA, 2_000);
+        worst_precompensation_residuals(&planet, ALT, min_elevation, ka_pencil, KA, 2_000);
     let (x_hz, x_s) =
         worst_precompensation_residuals(&planet, ALT, min_elevation, x_beam, X, 2_000);
     let blanket_rate = range_rate(&planet, ALT, edge);
@@ -144,14 +148,15 @@ fn main() {
          \x20 rim spot, near · far    {:>3.0} · {:>3.0} km  {:>3.0} · {:>3.0} km\n\
          \x20 Doppler window, blanket   ±{:.0} kHz    ±{:.0} kHz\n\
          \x20 Doppler residual        ±{:>4.2} kHz  ±{:>4.2} kHz\n\
+         \x20 delay spread, rim spot     {:.0} µs    {:.2} ms\n\
          \x20 delay residual            ±{:.0} µs   ±{:.2} ms\n\
          The rim spot is lopsided, yet Doppler follows the look angle, not\n\
          the ground: both bands keep the same residual. Delay grows with the\n\
          longer X spot; the satellite opens its reply window to match — a\n\
          wide window, absorbed in orbit.",
-        ka_beam.to_degrees(),
+        ka_pencil.to_degrees(),
         x_beam.to_degrees(),
-        nadir_spot_radius(ALT, ka_beam) / 1e3,
+        nadir_spot_radius(ALT, ka_pencil) / 1e3,
         spot / 1e3,
         ka_near,
         ka_far,
@@ -161,6 +166,8 @@ fn main() {
         doppler_shift(blanket_rate, X) / 1e3,
         ka_hz / 1e3,
         x_hz / 1e3,
+        beam_delay_spread(&planet, ALT, edge, ka_pencil) * 1e6,
+        beam_delay_spread(&planet, ALT, edge, x_beam) * 1e3,
         ka_s * 1e6,
         x_s * 1e3,
     );
